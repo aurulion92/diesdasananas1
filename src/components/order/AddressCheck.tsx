@@ -382,7 +382,7 @@ export function AddressCheck() {
       {/* Demo Hinweis */}
       <div className="mt-6 p-4 bg-primary/5 rounded-xl border border-primary/10">
         <p className="text-sm text-muted-foreground text-center">
-          <strong>Demo:</strong> Tippen Sie z.B. "Ada" um Straßenvorschläge zu sehen
+          <strong>Demo:</strong> Tippen Sie z.B. "Fon" um Straßenvorschläge zu erhalten
         </p>
       </div>
     </div>
