@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
+import { format } from 'date-fns';
+import { de } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
   User, 
   ArrowLeft, 
@@ -73,6 +77,7 @@ export function ExistingCustomerPortal({ onClose }: ExistingCustomerPortalProps)
   const [showMoveStreetDropdown, setShowMoveStreetDropdown] = useState(false);
   const [showMoveHouseNumberDropdown, setShowMoveHouseNumberDropdown] = useState(false);
   const [moveResult, setMoveResult] = useState<'success' | 'not-found' | null>(null);
+  const [moveDate, setMoveDate] = useState<Date | undefined>(undefined);
 
   // Bank/Name change
   const [newAccountHolder, setNewAccountHolder] = useState('');
@@ -693,6 +698,41 @@ export function ExistingCustomerPortal({ onClose }: ExistingCustomerPortalProps)
                   )}
                 </div>
 
+                {/* Move Date Selection */}
+                <div className="pt-2">
+                  <label className="text-sm font-medium text-foreground mb-1 block">
+                    Ab wann soll der Dienst an Ihrer neuen Adresse verfügbar sein?
+                  </label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full h-12 rounded-xl justify-start text-left font-normal",
+                          !moveDate && "text-muted-foreground"
+                        )}
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {moveDate ? format(moveDate, "PPP", { locale: de }) : "Wunschtermin wählen"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={moveDate}
+                        onSelect={setMoveDate}
+                        disabled={(date) => date < new Date()}
+                        initialFocus
+                        locale={de}
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Hinweis: Die aktuelle Bearbeitungszeit beträgt ca. 2-3 Wochen.
+                  </p>
+                </div>
+
                 <div className="flex gap-4 pt-4">
                   <Button variant="outline" onClick={() => setView('menu')} className="flex-1 h-12 rounded-full">
                     <ArrowLeft className="w-4 h-4" />
@@ -701,7 +741,7 @@ export function ExistingCustomerPortal({ onClose }: ExistingCustomerPortalProps)
                   <Button 
                     variant="orange"
                     onClick={handleMoveSubmit}
-                    disabled={!moveStreet || !moveHouseNumber || isLoading}
+                    disabled={!moveStreet || !moveHouseNumber || !moveDate || isLoading}
                     className="flex-1 h-12"
                   >
                     {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Abschicken'}
