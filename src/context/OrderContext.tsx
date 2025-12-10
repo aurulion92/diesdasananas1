@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { ConnectionType, AddressData } from '@/data/mockAddresses';
+import { ConnectionType, AddressData } from '@/data/addressDatabase';
 import { TariffOption, TariffAddon } from '@/data/tariffs';
 
 interface CustomerData {

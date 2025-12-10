@@ -1,12 +1,14 @@
 import { useOrder } from '@/context/OrderContext';
-import { ftthTariffs, fttbTariffs, tariffAddons, TariffOption, TariffAddon } from '@/data/tariffs';
+import { ftthTariffs, limitedTariffs, tariffAddons, TariffOption, TariffAddon } from '@/data/tariffs';
 import { Button } from '@/components/ui/button';
-import { Check, Wifi, ArrowRight, ArrowDown, ArrowUp, Globe, Rocket } from 'lucide-react';
+import { Check, ArrowRight, ArrowDown, ArrowUp, Globe, Rocket, Phone, Mail } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ContactForm } from './ContactForm';
 
 export function TariffSelection() {
   const { 
     connectionType, 
+    address,
     selectedTariff, 
     setSelectedTariff, 
     selectedAddons,
@@ -16,7 +18,10 @@ export function TariffSelection() {
     setStep 
   } = useOrder();
 
-  const tariffs = connectionType === 'ftth' ? ftthTariffs : fttbTariffs;
+  // Determine which tariffs to show based on connection type
+  const tariffs = connectionType === 'ftth' ? ftthTariffs : limitedTariffs;
+  const isLimited = connectionType === 'limited';
+
   const groupedAddons = {
     router: tariffAddons.filter(a => a.category === 'router'),
     phone: tariffAddons.filter(a => a.category === 'phone'),
@@ -35,15 +40,20 @@ export function TariffSelection() {
       {/* Header */}
       <div className="text-center">
         <h2 className="text-2xl md:text-3xl font-bold text-primary mb-2">
-          einfach Internet - unsere neuen Internet Produkte
+          {isLimited ? 'Verfügbarer Tarif' : 'einfach Internet - unsere neuen Internet Produkte'}
         </h2>
         <p className="text-muted-foreground">
-          Wählen Sie das passende Produkt für Ihre Bedürfnisse
+          {isLimited 
+            ? 'An Ihrer Adresse ist folgender Tarif verfügbar' 
+            : 'Wählen Sie das passende Produkt für Ihre Bedürfnisse'}
         </p>
       </div>
 
-      {/* Tarif-Karten - COM-IN Style */}
-      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+      {/* Tarif-Karten */}
+      <div className={cn(
+        "grid gap-5",
+        isLimited ? "max-w-md mx-auto" : "md:grid-cols-2 lg:grid-cols-4"
+      )}>
         {tariffs.map((tariff) => (
           <TariffCard
             key={tariff.id}
@@ -53,6 +63,37 @@ export function TariffSelection() {
           />
         ))}
       </div>
+
+      {/* Hinweis bei eingeschränkter Verfügbarkeit */}
+      {isLimited && (
+        <div className="bg-accent/10 border border-accent/20 rounded-2xl p-6">
+          <div className="flex items-start gap-4">
+            <Phone className="w-6 h-6 text-accent flex-shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-bold text-accent mb-2">Passender Tarif nicht dabei?</h4>
+              <p className="text-muted-foreground text-sm mb-4">
+                Kontaktieren Sie uns für weitere Optionen. Wir prüfen gerne, welche Möglichkeiten an Ihrer Adresse bestehen.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <a 
+                  href="tel:+49841885110" 
+                  className="inline-flex items-center gap-2 text-primary font-semibold hover:underline"
+                >
+                  <Phone className="w-4 h-4" />
+                  +49 841 88511-0
+                </a>
+                <a 
+                  href="mailto:info@comin.de" 
+                  className="inline-flex items-center gap-2 text-primary font-semibold hover:underline"
+                >
+                  <Mail className="w-4 h-4" />
+                  info@comin.de
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Telefon-Flat Hinweis */}
       <div className="bg-accent rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -200,7 +241,9 @@ function TariffCard({
       {/* Orange Header */}
       <div className="bg-accent p-5 text-center">
         <Globe className="w-6 h-6 text-accent-foreground mx-auto mb-2" />
-        <p className="text-accent-foreground font-medium text-lg">einfach</p>
+        <p className="text-accent-foreground font-medium text-lg">
+          {tariff.name.includes('FiberBasic') ? 'FiberBasic' : 'einfach'}
+        </p>
         <p className="text-accent-foreground font-bold text-4xl">{tariff.displayName}</p>
       </div>
 

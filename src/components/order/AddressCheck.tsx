@@ -1,34 +1,44 @@
 import { useState } from 'react';
 import { useOrder } from '@/context/OrderContext';
-import { checkAddress } from '@/data/mockAddresses';
+import { checkAddress, ConnectionType } from '@/data/addressDatabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Rocket, Search, Loader2, AlertCircle, CheckCircle2, Phone } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Rocket, Loader2, AlertCircle, CheckCircle2, Phone, AlertTriangle } from 'lucide-react';
+import { ContactForm } from './ContactForm';
 
 export function AddressCheck() {
-  const { setAddress, setStep } = useOrder();
+  const { setAddress, setStep, setConnectionType } = useOrder();
   const [city, setCity] = useState('Ingolstadt');
   const [street, setStreet] = useState('');
   const [houseNumber, setHouseNumber] = useState('');
-  const [postalCode, setPostalCode] = useState('');
   const [isChecking, setIsChecking] = useState(false);
-  const [result, setResult] = useState<'found' | 'not-found' | null>(null);
+  const [result, setResult] = useState<'ftth' | 'limited' | 'not-connected' | 'not-found' | null>(null);
+  const [foundAddress, setFoundAddress] = useState<{ street: string; houseNumber: string; city: string } | null>(null);
 
   const handleCheck = async () => {
     setIsChecking(true);
     setResult(null);
     
-    // Simuliere API-Aufruf
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const found = checkAddress(street, houseNumber, postalCode);
-    
-    if (found) {
-      setAddress(found);
-      setResult('found');
-    } else {
+    try {
+      const found = await checkAddress(street, houseNumber, city);
+      
+      if (found) {
+        setAddress(found);
+        setFoundAddress({ street: found.street, houseNumber: found.houseNumber, city: found.city });
+        
+        if (found.connectionType === 'ftth') {
+          setResult('ftth');
+        } else if (found.connectionType === 'limited') {
+          setResult('limited');
+        } else {
+          setResult('not-connected');
+        }
+      } else {
+        setResult('not-found');
+        setFoundAddress({ street, houseNumber, city });
+      }
+    } catch (error) {
+      console.error('Error checking address:', error);
       setResult('not-found');
     }
     
@@ -63,7 +73,7 @@ export function AddressCheck() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div>
             <Input
-              placeholder="Ingolstadt"
+              placeholder="Stadt"
               value={city}
               onChange={(e) => setCity(e.target.value)}
               className="h-12 rounded-full bg-background border-border text-center"
@@ -92,7 +102,7 @@ export function AddressCheck() {
             onClick={handleCheck} 
             variant="orange"
             size="lg"
-            disabled={!street || !houseNumber || isChecking}
+            disabled={!street || !houseNumber || !city || isChecking}
             className="px-10"
           >
             {isChecking ? (
@@ -106,15 +116,15 @@ export function AddressCheck() {
           </Button>
         </div>
 
-        {/* Ergebnis anzeigen */}
-        {result === 'found' && (
+        {/* FTTH - Alle Tarife verfügbar */}
+        {result === 'ftth' && (
           <div className="animate-scale-in mt-6 p-5 bg-success/10 border border-success/20 rounded-xl">
             <div className="flex items-start gap-4">
               <CheckCircle2 className="w-6 h-6 text-success flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <h4 className="font-bold text-success text-lg">Glasfaser verfügbar!</h4>
                 <p className="text-muted-foreground mt-1">
-                  An Ihrer Adresse sind unsere einfach Internet Produkte verfügbar. Wählen Sie jetzt Ihren Wunschtarif.
+                  An Ihrer Adresse sind alle unsere einfach Internet Produkte verfügbar. Wählen Sie jetzt Ihren Wunschtarif.
                 </p>
                 <Button onClick={handleContinue} variant="success" className="mt-4">
                   Weiter zur Produktauswahl
@@ -124,28 +134,66 @@ export function AddressCheck() {
           </div>
         )}
 
-        {result === 'not-found' && (
+        {/* Limited - Nur FiberBasic 100 */}
+        {result === 'limited' && (
           <div className="animate-scale-in mt-6 p-5 bg-accent/10 border border-accent/20 rounded-xl">
             <div className="flex items-start gap-4">
-              <AlertCircle className="w-6 h-6 text-accent flex-shrink-0 mt-0.5" />
+              <AlertTriangle className="w-6 h-6 text-accent flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-bold text-accent text-lg">Adresse nicht gefunden</h4>
+                <h4 className="font-bold text-accent text-lg">Eingeschränkte Verfügbarkeit</h4>
                 <p className="text-muted-foreground mt-1">
-                  Ihre Adresse ist aktuell nicht in unserer Datenbank hinterlegt. 
-                  Wir prüfen gerne die Ausbaumöglichkeiten für Sie.
+                  An Ihrer Adresse ist unser <strong>FiberBasic 100</strong> Tarif für <strong>34,90 €/Monat</strong> verfügbar.
                 </p>
-                <div className="mt-4 p-4 bg-card rounded-xl border border-border">
-                  <p className="text-sm font-medium mb-2">Kontaktieren Sie uns:</p>
-                  <a 
-                    href="tel:+49841885110" 
-                    className="inline-flex items-center gap-2 text-primary font-semibold hover:underline"
-                  >
-                    <Phone className="w-4 h-4" />
-                    +49 841 88511-0
-                  </a>
+                <Button onClick={handleContinue} variant="orange" className="mt-4">
+                  FiberBasic 100 auswählen
+                </Button>
+                <p className="text-sm text-muted-foreground mt-3">
+                  Passender Tarif nicht dabei? Kontaktieren Sie uns für weitere Optionen.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Not connected - Kontaktformular */}
+        {result === 'not-connected' && (
+          <div className="animate-scale-in mt-6 space-y-4">
+            <div className="p-5 bg-destructive/10 border border-destructive/20 rounded-xl">
+              <div className="flex items-start gap-4">
+                <AlertCircle className="w-6 h-6 text-destructive flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-bold text-destructive text-lg">Objekt nicht angebunden</h4>
+                  <p className="text-muted-foreground mt-1">
+                    Leider ist Ihr Objekt aktuell nicht an unser Glasfasernetz angebunden oder ausgebaut. 
+                    Bitte kontaktieren Sie uns, damit wir die Möglichkeiten prüfen können.
+                  </p>
                 </div>
               </div>
             </div>
+            {foundAddress && (
+              <ContactForm reason="not-connected" address={foundAddress} />
+            )}
+          </div>
+        )}
+
+        {/* Not found in database */}
+        {result === 'not-found' && (
+          <div className="animate-scale-in mt-6 space-y-4">
+            <div className="p-5 bg-muted border border-border rounded-xl">
+              <div className="flex items-start gap-4">
+                <AlertCircle className="w-6 h-6 text-muted-foreground flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-bold text-foreground text-lg">Adresse nicht gefunden</h4>
+                  <p className="text-muted-foreground mt-1">
+                    Ihre Adresse ist nicht in unserer Datenbank hinterlegt. 
+                    Bitte kontaktieren Sie uns, damit wir prüfen können, ob ein Anschluss möglich ist.
+                  </p>
+                </div>
+              </div>
+            </div>
+            {foundAddress && (
+              <ContactForm reason="not-connected" address={foundAddress} />
+            )}
           </div>
         )}
       </div>
@@ -153,8 +201,8 @@ export function AddressCheck() {
       {/* Demo Hinweis */}
       <div className="mt-6 p-4 bg-primary/5 rounded-xl border border-primary/10">
         <p className="text-sm text-muted-foreground text-center">
-          <strong>Demo:</strong> Testen Sie mit "Hauptstraße 1" (PLZ: 10115, FTTH) 
-          oder "Parkstraße 15" (PLZ: 10115, FTTB)
+          <strong>Demo:</strong> Testen Sie z.B. "Adam-Lechner-Straße 1" (FTTH) 
+          oder "Adam-Lechner-Straße 5" (Nicht ausgebaut)
         </p>
       </div>
     </div>

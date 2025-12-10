@@ -22,7 +22,7 @@ function OrderFlow() {
         <div className="mt-8 grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             {step === 1 && <AddressCheck />}
-            {step === 2 && connectionType && connectionType !== 'none' && <TariffSelection />}
+            {step === 2 && connectionType && connectionType !== 'not-connected' && <TariffSelection />}
             {step === 3 && <CustomerForm />}
             {step === 4 && <OrderSummary />}
           </div>
