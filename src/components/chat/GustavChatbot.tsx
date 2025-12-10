@@ -26,7 +26,7 @@ export const GustavChatbot = () => {
     {
       id: '1',
       role: 'assistant',
-      content: 'Hallo! Ich bin Gustav, dein stachelig schneller Glasfaser-Assistent! 🦔 Wie kann ich dir heute helfen?',
+      content: 'Hey! Ich bin Gustav – dein Glasfaserkabel auf Lichtgeschwindigkeit! ⚡🚀 Was kann ich für dich tun? Frag mich nach unseren Tarifen, Aktionen oder ob Glasfaser bei dir verfügbar ist!',
     },
   ]);
   const [input, setInput] = useState('');
