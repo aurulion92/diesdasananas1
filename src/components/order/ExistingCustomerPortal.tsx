@@ -16,8 +16,16 @@ import {
   Rocket,
   Gift,
   CheckCircle2,
-  MapPin
+  MapPin,
+  AlertTriangle,
+  Wifi,
+  Phone,
+  Tv,
+  Image,
+  X,
+  Calendar
 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { findExistingCustomer, getContractStatus, ExistingCustomer } from '@/data/existingCustomers';
 import { searchStreets, getHouseNumbers, checkAddress } from '@/data/addressDatabase';
@@ -28,7 +36,10 @@ interface ExistingCustomerPortalProps {
   onClose: () => void;
 }
 
-type PortalView = 'login' | 'menu' | 'upgrade' | 'move' | 'bank' | 'name';
+type PortalView = 'login' | 'menu' | 'upgrade' | 'move' | 'bank' | 'name' | 'issue';
+
+type IssueType = 'internet' | 'phone' | 'tv' | 'all';
+type LightColor = 'green' | 'red' | 'orange' | 'off' | 'blinking';
 
 export function ExistingCustomerPortal({ onClose }: ExistingCustomerPortalProps) {
   const [view, setView] = useState<PortalView>('login');
@@ -69,6 +80,16 @@ export function ExistingCustomerPortal({ onClose }: ExistingCustomerPortalProps)
   const [nameDocument, setNameDocument] = useState<File | null>(null);
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
+
+  // Issue report
+  const [issueTypes, setIssueTypes] = useState<IssueType[]>([]);
+  const [issueSince, setIssueSince] = useState('');
+  const [routerRestarted, setRouterRestarted] = useState<boolean | null>(null);
+  const [routerLights, setRouterLights] = useState('');
+  const [converterLights, setConverterLights] = useState('');
+  const [issueDescription, setIssueDescription] = useState('');
+  const [issueImages, setIssueImages] = useState<File[]>([]);
+  const issueImageInputRef = useRef<HTMLInputElement>(null);
 
   // Street search
   useEffect(() => {
@@ -197,6 +218,43 @@ export function ExistingCustomerPortal({ onClose }: ExistingCustomerPortalProps)
       description: `Ihr Wechsel zu ${tariff?.name} wurde übermittelt.`,
     });
     setView('menu');
+  };
+
+  const handleIssueSubmit = () => {
+    toast({
+      title: "Störung gemeldet",
+      description: "Wir haben Ihre Störungsmeldung erhalten und melden uns schnellstmöglich bei Ihnen.",
+    });
+    // Reset form
+    setIssueTypes([]);
+    setIssueSince('');
+    setRouterRestarted(null);
+    setRouterLights('');
+    setConverterLights('');
+    setIssueDescription('');
+    setIssueImages([]);
+    setView('menu');
+  };
+
+  const toggleIssueType = (type: IssueType) => {
+    if (type === 'all') {
+      setIssueTypes(['all']);
+    } else {
+      const newTypes = issueTypes.includes(type)
+        ? issueTypes.filter(t => t !== type)
+        : [...issueTypes.filter(t => t !== 'all'), type];
+      setIssueTypes(newTypes);
+    }
+  };
+
+  const handleIssueImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setIssueImages(prev => [...prev, ...Array.from(e.target.files!)]);
+    }
+  };
+
+  const removeIssueImage = (index: number) => {
+    setIssueImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const upgradeTariffs = ftthTariffs.filter(t => t.id !== customer?.currentTariff);
@@ -443,6 +501,19 @@ export function ExistingCustomerPortal({ onClose }: ExistingCustomerPortalProps)
               <div className="flex-1">
                 <h4 className="font-bold text-primary">Namensänderung</h4>
                 <p className="text-sm text-muted-foreground">Dokument erforderlich</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setView('issue')}
+              className="bg-card rounded-xl shadow-soft p-5 flex items-center gap-4 hover:bg-accent/5 transition-all text-left border-2 border-transparent hover:border-destructive/30"
+            >
+              <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-destructive" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-primary">Störung melden</h4>
+                <p className="text-sm text-muted-foreground">Internet, Telefon oder TV funktioniert nicht</p>
               </div>
             </button>
           </div>
@@ -791,6 +862,223 @@ export function ExistingCustomerPortal({ onClose }: ExistingCustomerPortalProps)
                 className="flex-1 h-12"
               >
                 Absenden
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Issue Report View */}
+      {view === 'issue' && customer && (
+        <div className="bg-card rounded-2xl shadow-card p-6 md:p-8">
+          <div className="flex items-center gap-2 mb-6">
+            <AlertTriangle className="w-6 h-6 text-destructive" />
+            <h2 className="text-xl font-bold text-primary">Störung melden</h2>
+          </div>
+
+          <div className="space-y-6">
+            {/* Issue Type Selection */}
+            <div>
+              <label className="text-sm font-medium text-foreground mb-3 block">
+                Was ist betroffen? (Schnellauswahl)
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => toggleIssueType('internet')}
+                  className={cn(
+                    "p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2",
+                    issueTypes.includes('internet')
+                      ? "border-destructive bg-destructive/5"
+                      : "border-border hover:border-destructive/50"
+                  )}
+                >
+                  <Wifi className={cn("w-6 h-6", issueTypes.includes('internet') ? "text-destructive" : "text-muted-foreground")} />
+                  <span className="font-medium">Internet</span>
+                </button>
+                <button
+                  onClick={() => toggleIssueType('phone')}
+                  className={cn(
+                    "p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2",
+                    issueTypes.includes('phone')
+                      ? "border-destructive bg-destructive/5"
+                      : "border-border hover:border-destructive/50"
+                  )}
+                >
+                  <Phone className={cn("w-6 h-6", issueTypes.includes('phone') ? "text-destructive" : "text-muted-foreground")} />
+                  <span className="font-medium">Telefon</span>
+                </button>
+                <button
+                  onClick={() => toggleIssueType('tv')}
+                  className={cn(
+                    "p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2",
+                    issueTypes.includes('tv')
+                      ? "border-destructive bg-destructive/5"
+                      : "border-border hover:border-destructive/50"
+                  )}
+                >
+                  <Tv className={cn("w-6 h-6", issueTypes.includes('tv') ? "text-destructive" : "text-muted-foreground")} />
+                  <span className="font-medium">TV</span>
+                </button>
+                <button
+                  onClick={() => toggleIssueType('all')}
+                  className={cn(
+                    "p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2",
+                    issueTypes.includes('all')
+                      ? "border-destructive bg-destructive/5"
+                      : "border-border hover:border-destructive/50"
+                  )}
+                >
+                  <AlertCircle className={cn("w-6 h-6", issueTypes.includes('all') ? "text-destructive" : "text-muted-foreground")} />
+                  <span className="font-medium">Alles</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Since when */}
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1 block">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                Seit wann besteht die Störung?
+              </label>
+              <Input
+                type="datetime-local"
+                value={issueSince}
+                onChange={(e) => setIssueSince(e.target.value)}
+                className="h-12 rounded-xl"
+              />
+            </div>
+
+            {/* Router restarted */}
+            <div>
+              <label className="text-sm font-medium text-foreground mb-3 block">
+                Wurde der Router bereits neu gestartet?
+              </label>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setRouterRestarted(true)}
+                  className={cn(
+                    "flex-1 p-3 rounded-xl border-2 transition-all font-medium",
+                    routerRestarted === true
+                      ? "border-success bg-success/10 text-success"
+                      : "border-border hover:border-success/50"
+                  )}
+                >
+                  Ja
+                </button>
+                <button
+                  onClick={() => setRouterRestarted(false)}
+                  className={cn(
+                    "flex-1 p-3 rounded-xl border-2 transition-all font-medium",
+                    routerRestarted === false
+                      ? "border-destructive bg-destructive/10 text-destructive"
+                      : "border-border hover:border-destructive/50"
+                  )}
+                >
+                  Nein
+                </button>
+              </div>
+            </div>
+
+            {/* Router lights */}
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1 block">
+                Welche Lampen leuchten am Router? (Farbe)
+              </label>
+              <Input
+                placeholder="z.B. Power grün, Internet rot blinkend, WLAN aus"
+                value={routerLights}
+                onChange={(e) => setRouterLights(e.target.value)}
+                className="h-12 rounded-xl"
+              />
+            </div>
+
+            {/* Media converter lights */}
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1 block">
+                Welche Lampen leuchten am Medienkonverter? (Farbe)
+              </label>
+              <Input
+                placeholder="z.B. Power grün, LAN1 orange, Glasfaser grün"
+                value={converterLights}
+                onChange={(e) => setConverterLights(e.target.value)}
+                className="h-12 rounded-xl"
+              />
+            </div>
+
+            {/* Free text description */}
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1 block">
+                Beschreiben Sie das Problem (optional)
+              </label>
+              <Textarea
+                placeholder="Weitere Details zur Störung..."
+                value={issueDescription}
+                onChange={(e) => setIssueDescription(e.target.value)}
+                className="min-h-[100px] rounded-xl resize-none"
+              />
+            </div>
+
+            {/* Image upload */}
+            <div>
+              <label className="text-sm font-medium text-foreground mb-3 block">
+                Bilder hochladen (optional)
+              </label>
+              <input
+                ref={issueImageInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleIssueImageUpload}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => issueImageInputRef.current?.click()}
+                className="w-full h-12 rounded-xl border-dashed"
+              >
+                <Image className="w-4 h-4 mr-2" />
+                Bilder hinzufügen
+              </Button>
+              
+              {issueImages.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {issueImages.map((img, i) => (
+                    <div key={i} className="relative group">
+                      <img
+                        src={URL.createObjectURL(img)}
+                        alt={`Upload ${i + 1}`}
+                        className="w-20 h-20 object-cover rounded-lg border border-border"
+                      />
+                      <button
+                        onClick={() => removeIssueImage(i)}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Submit */}
+            <div className="flex gap-4 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setView('menu')}
+                className="flex-1 h-12 rounded-full"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Zurück
+              </Button>
+              <Button
+                variant="orange"
+                onClick={handleIssueSubmit}
+                disabled={issueTypes.length === 0}
+                className="flex-1 h-12"
+              >
+                Störung melden
               </Button>
             </div>
           </div>
