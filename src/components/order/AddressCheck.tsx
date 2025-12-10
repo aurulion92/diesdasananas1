@@ -15,6 +15,7 @@ export function AddressCheck() {
   const [isChecking, setIsChecking] = useState(false);
   const [result, setResult] = useState<'ftth' | 'limited' | 'not-connected' | 'not-found' | null>(null);
   const [foundAddress, setFoundAddress] = useState<{ street: string; houseNumber: string; city: string } | null>(null);
+  const [showLimitedContactForm, setShowLimitedContactForm] = useState(false);
 
   // Autocomplete states
   const [streetSuggestions, setStreetSuggestions] = useState<string[]>([]);
@@ -317,22 +318,33 @@ export function AddressCheck() {
 
         {/* Limited - Nur FiberBasic 100 */}
         {result === 'limited' && (
-          <div className="animate-scale-in mt-6 p-5 bg-accent/10 border border-accent/20 rounded-xl">
-            <div className="flex items-start gap-4">
-              <AlertTriangle className="w-6 h-6 text-accent flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="font-bold text-accent text-lg">Eingeschränkte Verfügbarkeit</h4>
-                <p className="text-muted-foreground mt-1">
-                  An Ihrer Adresse ist unser <strong>FiberBasic 100</strong> Tarif für <strong>34,90 €/Monat</strong> verfügbar.
-                </p>
-                <Button onClick={handleContinue} variant="orange" className="mt-4">
-                  FiberBasic 100 auswählen
-                </Button>
-                <p className="text-sm text-muted-foreground mt-3">
-                  Passender Tarif nicht dabei? Kontaktieren Sie uns für weitere Optionen.
-                </p>
+          <div className="animate-scale-in mt-6 space-y-4">
+            <div className="p-5 bg-accent/10 border border-accent/20 rounded-xl">
+              <div className="flex items-start gap-4">
+                <AlertTriangle className="w-6 h-6 text-accent flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-bold text-accent text-lg">Eingeschränkte Verfügbarkeit</h4>
+                  <p className="text-muted-foreground mt-1">
+                    An Ihrer Adresse ist unser <strong>FiberBasic 100</strong> Tarif für <strong>34,90 €/Monat</strong> verfügbar.
+                  </p>
+                  <Button onClick={handleContinue} variant="orange" className="mt-4">
+                    FiberBasic 100 auswählen
+                  </Button>
+                  <p className="text-sm text-muted-foreground mt-3">
+                    Passender Tarif nicht dabei?{' '}
+                    <button 
+                      onClick={() => setShowLimitedContactForm(true)}
+                      className="text-primary hover:underline font-medium"
+                    >
+                      Kontaktieren Sie uns
+                    </button>
+                  </p>
+                </div>
               </div>
             </div>
+            {showLimitedContactForm && foundAddress && (
+              <ContactForm reason="general" address={foundAddress} />
+            )}
           </div>
         )}
 
