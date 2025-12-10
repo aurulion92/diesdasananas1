@@ -57,7 +57,8 @@ export async function loadAddresses(): Promise<AddressData[]> {
   }
 
   try {
-    const response = await fetch('/data/addresses.csv');
+    // Add cache-busting parameter to prevent browser caching
+    const response = await fetch('/data/addresses.csv?v=' + Date.now());
     const csvText = await response.text();
     
     const lines = csvText.split('\n');
