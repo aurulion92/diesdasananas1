@@ -147,8 +147,8 @@ export function CustomerForm() {
     }
   };
 
-  // Minimum date is 14 days from now
-  const minDate = addDays(new Date(), 14);
+  // Minimum date is tomorrow (not in the past)
+  const minDate = addDays(new Date(), 1);
 
   // Floor options (EG, 1-10)
   const floorOptions = ['EG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
@@ -339,19 +339,39 @@ export function CustomerForm() {
               setDateType(value as 'asap' | 'specific');
               if (value === 'asap') {
                 setSelectedDate(undefined);
+              } else {
+                // Bei Wunschtermin: Express deaktivieren
+                setExpressActivation(false);
+              }
+              // Synchronisiere Wechselservice-Zeitpunkt
+              if (cancelPreviousProvider && !cancellationData.portToNewConnection) {
+                handleCancellationChange('preferredDate', value);
+                if (value === 'asap') {
+                  handleCancellationChange('specificDate', null);
+                }
               }
             }}
             className="space-y-3"
           >
             <div className={cn(
-              "flex items-center space-x-3 p-4 rounded-xl border-2 transition-all cursor-pointer",
+              "p-4 rounded-xl border-2 transition-all cursor-pointer",
               dateType === 'asap' ? "border-accent bg-accent/5" : "border-border hover:border-accent/50"
             )}>
-              <RadioGroupItem value="asap" id="asap" />
-              <Label htmlFor="asap" className="flex-1 cursor-pointer">
-                <span className="font-semibold">Schnellstmöglich</span>
-                <span className="block text-sm text-muted-foreground">Wir melden uns zur Terminvereinbarung</span>
-              </Label>
+              <div className="flex items-center space-x-3">
+                <RadioGroupItem value="asap" id="asap" />
+                <Label htmlFor="asap" className="flex-1 cursor-pointer">
+                  <span className="font-semibold">Schnellstmöglich</span>
+                  <span className="block text-sm text-muted-foreground">Wir melden uns zur Terminvereinbarung</span>
+                </Label>
+              </div>
+              {dateType === 'asap' && (
+                <div className="mt-3 ml-6 p-3 bg-muted/50 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-muted-foreground">
+                    Bitte beachten Sie: Unsere Anschaltzeiten betragen aktuell ca. 2-3 Wochen.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className={cn(
@@ -362,7 +382,6 @@ export function CustomerForm() {
               <div className="flex-1">
                 <Label htmlFor="specific" className="cursor-pointer">
                   <span className="font-semibold">Wunschtermin wählen</span>
-                  <span className="block text-sm text-muted-foreground mb-3">Frühestens in 14 Tagen</span>
                 </Label>
                 
                 {dateType === 'specific' && (
@@ -372,7 +391,7 @@ export function CustomerForm() {
                         <Button
                           variant="outline"
                           className={cn(
-                            "w-full justify-start text-left font-normal h-12 rounded-xl",
+                            "w-full justify-start text-left font-normal h-12 rounded-xl mt-3",
                             !selectedDate && "text-muted-foreground"
                           )}
                         >
@@ -405,8 +424,8 @@ export function CustomerForm() {
             </div>
           </RadioGroup>
 
-          {/* Express-Anschaltung */}
-          {canHaveExpress && (
+          {/* Express-Anschaltung - nur bei Schnellstmöglich */}
+          {canHaveExpress && dateType === 'asap' && (
             <div className={cn(
               "flex items-start space-x-3 p-4 rounded-xl border-2 transition-all",
               expressActivation ? "border-accent bg-accent/5" : "border-border"
@@ -479,101 +498,129 @@ export function CustomerForm() {
                   Ohne Kundennummer können wir die Kündigung nicht durchführen.
                 </p>
 
-                <div className="pt-3 border-t border-border">
-                  <Label className="text-foreground font-medium mb-3 block">Wechselzeitpunkt</Label>
-                  <RadioGroup 
-                    value={cancellationData.portToNewConnection ? 'port' : cancellationData.preferredDate || ''} 
-                    onValueChange={(value) => {
-                      if (value === 'port') {
-                        handleCancellationChange('portToNewConnection', true);
-                        handleCancellationChange('preferredDate', null);
-                        handleCancellationChange('specificDate', null);
-                      } else {
-                        handleCancellationChange('portToNewConnection', false);
-                        handleCancellationChange('preferredDate', value);
-                        if (value === 'asap') {
+                {/* Wechselzeitpunkt - nur wenn NICHT Express gewählt */}
+                {!expressActivation && (
+                  <div className="pt-3 border-t border-border">
+                    <Label className="text-foreground font-medium mb-3 block">Wechselzeitpunkt</Label>
+                    <RadioGroup 
+                      value={cancellationData.portToNewConnection ? 'port' : cancellationData.preferredDate || ''} 
+                      onValueChange={(value) => {
+                        if (value === 'port') {
+                          handleCancellationChange('portToNewConnection', true);
+                          handleCancellationChange('preferredDate', null);
                           handleCancellationChange('specificDate', null);
+                        } else {
+                          handleCancellationChange('portToNewConnection', false);
+                          handleCancellationChange('preferredDate', value);
+                          if (value === 'asap') {
+                            handleCancellationChange('specificDate', null);
+                          }
                         }
-                      }
-                    }}
-                    className="space-y-3"
-                  >
-                    <div className={cn(
-                      "flex items-center space-x-3 p-3 rounded-lg border transition-all",
-                      cancellationData.portToNewConnection ? "border-accent bg-accent/5" : "border-border"
-                    )}>
-                      <RadioGroupItem value="port" id="port-seamless" />
-                      <Label htmlFor="port-seamless" className="cursor-pointer flex-1">
-                        <span className="font-medium">Nahtloser Übergang (Portierung)</span>
-                        <span className="block text-xs text-muted-foreground">
-                          Wechsel zum COM-IN-Anschluss ohne Unterbrechung
-                        </span>
-                      </Label>
-                    </div>
-
-                    <div className={cn(
-                      "flex items-center space-x-3 p-3 rounded-lg border transition-all",
-                      !cancellationData.portToNewConnection && cancellationData.preferredDate === 'asap' ? "border-accent bg-accent/5" : "border-border"
-                    )}>
-                      <RadioGroupItem value="asap" id="cancel-asap" />
-                      <Label htmlFor="cancel-asap" className="cursor-pointer flex-1">
-                        <span className="font-medium">Schnellstmöglich</span>
-                      </Label>
-                    </div>
-
-                    <div className={cn(
-                      "p-3 rounded-lg border transition-all",
-                      !cancellationData.portToNewConnection && cancellationData.preferredDate === 'specific' ? "border-accent bg-accent/5" : "border-border"
-                    )}>
-                      <div className="flex items-center space-x-3">
-                        <RadioGroupItem value="specific" id="cancel-specific" />
-                        <Label htmlFor="cancel-specific" className="cursor-pointer flex-1">
-                          <span className="font-medium">Anderer Termin</span>
+                      }}
+                      className="space-y-3"
+                    >
+                      <div className={cn(
+                        "flex items-center space-x-3 p-3 rounded-lg border transition-all",
+                        cancellationData.portToNewConnection ? "border-accent bg-accent/5" : "border-border"
+                      )}>
+                        <RadioGroupItem value="port" id="port-seamless" />
+                        <Label htmlFor="port-seamless" className="cursor-pointer flex-1">
+                          <span className="font-medium">Nahtloser Übergang (Portierung)</span>
+                          <span className="block text-xs text-muted-foreground">
+                            Wechsel zum COM-IN-Anschluss ohne Unterbrechung
+                          </span>
                         </Label>
                       </div>
-                      
-                      {!cancellationData.portToNewConnection && cancellationData.preferredDate === 'specific' && (
-                        <div className="mt-3 ml-6">
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className={cn(
-                                  "w-full justify-start text-left font-normal h-10 rounded-lg",
-                                  !cancellationDate && "text-muted-foreground"
-                                )}
-                              >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {cancellationDate ? format(cancellationDate, "PPP", { locale: de }) : "Datum wählen"}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 bg-card border border-border z-50" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={cancellationDate}
-                                onSelect={(date) => {
-                                  setCancellationDate(date);
-                                  if (date) {
-                                    handleCancellationChange('specificDate', format(date, 'yyyy-MM-dd'));
-                                  }
-                                }}
-                                disabled={(date) => date < minDate}
-                                initialFocus
-                                className="pointer-events-auto"
-                                locale={de}
-                              />
-                            </PopoverContent>
-                          </Popover>
-                          <p className="text-xs text-muted-foreground mt-2 flex items-start gap-1">
-                            <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                            Bitte beachten Sie: Es handelt sich um einen unverbindlichen Wunschtermin. 
-                            Unsere Anschaltzeiten betragen aktuell ca. 2-3 Wochen.
-                          </p>
+
+                      <div className={cn(
+                        "p-3 rounded-lg border transition-all",
+                        !cancellationData.portToNewConnection && cancellationData.preferredDate === 'asap' ? "border-accent bg-accent/5" : "border-border",
+                        dateType === 'asap' && "ring-2 ring-accent/30"
+                      )}>
+                        <div className="flex items-center space-x-3">
+                          <RadioGroupItem value="asap" id="cancel-asap" />
+                          <Label htmlFor="cancel-asap" className="cursor-pointer flex-1">
+                            <span className="font-medium">Schnellstmöglich</span>
+                            {dateType === 'asap' && (
+                              <span className="block text-xs text-accent">Entspricht Ihrem gewählten Anschalttermin</span>
+                            )}
+                          </Label>
                         </div>
-                      )}
+                      </div>
+
+                      <div className={cn(
+                        "p-3 rounded-lg border transition-all",
+                        !cancellationData.portToNewConnection && cancellationData.preferredDate === 'specific' ? "border-accent bg-accent/5" : "border-border",
+                        dateType === 'specific' && "ring-2 ring-accent/30"
+                      )}>
+                        <div className="flex items-center space-x-3">
+                          <RadioGroupItem value="specific" id="cancel-specific" />
+                          <Label htmlFor="cancel-specific" className="cursor-pointer flex-1">
+                            <span className="font-medium">Anderer Termin</span>
+                            {dateType === 'specific' && selectedDate && (
+                              <span className="block text-xs text-accent">
+                                Ihr Wunschtermin: {format(selectedDate, "PPP", { locale: de })}
+                              </span>
+                            )}
+                          </Label>
+                        </div>
+                        
+                        {!cancellationData.portToNewConnection && cancellationData.preferredDate === 'specific' && (
+                          <div className="mt-3 ml-6">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "w-full justify-start text-left font-normal h-10 rounded-lg",
+                                    !cancellationDate && "text-muted-foreground"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {cancellationDate ? format(cancellationDate, "PPP", { locale: de }) : "Datum wählen"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0 bg-card border border-border z-50" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={cancellationDate}
+                                  onSelect={(date) => {
+                                    setCancellationDate(date);
+                                    if (date) {
+                                      handleCancellationChange('specificDate', format(date, 'yyyy-MM-dd'));
+                                    }
+                                  }}
+                                  disabled={(date) => date < minDate}
+                                  initialFocus
+                                  className="pointer-events-auto"
+                                  locale={de}
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <p className="text-xs text-muted-foreground mt-2 flex items-start gap-1">
+                              <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                              Bitte beachten Sie: Es handelt sich um einen unverbindlichen Wunschtermin. 
+                              Unsere Anschaltzeiten betragen aktuell ca. 2-3 Wochen.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </RadioGroup>
+                  </div>
+                )}
+
+                {/* Hinweis bei Express-Anschaltung */}
+                {expressActivation && (
+                  <div className="pt-3 border-t border-border">
+                    <div className="p-3 bg-accent/10 rounded-lg flex items-start gap-2">
+                      <Zap className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-accent">
+                        Bei Express-Anschaltung erfolgt die Schaltung innerhalb von 3 Werktagen – 
+                        unabhängig vom Kündigungstermin bei Ihrem bisherigen Anbieter.
+                      </p>
                     </div>
-                  </RadioGroup>
-                </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
