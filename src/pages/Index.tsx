@@ -8,6 +8,7 @@ import { TariffSelection } from '@/components/order/TariffSelection';
 import { CustomerForm } from '@/components/order/CustomerForm';
 import { OrderSummary } from '@/components/order/OrderSummary';
 import { ExistingCustomerPortal } from '@/components/order/ExistingCustomerPortal';
+import { GustavChatbot } from '@/components/chat/GustavChatbot';
 import { Button } from '@/components/ui/button';
 import { User, Rocket } from 'lucide-react';
 
@@ -114,9 +115,28 @@ const Index = () => {
   }
 
   return (
-    <OrderProvider>
-      <OrderFlow />
-    </OrderProvider>
+    <>
+      {!showNewCustomer && !showExistingCustomer && (
+        <LandingChoice 
+          onNewCustomer={() => setShowNewCustomer(true)} 
+          onExistingCustomer={() => setShowExistingCustomer(true)} 
+        />
+      )}
+      {showExistingCustomer && (
+        <div className="min-h-screen bg-background">
+          <Header />
+          <main className="container mx-auto px-4 py-8">
+            <ExistingCustomerPortal onClose={() => setShowExistingCustomer(false)} />
+          </main>
+        </div>
+      )}
+      {showNewCustomer && (
+        <OrderProvider>
+          <OrderFlow />
+        </OrderProvider>
+      )}
+      <GustavChatbot />
+    </>
   );
 };
 
