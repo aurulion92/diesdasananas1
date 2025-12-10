@@ -63,12 +63,16 @@ const LandingChoice = ({ onNewCustomer, onExistingCustomer }: { onNewCustomer: (
   );
 };
 
-const OrderFlow = () => {
+interface OrderFlowProps {
+  onBackToStart: () => void;
+}
+
+const OrderFlow = ({ onBackToStart }: OrderFlowProps) => {
   const { step, connectionType } = useOrder();
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Header onLogoClick={onBackToStart} />
       
       <main className="container mx-auto px-4 py-8">
         <ProgressSteps currentStep={step} steps={steps} />
@@ -94,25 +98,10 @@ const Index = () => {
   const [showExistingCustomer, setShowExistingCustomer] = useState(false);
   const [showNewCustomer, setShowNewCustomer] = useState(false);
 
-  if (!showNewCustomer && !showExistingCustomer) {
-    return (
-      <LandingChoice 
-        onNewCustomer={() => setShowNewCustomer(true)} 
-        onExistingCustomer={() => setShowExistingCustomer(true)} 
-      />
-    );
-  }
-
-  if (showExistingCustomer) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="container mx-auto px-4 py-8">
-          <ExistingCustomerPortal onClose={() => setShowExistingCustomer(false)} />
-        </main>
-      </div>
-    );
-  }
+  const handleBackToStart = () => {
+    setShowNewCustomer(false);
+    setShowExistingCustomer(false);
+  };
 
   return (
     <>
@@ -124,15 +113,15 @@ const Index = () => {
       )}
       {showExistingCustomer && (
         <div className="min-h-screen bg-background">
-          <Header />
+          <Header onLogoClick={handleBackToStart} />
           <main className="container mx-auto px-4 py-8">
-            <ExistingCustomerPortal onClose={() => setShowExistingCustomer(false)} />
+            <ExistingCustomerPortal onClose={handleBackToStart} />
           </main>
         </div>
       )}
       {showNewCustomer && (
         <OrderProvider>
-          <OrderFlow />
+          <OrderFlow onBackToStart={handleBackToStart} />
         </OrderProvider>
       )}
       <GustavChatbot />
