@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { ConnectionType, AddressData } from '@/data/addressDatabase';
-import { TariffOption, TariffAddon, promoCodes, PromoCode } from '@/data/tariffs';
+import { TariffOption, TariffAddon, promoCodes, PromoCode, validCustomerNumbers } from '@/data/tariffs';
 
 interface CustomerData {
   salutation: string;
@@ -28,9 +28,19 @@ interface ApartmentData {
   apartment: string;
 }
 
+interface ProviderCancellationData {
+  providerName: string;
+  customerNumber: string; // Customer number at previous provider for cancellation
+  portToNewConnection: boolean; // Seamless transition
+  preferredDate: 'asap' | 'specific' | null;
+  specificDate: string | null;
+}
+
 interface ReferralData {
   type: 'none' | 'internet' | 'social-media' | 'referral' | 'promo-code';
   referrerCustomerId?: string;
+  referralValidated?: boolean;
+  referralError?: string;
   promoCode?: string;
 }
 
@@ -65,6 +75,8 @@ interface OrderState {
   preferredDate: string | null;
   preferredDateType: 'asap' | 'specific' | null;
   cancelPreviousProvider: boolean;
+  providerCancellationData: ProviderCancellationData | null;
+  expressActivation: boolean;
   referralData: ReferralData;
   appliedPromoCode: PromoCode | null;
   promoCodeError: string | null;
@@ -88,7 +100,10 @@ interface OrderContextType extends OrderState {
   setPreferredDate: (date: string | null) => void;
   setPreferredDateType: (type: 'asap' | 'specific' | null) => void;
   setCancelPreviousProvider: (cancel: boolean) => void;
+  setProviderCancellationData: (data: ProviderCancellationData | null) => void;
+  setExpressActivation: (express: boolean) => void;
   setReferralData: (data: ReferralData) => void;
+  validateReferralCustomerId: (customerId: string) => boolean;
   applyPromoCode: (code: string) => boolean;
   clearPromoCode: () => void;
   setVzfDownloaded: (downloaded: boolean) => void;
@@ -139,6 +154,8 @@ const initialState: OrderState = {
   preferredDate: null,
   preferredDateType: null,
   cancelPreviousProvider: false,
+  providerCancellationData: null,
+  expressActivation: false,
   referralData: initialReferralData,
   appliedPromoCode: null,
   promoCodeError: null,
@@ -158,6 +175,8 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       ...prev, 
       address,
       connectionType: address.connectionType,
+      // Reset router when address changes (different routers for FTTH/FTTB)
+      selectedRouter: null,
       // Clear promo code if address changes and code is no longer valid
       appliedPromoCode: prev.appliedPromoCode && 
         !prev.appliedPromoCode.validAddresses.some(a => 
@@ -222,10 +241,43 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, preferredDateType }));
 
   const setCancelPreviousProvider = (cancelPreviousProvider: boolean) =>
-    setState(prev => ({ ...prev, cancelPreviousProvider }));
+    setState(prev => ({ 
+      ...prev, 
+      cancelPreviousProvider,
+      providerCancellationData: cancelPreviousProvider ? {
+        providerName: '',
+        customerNumber: '',
+        portToNewConnection: true,
+        preferredDate: null,
+        specificDate: null,
+      } : null,
+    }));
+
+  const setProviderCancellationData = (providerCancellationData: ProviderCancellationData | null) =>
+    setState(prev => ({ ...prev, providerCancellationData }));
+
+  const setExpressActivation = (expressActivation: boolean) =>
+    setState(prev => ({ ...prev, expressActivation }));
 
   const setReferralData = (referralData: ReferralData) =>
     setState(prev => ({ ...prev, referralData }));
+
+  const validateReferralCustomerId = (customerId: string): boolean => {
+    const normalizedId = customerId.toUpperCase().trim();
+    const isValid = validCustomerNumbers.includes(normalizedId);
+    
+    setState(prev => ({
+      ...prev,
+      referralData: {
+        ...prev.referralData,
+        referrerCustomerId: customerId,
+        referralValidated: isValid,
+        referralError: isValid ? undefined : 'Kundennummer nicht gefunden',
+      }
+    }));
+    
+    return isValid;
+  };
 
   const applyPromoCode = (code: string): boolean => {
     const normalizedCode = code.toUpperCase().trim();
@@ -288,6 +340,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     // Check if promo code gives router discount
     const hasPromoDiscount = state.appliedPromoCode?.routerDiscount && state.appliedPromoCode.routerDiscount > 0;
     
+    // Discount applies if EITHER condition is met (not stacking)
     return isEinfachTariff || !!hasPromoDiscount;
   };
 
@@ -330,11 +383,15 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         : state.selectedTariff.monthlyPrice;
     }
     
-    // Router with possible discount
+    // Router with possible discount - USE getRouterPrice() which already includes discount
     total += getRouterPrice();
     
     // TV costs
-    if (state.tvSelection.package) {
+    if (state.tvSelection.type === 'comin') {
+      // COM-IN TV base cost
+      total += 10.00;
+    }
+    if (state.tvSelection.package && state.tvSelection.type === 'waipu') {
       total += state.tvSelection.package.monthlyPrice;
     }
     if (state.tvSelection.hdAddon) {
@@ -375,6 +432,11 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       total += 40.00;
     }
     
+    // Express activation
+    if (state.expressActivation) {
+      total += 200.00;
+    }
+    
     // Other addons
     state.selectedAddons.forEach(addon => {
       total += addon.oneTimePrice;
@@ -411,7 +473,10 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       setPreferredDate,
       setPreferredDateType,
       setCancelPreviousProvider,
+      setProviderCancellationData,
+      setExpressActivation,
       setReferralData,
+      validateReferralCustomerId,
       applyPromoCode,
       clearPromoCode,
       setVzfDownloaded,
@@ -438,4 +503,3 @@ export function useOrder() {
   }
   return context;
 }
-

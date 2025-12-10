@@ -22,6 +22,7 @@ export interface TariffAddon {
   discountedPrice?: number; // Price with discount (for routers with einfach tariffs)
   oneTimePrice: number;
   category: 'router' | 'phone' | 'tv' | 'tv-addon' | 'tv-hardware';
+  connectionType?: 'ftth' | 'fttb' | 'both'; // Which connection types this addon is available for
 }
 
 // FTTH Tarife - "einfach Internet" Produkte von COM-IN (alle Tarife)
@@ -103,7 +104,8 @@ export const limitedTariffs: TariffOption[] = [
 export const fttbTariffs: TariffOption[] = limitedTariffs;
 
 // Router-Optionen von COM-IN
-// Normal prices + discounted prices with "einfach" tariffs (4€ discount)
+// FTTH: FB5690 and FB5690 Pro (with 4€ discount for einfach tariffs)
+// FTTB: Only FB7690
 export const routerOptions: TariffAddon[] = [
   {
     id: "router-none",
@@ -113,6 +115,7 @@ export const routerOptions: TariffAddon[] = [
     discountedPrice: 0,
     oneTimePrice: 0,
     category: "router",
+    connectionType: 'both',
   },
   {
     id: "router-fritzbox-5690-pro",
@@ -122,6 +125,7 @@ export const routerOptions: TariffAddon[] = [
     discountedPrice: 6.00, // 4€ discount with einfach tariffs
     oneTimePrice: 0,
     category: "router",
+    connectionType: 'ftth', // Only for FTTH
   },
   {
     id: "router-fritzbox-5690",
@@ -131,6 +135,7 @@ export const routerOptions: TariffAddon[] = [
     discountedPrice: 0, // 4€ discount = 0€
     oneTimePrice: 0,
     category: "router",
+    connectionType: 'ftth', // Only for FTTH
   },
   {
     id: "router-fritzbox-7690",
@@ -140,8 +145,19 @@ export const routerOptions: TariffAddon[] = [
     discountedPrice: 7.00, // No discount on this model
     oneTimePrice: 0,
     category: "router",
+    connectionType: 'fttb', // Only for FTTB
   },
 ];
+
+// Get routers filtered by connection type
+export const getRoutersForConnectionType = (connectionType: 'ftth' | 'limited' | 'not-connected' | null): TariffAddon[] => {
+  if (!connectionType || connectionType === 'not-connected') return [];
+  
+  const type = connectionType === 'ftth' ? 'ftth' : 'fttb';
+  return routerOptions.filter(r => 
+    r.connectionType === 'both' || r.connectionType === type
+  );
+};
 
 // COM-IN TV (Kabel TV) - nur bei FTTH verfügbar
 export const cominTvOptions: TariffAddon[] = [
@@ -264,6 +280,12 @@ export const promoCodes: PromoCode[] = [
     routerDiscount: 4,
     setupFeeWaived: true,
   },
+];
+
+// Valid customer numbers for referral program
+// Format: "KD" + 6 digits or "50000" + digits
+export const validCustomerNumbers: string[] = [
+  "KD123456", // Test customer number
 ];
 
 // Referral program

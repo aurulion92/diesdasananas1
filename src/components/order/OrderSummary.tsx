@@ -19,7 +19,9 @@ import {
   CreditCard,
   Calendar,
   Tag,
-  Gift
+  Gift,
+  Zap,
+  ArrowRightLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -39,6 +41,8 @@ export function OrderSummary() {
     preferredDateType,
     preferredDate,
     cancelPreviousProvider,
+    providerCancellationData,
+    expressActivation,
     referralData,
     appliedPromoCode,
     vzfDownloaded,
@@ -75,14 +79,15 @@ Vertragslaufzeit: ${isFiberBasic ? contractDuration : 24} Monate
 MONATLICHE KOSTEN:
 - ${selectedTariff?.name}: ${(isFiberBasic && contractDuration === 12 ? selectedTariff?.monthlyPrice12 : selectedTariff?.monthlyPrice)?.toFixed(2).replace('.', ',')} €
 ${selectedRouter && selectedRouter.id !== 'router-none' ? `- ${selectedRouter.name}: ${getRouterPrice().toFixed(2).replace('.', ',')} €${routerDiscount > 0 ? ` (${routerDiscount.toFixed(2).replace('.', ',')} € Rabatt)` : ''}` : ''}
-${tvSelection.package ? `- ${tvSelection.package.name}: ${tvSelection.package.monthlyPrice.toFixed(2).replace('.', ',')} €` : ''}
-${tvSelection.type === 'comin' && !tvSelection.package ? '- COM-IN TV: 10,00 €' : ''}
+${tvSelection.type === 'comin' ? '- COM-IN TV: 10,00 €' : ''}
+${tvSelection.type === 'waipu' && tvSelection.package ? `- ${tvSelection.package.name}: ${tvSelection.package.monthlyPrice.toFixed(2).replace('.', ',')} €` : ''}
 ${tvSelection.hdAddon ? `- ${tvSelection.hdAddon.name}: ${tvSelection.hdAddon.monthlyPrice.toFixed(2).replace('.', ',')} €` : ''}
 ${tvSelection.hardware.filter(h => h.monthlyPrice > 0).map(h => `- ${h.name}: ${h.monthlyPrice.toFixed(2).replace('.', ',')} €`).join('\n')}
 ${phoneSelection.enabled && !isFiberBasic ? `- Telefon-Flat (${phoneSelection.lines} Leitung(en)): ${(phoneSelection.lines * 2.95).toFixed(2).replace('.', ',')} €` : ''}
 
 EINMALIGE KOSTEN:
 - Bereitstellung inkl. Einrichtung: ${getSetupFee().toFixed(2).replace('.', ',')} €${isSetupFeeWaived() ? ' (entfällt durch Aktionscode)' : ''}
+${expressActivation ? '- Express-Anschaltung: 200,00 €' : ''}
 ${tvSelection.hardware.filter(h => h.oneTimePrice > 0).map(h => `- ${h.name}: ${h.oneTimePrice.toFixed(2).replace('.', ',')} €`).join('\n')}
 ${tvSelection.waipuStick ? '- waipu.tv 4K Stick: 40,00 €' : ''}
 
@@ -95,10 +100,16 @@ Kontoinhaber: ${bankData?.accountHolder}
 IBAN: ${bankData?.iban}
 
 Wunschtermin: ${preferredDateType === 'asap' ? 'Schnellstmöglich' : preferredDate}
-Bisherigen Anbieter kündigen: ${cancelPreviousProvider ? 'Ja' : 'Nein'}
+${expressActivation ? 'Express-Anschaltung: Ja (innerhalb 3 Werktage)' : ''}
+${cancelPreviousProvider && providerCancellationData ? `
+WECHSELSERVICE:
+Bisheriger Anbieter: ${providerCancellationData.providerName}
+Kundennummer: ${providerCancellationData.customerNumber}
+Übergang: ${providerCancellationData.portToNewConnection ? 'Nahtlos (Portierung)' : providerCancellationData.preferredDate === 'asap' ? 'Schnellstmöglich' : providerCancellationData.specificDate}
+` : ''}
 
 ${appliedPromoCode ? `Aktionscode: ${appliedPromoCode.code} - ${appliedPromoCode.description}` : ''}
-${referralData.type === 'referral' ? `Kunden werben Kunden - Werber-Kundennr: ${referralData.referrerCustomerId}` : ''}
+${referralData.type === 'referral' && referralData.referralValidated ? `Kunden werben Kunden - Werber-Kundennr: ${referralData.referrerCustomerId}` : ''}
 
 Datum: ${new Date().toLocaleDateString('de-DE')}
 
@@ -240,17 +251,42 @@ Ein Unternehmen der Stadt Ingolstadt
         <div className="bg-card rounded-xl shadow-soft p-5">
           <div className="flex items-start gap-4">
             <Calendar className="w-5 h-5 text-accent mt-0.5" />
-            <div>
+            <div className="flex-1">
               <h4 className="font-bold text-primary">Wunschtermin</h4>
               <p className="text-muted-foreground mt-1">
                 {preferredDateType === 'asap' ? 'Schnellstmöglich' : preferredDate}
               </p>
-              <p className="text-muted-foreground text-sm">
-                Bisherigen Anbieter kündigen: {cancelPreviousProvider ? 'Ja' : 'Nein'}
-              </p>
+              {expressActivation && (
+                <div className="flex items-center gap-2 mt-2 text-accent">
+                  <Zap className="w-4 h-4" />
+                  <span className="text-sm font-medium">Express-Anschaltung (3 Werktage)</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
+
+        {/* Wechselservice */}
+        {cancelPreviousProvider && providerCancellationData && (
+          <div className="bg-card rounded-xl shadow-soft p-5">
+            <div className="flex items-start gap-4">
+              <ArrowRightLeft className="w-5 h-5 text-accent mt-0.5" />
+              <div>
+                <h4 className="font-bold text-primary">Wechselservice</h4>
+                <div className="text-muted-foreground mt-1 space-y-0.5">
+                  <p>Bisheriger Anbieter: {providerCancellationData.providerName}</p>
+                  <p>Kundennummer: {providerCancellationData.customerNumber}</p>
+                  <p>Übergang: {providerCancellationData.portToNewConnection 
+                    ? 'Nahtlos (Portierung)' 
+                    : providerCancellationData.preferredDate === 'asap' 
+                      ? 'Schnellstmöglich' 
+                      : `Zum ${providerCancellationData.specificDate}`}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tarif */}
         <div className="bg-card rounded-xl shadow-soft p-5">
@@ -295,7 +331,7 @@ Ein Unternehmen der Stadt Ingolstadt
         )}
 
         {/* TV */}
-        {(tvSelection.type !== 'none' || tvSelection.package) && (
+        {tvSelection.type !== 'none' && (
           <div className="bg-card rounded-xl shadow-soft p-5">
             <div className="flex items-start gap-4">
               <Tv className="w-5 h-5 text-accent mt-0.5" />
@@ -308,7 +344,7 @@ Ein Unternehmen der Stadt Ingolstadt
                       <span>10,00 €/Monat</span>
                     </div>
                   )}
-                  {tvSelection.package && tvSelection.type === 'waipu' && (
+                  {tvSelection.type === 'waipu' && tvSelection.package && (
                     <div className="flex justify-between">
                       <span>{tvSelection.package.name}</span>
                       <span>{tvSelection.package.monthlyPrice.toFixed(2).replace('.', ',')} €/Monat</span>
@@ -362,7 +398,7 @@ Ein Unternehmen der Stadt Ingolstadt
         )}
 
         {/* Promo Code / Referral */}
-        {(appliedPromoCode || referralData.type === 'referral') && (
+        {(appliedPromoCode || (referralData.type === 'referral' && referralData.referralValidated)) && (
           <div className="bg-success/5 rounded-xl p-5 border border-success/20">
             <div className="flex items-start gap-4">
               {appliedPromoCode ? <Tag className="w-5 h-5 text-success mt-0.5" /> : <Gift className="w-5 h-5 text-success mt-0.5" />}
@@ -373,7 +409,7 @@ Ein Unternehmen der Stadt Ingolstadt
                     <p className="text-success/80 text-sm mt-1">{appliedPromoCode.description}</p>
                   </div>
                 )}
-                {referralData.type === 'referral' && (
+                {referralData.type === 'referral' && referralData.referralValidated && (
                   <div className={appliedPromoCode ? 'mt-3' : ''}>
                     <h4 className="font-bold text-success">Kunden werben Kunden</h4>
                     <p className="text-success/80 text-sm mt-1">50€ Prämie für Sie und den Werber (Kd-Nr: {referralData.referrerCustomerId})</p>
@@ -399,6 +435,9 @@ Ein Unternehmen der Stadt Ingolstadt
             {isSetupFeeWaived() && (
               <p className="text-success text-sm">✓ Anschlussgebühr entfällt durch Aktionscode</p>
             )}
+            {expressActivation && (
+              <p className="text-accent text-sm">✓ Express-Anschaltung: +200,00 € einmalig</p>
+            )}
           </div>
         </div>
 
@@ -406,39 +445,39 @@ Ein Unternehmen der Stadt Ingolstadt
         <div className="bg-card rounded-xl shadow-card p-6 border-2 border-dashed border-accent/30">
           <div className="flex items-start gap-4">
             <div className={cn(
-              "w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0",
+              "w-10 h-10 rounded-full flex items-center justify-center",
               vzfDownloaded ? "bg-success/10" : "bg-accent/10"
             )}>
               {vzfDownloaded ? (
-                <CheckCircle2 className="w-6 h-6 text-success" />
+                <CheckCircle2 className="w-5 h-5 text-success" />
               ) : (
-                <FileText className="w-6 h-6 text-accent" />
+                <FileText className="w-5 h-5 text-accent" />
               )}
             </div>
             <div className="flex-1">
               <h4 className="font-bold text-primary">Vertragszusammenfassung (VZF)</h4>
-              <p className="text-sm text-muted-foreground mt-1">
-                Vor Vertragsabschluss müssen Sie die Vertragszusammenfassung herunterladen und bestätigen.
+              <p className="text-muted-foreground text-sm mt-1">
+                Bitte laden Sie die Vertragszusammenfassung herunter und lesen Sie diese sorgfältig durch.
               </p>
               
               <Button 
                 onClick={handleDownloadVZF}
-                variant={vzfDownloaded ? "secondary" : "orange"}
+                variant={vzfDownloaded ? "outline" : "orange"}
                 className="mt-4"
               >
                 <Download className="w-4 h-4" />
                 {vzfDownloaded ? 'Erneut herunterladen' : 'VZF herunterladen'}
               </Button>
-
+              
               {vzfDownloaded && (
                 <div className="flex items-center gap-3 mt-4">
                   <Checkbox 
                     id="vzf-confirm" 
                     checked={vzfConfirmed}
-                    onCheckedChange={(checked) => setVzfConfirmed(checked as boolean)}
+                    onCheckedChange={(checked) => setVzfConfirmed(checked === true)}
                   />
                   <label htmlFor="vzf-confirm" className="text-sm cursor-pointer">
-                    Ich habe die VZF heruntergeladen und zur Kenntnis genommen
+                    Ich habe die Vertragszusammenfassung heruntergeladen und zur Kenntnis genommen.
                   </label>
                 </div>
               )}
@@ -458,20 +497,14 @@ Ein Unternehmen der Stadt Ingolstadt
           </Button>
           <Button 
             onClick={handleOrder}
-            disabled={!vzfDownloaded || !vzfConfirmed}
+            disabled={!vzfConfirmed}
             className="flex-1 h-12"
             variant="orange"
           >
             <Rocket className="w-4 h-4" />
-            Jetzt verbindlich bestellen
+            Jetzt kostenpflichtig bestellen
           </Button>
         </div>
-
-        {(!vzfDownloaded || !vzfConfirmed) && (
-          <p className="text-xs text-center text-muted-foreground">
-            Bitte laden Sie zuerst die VZF herunter und bestätigen Sie diese
-          </p>
-        )}
       </div>
     </div>
   );
