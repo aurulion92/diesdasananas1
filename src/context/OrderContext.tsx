@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { ConnectionType, AddressData } from '@/data/addressDatabase';
-import { TariffOption, TariffAddon } from '@/data/tariffs';
+import { TariffOption, TariffAddon, promoCodes, PromoCode } from '@/data/tariffs';
 
 interface CustomerData {
   salutation: string;
@@ -17,19 +17,57 @@ interface BankData {
   bic?: string;
 }
 
+interface PhonePortingData {
+  numberOfNumbers: number;
+  phoneNumbers: string[];
+  previousProvider: string;
+}
+
+interface ApartmentData {
+  floor: string;
+  apartment: string;
+}
+
+interface ReferralData {
+  type: 'none' | 'internet' | 'social-media' | 'referral' | 'promo-code';
+  referrerCustomerId?: string;
+  promoCode?: string;
+}
+
+interface TvSelection {
+  type: 'none' | 'comin' | 'waipu';
+  package: TariffAddon | null;
+  hdAddon: TariffAddon | null; // Basis HD or Family HD for COM-IN TV
+  hardware: TariffAddon[]; // Smartcard + Receiver/CI Module
+  waipuStick: boolean;
+}
+
+interface PhoneSelection {
+  enabled: boolean;
+  lines: number; // Number of phone lines (each 2.95€)
+  portingRequired: boolean;
+  portingData: PhonePortingData | null;
+}
+
 interface OrderState {
   step: number;
   address: AddressData | null;
   connectionType: ConnectionType | null;
+  apartmentData: ApartmentData | null;
   selectedTariff: TariffOption | null;
   selectedRouter: TariffAddon | null;
-  selectedTv: TariffAddon | null;
+  tvSelection: TvSelection;
+  phoneSelection: PhoneSelection;
   selectedAddons: TariffAddon[];
   contractDuration: 12 | 24;
   customerData: CustomerData | null;
   bankData: BankData | null;
   preferredDate: string | null;
   preferredDateType: 'asap' | 'specific' | null;
+  cancelPreviousProvider: boolean;
+  referralData: ReferralData;
+  appliedPromoCode: PromoCode | null;
+  promoCodeError: string | null;
   vzfDownloaded: boolean;
   vzfConfirmed: boolean;
 }
@@ -38,36 +76,72 @@ interface OrderContextType extends OrderState {
   setStep: (step: number) => void;
   setAddress: (address: AddressData) => void;
   setConnectionType: (type: ConnectionType) => void;
+  setApartmentData: (data: ApartmentData | null) => void;
   setSelectedTariff: (tariff: TariffOption) => void;
   setSelectedRouter: (router: TariffAddon | null) => void;
-  setSelectedTv: (tv: TariffAddon | null) => void;
+  setTvSelection: (selection: TvSelection) => void;
+  setPhoneSelection: (selection: PhoneSelection) => void;
   toggleAddon: (addon: TariffAddon) => void;
   setContractDuration: (duration: 12 | 24) => void;
   setCustomerData: (data: CustomerData) => void;
   setBankData: (data: BankData) => void;
   setPreferredDate: (date: string | null) => void;
   setPreferredDateType: (type: 'asap' | 'specific' | null) => void;
+  setCancelPreviousProvider: (cancel: boolean) => void;
+  setReferralData: (data: ReferralData) => void;
+  applyPromoCode: (code: string) => boolean;
+  clearPromoCode: () => void;
   setVzfDownloaded: (downloaded: boolean) => void;
   setVzfConfirmed: (confirmed: boolean) => void;
   getTotalMonthly: () => number;
   getTotalOneTime: () => number;
+  getRouterPrice: () => number;
+  getRouterDiscount: () => number;
+  getSetupFee: () => number;
+  isSetupFeeWaived: () => boolean;
   resetOrder: () => void;
   canNavigateToStep: (step: number) => boolean;
+  isMFH: () => boolean;
 }
+
+const initialTvSelection: TvSelection = {
+  type: 'none',
+  package: null,
+  hdAddon: null,
+  hardware: [],
+  waipuStick: false,
+};
+
+const initialPhoneSelection: PhoneSelection = {
+  enabled: false,
+  lines: 1,
+  portingRequired: false,
+  portingData: null,
+};
+
+const initialReferralData: ReferralData = {
+  type: 'none',
+};
 
 const initialState: OrderState = {
   step: 1,
   address: null,
   connectionType: null,
+  apartmentData: null,
   selectedTariff: null,
   selectedRouter: null,
-  selectedTv: null,
+  tvSelection: initialTvSelection,
+  phoneSelection: initialPhoneSelection,
   selectedAddons: [],
   contractDuration: 24,
   customerData: null,
   bankData: null,
   preferredDate: null,
   preferredDateType: null,
+  cancelPreviousProvider: false,
+  referralData: initialReferralData,
+  appliedPromoCode: null,
+  promoCodeError: null,
   vzfDownloaded: false,
   vzfConfirmed: false,
 };
@@ -79,34 +153,54 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
   const setStep = (step: number) => setState(prev => ({ ...prev, step }));
   
-  const setAddress = (address: AddressData) => setState(prev => ({ 
-    ...prev, 
-    address,
-    connectionType: address.connectionType 
-  }));
+  const setAddress = (address: AddressData) => {
+    setState(prev => ({ 
+      ...prev, 
+      address,
+      connectionType: address.connectionType,
+      // Clear promo code if address changes and code is no longer valid
+      appliedPromoCode: prev.appliedPromoCode && 
+        !prev.appliedPromoCode.validAddresses.some(a => 
+          address.street.toLowerCase().includes(a.toLowerCase())
+        ) ? null : prev.appliedPromoCode,
+      promoCodeError: null,
+    }));
+  };
   
   const setConnectionType = (connectionType: ConnectionType) => 
     setState(prev => ({ ...prev, connectionType }));
+
+  const setApartmentData = (apartmentData: ApartmentData | null) =>
+    setState(prev => ({ ...prev, apartmentData }));
   
-  const setSelectedTariff = (selectedTariff: TariffOption) => 
-    setState(prev => ({ ...prev, selectedTariff }));
+  const setSelectedTariff = (selectedTariff: TariffOption) => {
+    setState(prev => {
+      // Reset phone selection if tariff includes phone (FiberBasic)
+      const phoneSelection = selectedTariff.includesPhone 
+        ? initialPhoneSelection 
+        : prev.phoneSelection;
+      
+      // Reset contract duration if not FiberBasic (only FiberBasic supports 12 months)
+      const contractDuration = selectedTariff.id !== 'fiber-basic-100' ? 24 : prev.contractDuration;
+      
+      return { ...prev, selectedTariff, phoneSelection, contractDuration };
+    });
+  };
 
   const setSelectedRouter = (selectedRouter: TariffAddon | null) =>
     setState(prev => ({ ...prev, selectedRouter }));
 
-  const setSelectedTv = (selectedTv: TariffAddon | null) =>
-    setState(prev => ({ ...prev, selectedTv }));
+  const setTvSelection = (tvSelection: TvSelection) =>
+    setState(prev => ({ ...prev, tvSelection }));
+
+  const setPhoneSelection = (phoneSelection: PhoneSelection) =>
+    setState(prev => ({ ...prev, phoneSelection }));
   
   const toggleAddon = (addon: TariffAddon) => {
     setState(prev => {
       const exists = prev.selectedAddons.find(a => a.id === addon.id);
       if (exists) {
         return { ...prev, selectedAddons: prev.selectedAddons.filter(a => a.id !== addon.id) };
-      }
-      // Remove other addons of same category if it's router or tv
-      if (addon.category === 'router' || addon.category === 'tv') {
-        const filtered = prev.selectedAddons.filter(a => a.category !== addon.category);
-        return { ...prev, selectedAddons: [...filtered, addon] };
       }
       return { ...prev, selectedAddons: [...prev.selectedAddons, addon] };
     });
@@ -126,6 +220,53 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
   const setPreferredDateType = (preferredDateType: 'asap' | 'specific' | null) =>
     setState(prev => ({ ...prev, preferredDateType }));
+
+  const setCancelPreviousProvider = (cancelPreviousProvider: boolean) =>
+    setState(prev => ({ ...prev, cancelPreviousProvider }));
+
+  const setReferralData = (referralData: ReferralData) =>
+    setState(prev => ({ ...prev, referralData }));
+
+  const applyPromoCode = (code: string): boolean => {
+    const normalizedCode = code.toUpperCase().trim();
+    const promoCode = promoCodes.find(p => p.code === normalizedCode);
+    
+    if (!promoCode) {
+      setState(prev => ({ 
+        ...prev, 
+        appliedPromoCode: null, 
+        promoCodeError: 'Ungültiger Aktionscode' 
+      }));
+      return false;
+    }
+    
+    // Check if code is valid for current address
+    if (state.address) {
+      const isValidForAddress = promoCode.validAddresses.some(a => 
+        state.address!.street.toLowerCase().includes(a.toLowerCase())
+      );
+      
+      if (!isValidForAddress) {
+        setState(prev => ({ 
+          ...prev, 
+          appliedPromoCode: null, 
+          promoCodeError: 'Dieser Aktionscode gilt nicht für dieses Objekt' 
+        }));
+        return false;
+      }
+    }
+    
+    setState(prev => ({ 
+      ...prev, 
+      appliedPromoCode: promoCode, 
+      promoCodeError: null 
+    }));
+    return true;
+  };
+
+  const clearPromoCode = () => {
+    setState(prev => ({ ...prev, appliedPromoCode: null, promoCodeError: null }));
+  };
   
   const setVzfDownloaded = (vzfDownloaded: boolean) => 
     setState(prev => ({ ...prev, vzfDownloaded }));
@@ -133,35 +274,112 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const setVzfConfirmed = (vzfConfirmed: boolean) => 
     setState(prev => ({ ...prev, vzfConfirmed }));
 
+  const isMFH = (): boolean => {
+    return state.address?.houseType?.toUpperCase() === 'MFH';
+  };
+
+  // Check if router discount applies (einfach tariffs OR promo code)
+  const hasRouterDiscount = (): boolean => {
+    if (!state.selectedTariff) return false;
+    
+    // Check if it's an "einfach" tariff (not FiberBasic)
+    const isEinfachTariff = state.selectedTariff.id.startsWith('einfach-');
+    
+    // Check if promo code gives router discount
+    const hasPromoDiscount = state.appliedPromoCode?.routerDiscount && state.appliedPromoCode.routerDiscount > 0;
+    
+    return isEinfachTariff || !!hasPromoDiscount;
+  };
+
+  const getRouterPrice = (): number => {
+    if (!state.selectedRouter || state.selectedRouter.id === 'router-none') return 0;
+    
+    if (hasRouterDiscount() && state.selectedRouter.discountedPrice !== undefined) {
+      return state.selectedRouter.discountedPrice;
+    }
+    
+    return state.selectedRouter.monthlyPrice;
+  };
+
+  const getRouterDiscount = (): number => {
+    if (!state.selectedRouter || state.selectedRouter.id === 'router-none') return 0;
+    
+    if (hasRouterDiscount() && state.selectedRouter.discountedPrice !== undefined) {
+      return state.selectedRouter.monthlyPrice - state.selectedRouter.discountedPrice;
+    }
+    
+    return 0;
+  };
+
+  const isSetupFeeWaived = (): boolean => {
+    return state.appliedPromoCode?.setupFeeWaived === true;
+  };
+
+  const getSetupFee = (): number => {
+    if (isSetupFeeWaived()) return 0;
+    return state.selectedTariff?.setupFee || 99;
+  };
+
   const getTotalMonthly = () => {
-    let total = state.selectedTariff?.monthlyPrice || 0;
-    if (state.selectedRouter && state.selectedRouter.monthlyPrice > 0) {
-      total += state.selectedRouter.monthlyPrice;
+    let total = 0;
+    
+    // Tariff price (12 or 24 months)
+    if (state.selectedTariff) {
+      total += state.contractDuration === 12 
+        ? state.selectedTariff.monthlyPrice12 
+        : state.selectedTariff.monthlyPrice;
     }
-    if (state.selectedTv && state.selectedTv.monthlyPrice > 0) {
-      total += state.selectedTv.monthlyPrice;
+    
+    // Router with possible discount
+    total += getRouterPrice();
+    
+    // TV costs
+    if (state.tvSelection.package) {
+      total += state.tvSelection.package.monthlyPrice;
     }
+    if (state.tvSelection.hdAddon) {
+      total += state.tvSelection.hdAddon.monthlyPrice;
+    }
+    state.tvSelection.hardware.forEach(hw => {
+      total += hw.monthlyPrice;
+    });
+    
+    // Phone costs (only for non-FiberBasic tariffs)
+    if (state.phoneSelection.enabled && !state.selectedTariff?.includesPhone) {
+      total += state.phoneSelection.lines * 2.95; // 2.95€ per line
+    }
+    
+    // Other addons
     state.selectedAddons.forEach(addon => {
       total += addon.monthlyPrice;
     });
-    // Add 5€ for 12 month contract
-    if (state.contractDuration === 12) {
-      total += 5;
-    }
+    
     return total;
   };
 
   const getTotalOneTime = () => {
-    let total = state.selectedTariff?.setupFee || 0;
+    let total = getSetupFee();
+    
+    // Router one-time cost
     if (state.selectedRouter) {
       total += state.selectedRouter.oneTimePrice;
     }
-    if (state.selectedTv) {
-      total += state.selectedTv.oneTimePrice;
+    
+    // TV hardware one-time costs
+    state.tvSelection.hardware.forEach(hw => {
+      total += hw.oneTimePrice;
+    });
+    
+    // WAIPU stick
+    if (state.tvSelection.waipuStick) {
+      total += 40.00;
     }
+    
+    // Other addons
     state.selectedAddons.forEach(addon => {
       total += addon.oneTimePrice;
     });
+    
     return total;
   };
 
@@ -181,21 +399,32 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       setStep,
       setAddress,
       setConnectionType,
+      setApartmentData,
       setSelectedTariff,
       setSelectedRouter,
-      setSelectedTv,
+      setTvSelection,
+      setPhoneSelection,
       toggleAddon,
       setContractDuration,
       setCustomerData,
       setBankData,
       setPreferredDate,
       setPreferredDateType,
+      setCancelPreviousProvider,
+      setReferralData,
+      applyPromoCode,
+      clearPromoCode,
       setVzfDownloaded,
       setVzfConfirmed,
       getTotalMonthly,
       getTotalOneTime,
+      getRouterPrice,
+      getRouterDiscount,
+      getSetupFee,
+      isSetupFeeWaived,
       resetOrder,
       canNavigateToStep,
+      isMFH,
     }}>
       {children}
     </OrderContext.Provider>
@@ -209,3 +438,4 @@ export function useOrder() {
   }
   return context;
 }
+
