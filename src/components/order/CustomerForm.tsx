@@ -353,102 +353,121 @@ export function CustomerForm() {
             }}
             className="space-y-3"
           >
+            {/* Schnellstmöglich mit Express als Unteroption */}
             <div className={cn(
-              "p-4 rounded-xl border-2 transition-all cursor-pointer",
+              "rounded-xl border-2 transition-all",
               dateType === 'asap' ? "border-accent bg-accent/5" : "border-border hover:border-accent/50"
             )}>
-              <div className="flex items-center space-x-3">
-                <RadioGroupItem value="asap" id="asap" />
-                <Label htmlFor="asap" className="flex-1 cursor-pointer">
-                  <span className="font-semibold">Schnellstmöglich</span>
-                  <span className="block text-sm text-muted-foreground">Wir melden uns zur Terminvereinbarung</span>
-                </Label>
+              <div className="p-4 cursor-pointer">
+                <div className="flex items-center space-x-3">
+                  <RadioGroupItem value="asap" id="asap" />
+                  <Label htmlFor="asap" className="flex-1 cursor-pointer">
+                    <span className="font-semibold">Schnellstmöglich</span>
+                    <span className="block text-sm text-muted-foreground">Wir melden uns zur Terminvereinbarung</span>
+                  </Label>
+                </div>
               </div>
+              
               {dateType === 'asap' && (
-                <div className="mt-3 ml-6 p-3 bg-muted/50 rounded-lg flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-muted-foreground">
-                    Bitte beachten Sie: Unsere Anschaltzeiten betragen aktuell ca. 2-3 Wochen.
-                  </p>
+                <div className="px-4 pb-4 space-y-3">
+                  <div className="ml-6 p-3 bg-muted/50 rounded-lg flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-muted-foreground">
+                      Bitte beachten Sie: Unsere Anschaltzeiten betragen aktuell ca. 2-3 Wochen.
+                    </p>
+                  </div>
+                  
+                  {/* Express-Anschaltung als Unterpunkt */}
+                  {canHaveExpress && (
+                    <div className={cn(
+                      "ml-6 p-4 rounded-xl border-2 transition-all",
+                      expressActivation ? "border-accent bg-accent/10" : "border-dashed border-accent/40 hover:border-accent/60"
+                    )}>
+                      <div className="flex items-start space-x-3">
+                        <Checkbox 
+                          id="express-activation" 
+                          checked={expressActivation}
+                          onCheckedChange={(checked) => setExpressActivation(checked === true)}
+                        />
+                        <Label htmlFor="express-activation" className="cursor-pointer flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Zap className="w-4 h-4 text-accent" />
+                            <span className="font-semibold text-accent">2-3 Wochen sind Ihnen zu lange?</span>
+                          </div>
+                          <span className="block text-sm font-medium mt-1">
+                            Express-Anschaltung: Aktivierung innerhalb von 3 Werktagen
+                          </span>
+                          <span className="inline-block mt-2 bg-accent text-accent-foreground text-xs px-3 py-1 rounded-full font-medium">
+                            +200,00 € einmalig
+                          </span>
+                        </Label>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
+            {/* Wunschtermin */}
             <div className={cn(
-              "flex items-start space-x-3 p-4 rounded-xl border-2 transition-all cursor-pointer",
+              "p-4 rounded-xl border-2 transition-all cursor-pointer",
               dateType === 'specific' ? "border-accent bg-accent/5" : "border-border hover:border-accent/50"
             )}>
-              <RadioGroupItem value="specific" id="specific" className="mt-1" />
-              <div className="flex-1">
-                <Label htmlFor="specific" className="cursor-pointer">
-                  <span className="font-semibold">Wunschtermin wählen</span>
-                </Label>
-                
-                {dateType === 'specific' && (
-                  <>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal h-12 rounded-xl mt-3",
-                            !selectedDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {selectedDate ? format(selectedDate, "PPP", { locale: de }) : "Datum wählen"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 bg-card border border-border z-50" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={setSelectedDate}
-                          disabled={(date) => date < minDate}
-                          initialFocus
-                          className="pointer-events-auto"
-                          locale={de}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <div className="mt-2 p-3 bg-muted/50 rounded-lg flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <p className="text-xs text-muted-foreground">
-                        Bitte beachten Sie: Es handelt sich um einen unverbindlichen Wunschtermin. 
-                        Unsere Anschaltzeiten betragen aktuell ca. 2-3 Wochen.
-                      </p>
-                    </div>
-                  </>
-                )}
+              <div className="flex items-start space-x-3">
+                <RadioGroupItem value="specific" id="specific" className="mt-1" />
+                <div className="flex-1">
+                  <Label htmlFor="specific" className="cursor-pointer">
+                    <span className="font-semibold">Wunschtermin wählen</span>
+                  </Label>
+                  
+                  {dateType === 'specific' && (
+                    <>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal h-12 rounded-xl mt-3",
+                              !selectedDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {selectedDate ? format(selectedDate, "PPP", { locale: de }) : "Datum wählen"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 bg-card border border-border z-50" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={(date) => {
+                              setSelectedDate(date);
+                              // Synchronisiere mit Wechselservice
+                              if (cancelPreviousProvider && !cancellationData.portToNewConnection && date) {
+                                handleCancellationChange('preferredDate', 'specific');
+                                handleCancellationChange('specificDate', format(date, 'yyyy-MM-dd'));
+                                setCancellationDate(date);
+                              }
+                            }}
+                            disabled={(date) => date < minDate}
+                            initialFocus
+                            className="pointer-events-auto"
+                            locale={de}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <div className="mt-2 p-3 bg-muted/50 rounded-lg flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-muted-foreground">
+                          Bitte beachten Sie: Es handelt sich um einen unverbindlichen Wunschtermin. 
+                          Unsere Anschaltzeiten betragen aktuell ca. 2-3 Wochen.
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </RadioGroup>
-
-          {/* Express-Anschaltung - nur bei Schnellstmöglich */}
-          {canHaveExpress && dateType === 'asap' && (
-            <div className={cn(
-              "flex items-start space-x-3 p-4 rounded-xl border-2 transition-all",
-              expressActivation ? "border-accent bg-accent/5" : "border-border"
-            )}>
-              <Checkbox 
-                id="express-activation" 
-                checked={expressActivation}
-                onCheckedChange={(checked) => setExpressActivation(checked === true)}
-              />
-              <Label htmlFor="express-activation" className="cursor-pointer flex-1">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-accent" />
-                  <span className="font-semibold">Express-Anschaltung</span>
-                  <span className="bg-accent/10 text-accent text-xs px-2 py-0.5 rounded-full font-medium">
-                    +200,00 € einmalig
-                  </span>
-                </div>
-                <span className="block text-sm text-muted-foreground mt-1">
-                  Anschaltung innerhalb von 3 Werktagen (unabhängig von Portierung/Kündigung)
-                </span>
-              </Label>
-            </div>
-          )}
 
           {/* Bisherigen Anbieter kündigen */}
           <div className="space-y-4">
@@ -483,9 +502,9 @@ export function CustomerForm() {
                     />
                   </div>
                   <div>
-                    <Label className="text-foreground font-medium">Kundennummer beim Anbieter *</Label>
+                    <Label className="text-foreground font-medium">Telefonnummer zum Kündigen *</Label>
                     <Input
-                      placeholder="Ihre Kundennummer"
+                      placeholder="Ihre Anschluss-Rufnummer"
                       value={cancellationData.customerNumber}
                       onChange={(e) => handleCancellationChange('customerNumber', e.target.value)}
                       className="mt-1.5 h-12 rounded-xl"
@@ -495,7 +514,7 @@ export function CustomerForm() {
 
                 <p className="text-xs text-muted-foreground flex items-start gap-1">
                   <Phone className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                  Ohne Kundennummer können wir die Kündigung nicht durchführen.
+                  Ihre Anschluss-Rufnummer wird für die Kündigung benötigt.
                 </p>
 
                 {/* Wechselzeitpunkt - nur wenn NICHT Express gewählt */}
@@ -512,8 +531,15 @@ export function CustomerForm() {
                         } else {
                           handleCancellationChange('portToNewConnection', false);
                           handleCancellationChange('preferredDate', value);
+                          // Synchronisiere den Haupttermin oben
                           if (value === 'asap') {
+                            setDateType('asap');
+                            setSelectedDate(undefined);
                             handleCancellationChange('specificDate', null);
+                          } else if (value === 'specific') {
+                            setDateType('specific');
+                            // Express deaktivieren bei spezifischem Datum
+                            setExpressActivation(false);
                           }
                         }
                       }}
@@ -533,33 +559,31 @@ export function CustomerForm() {
                       </div>
 
                       <div className={cn(
-                        "p-3 rounded-lg border transition-all",
-                        !cancellationData.portToNewConnection && cancellationData.preferredDate === 'asap' ? "border-accent bg-accent/5" : "border-border",
-                        dateType === 'asap' && "ring-2 ring-accent/30"
+                        "p-3 rounded-lg border transition-all cursor-pointer",
+                        !cancellationData.portToNewConnection && cancellationData.preferredDate === 'asap' ? "border-accent bg-accent/5" : "border-border"
                       )}>
                         <div className="flex items-center space-x-3">
                           <RadioGroupItem value="asap" id="cancel-asap" />
                           <Label htmlFor="cancel-asap" className="cursor-pointer flex-1">
                             <span className="font-medium">Schnellstmöglich</span>
-                            {dateType === 'asap' && (
-                              <span className="block text-xs text-accent">Entspricht Ihrem gewählten Anschalttermin</span>
-                            )}
+                            <span className="block text-xs text-muted-foreground">
+                              Synchronisiert mit Ihrem Anschalttermin
+                            </span>
                           </Label>
                         </div>
                       </div>
 
                       <div className={cn(
                         "p-3 rounded-lg border transition-all",
-                        !cancellationData.portToNewConnection && cancellationData.preferredDate === 'specific' ? "border-accent bg-accent/5" : "border-border",
-                        dateType === 'specific' && "ring-2 ring-accent/30"
+                        !cancellationData.portToNewConnection && cancellationData.preferredDate === 'specific' ? "border-accent bg-accent/5" : "border-border"
                       )}>
                         <div className="flex items-center space-x-3">
                           <RadioGroupItem value="specific" id="cancel-specific" />
                           <Label htmlFor="cancel-specific" className="cursor-pointer flex-1">
-                            <span className="font-medium">Anderer Termin</span>
-                            {dateType === 'specific' && selectedDate && (
+                            <span className="font-medium">Wunschtermin wählen</span>
+                            {cancellationDate && !cancellationData.portToNewConnection && cancellationData.preferredDate === 'specific' && (
                               <span className="block text-xs text-accent">
-                                Ihr Wunschtermin: {format(selectedDate, "PPP", { locale: de })}
+                                Gewählt: {format(cancellationDate, "PPP", { locale: de })}
                               </span>
                             )}
                           </Label>
@@ -588,6 +612,10 @@ export function CustomerForm() {
                                     setCancellationDate(date);
                                     if (date) {
                                       handleCancellationChange('specificDate', format(date, 'yyyy-MM-dd'));
+                                      // Synchronisiere auch den Haupttermin
+                                      setSelectedDate(date);
+                                      setDateType('specific');
+                                      setExpressActivation(false);
                                     }
                                   }}
                                   disabled={(date) => date < minDate}
@@ -599,8 +627,7 @@ export function CustomerForm() {
                             </Popover>
                             <p className="text-xs text-muted-foreground mt-2 flex items-start gap-1">
                               <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                              Bitte beachten Sie: Es handelt sich um einen unverbindlichen Wunschtermin. 
-                              Unsere Anschaltzeiten betragen aktuell ca. 2-3 Wochen.
+                              Datum wird automatisch für den Anschalttermin übernommen.
                             </p>
                           </div>
                         )}
