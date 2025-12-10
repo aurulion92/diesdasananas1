@@ -165,7 +165,7 @@ const initialState: OrderState = {
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
-export function OrderProvider({ children }: { children: ReactNode }) {
+export const OrderProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<OrderState>(initialState);
 
   const setStep = (step: number) => setState(prev => ({ ...prev, step }));
@@ -494,7 +494,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       {children}
     </OrderContext.Provider>
   );
-}
+};
 
 export function useOrder() {
   const context = useContext(OrderContext);
