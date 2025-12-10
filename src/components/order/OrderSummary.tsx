@@ -203,6 +203,12 @@ export function OrderSummary() {
               <span className="text-muted-foreground">Einmalige Kosten</span>
               <span className="text-muted-foreground">{getTotalOneTime().toFixed(2).replace('.', ',')} €</span>
             </div>
+            {getReferralBonus() > 0 && (
+              <div className="flex justify-between items-center mt-2 text-success">
+                <span>davon Kunden werben Kunden Prämie</span>
+                <span>-{getReferralBonus().toFixed(2).replace('.', ',')} €</span>
+              </div>
+            )}
           </div>
 
           {/* VZF Download */}
