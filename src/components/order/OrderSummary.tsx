@@ -12,7 +12,14 @@ import {
   User, 
   Package,
   PartyPopper,
-  Rocket
+  Rocket,
+  Router,
+  Tv,
+  Phone,
+  CreditCard,
+  Calendar,
+  Tag,
+  Gift
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -20,25 +27,36 @@ import { toast } from '@/hooks/use-toast';
 export function OrderSummary() {
   const { 
     address, 
+    apartmentData,
     selectedTariff,
     selectedRouter,
-    selectedTv, 
+    tvSelection,
+    phoneSelection,
     selectedAddons, 
     contractDuration,
     customerData,
     bankData,
     preferredDateType,
     preferredDate,
+    cancelPreviousProvider,
+    referralData,
+    appliedPromoCode,
     vzfDownloaded,
     vzfConfirmed,
     setVzfDownloaded,
     setVzfConfirmed,
     getTotalMonthly,
     getTotalOneTime,
+    getRouterPrice,
+    getRouterDiscount,
+    getSetupFee,
+    isSetupFeeWaived,
     setStep 
   } = useOrder();
 
   const [orderComplete, setOrderComplete] = useState(false);
+  const isFiberBasic = selectedTariff?.id === 'fiber-basic-100';
+  const routerDiscount = getRouterDiscount();
 
   const handleDownloadVZF = () => {
     const vzfContent = `
@@ -47,20 +65,40 @@ VERTRAGSZUSAMMENFASSUNG (VZF)
 COM-IN - Ein Unternehmen der Stadt Ingolstadt
 
 Kunde: ${customerData?.salutation === 'herr' ? 'Herr' : customerData?.salutation === 'frau' ? 'Frau' : ''} ${customerData?.firstName} ${customerData?.lastName}
-Adresse: ${address?.street} ${address?.houseNumber}, ${address?.postalCode} ${address?.city}
+Anschlussadresse: ${address?.street} ${address?.houseNumber}, ${address?.postalCode} ${address?.city}
+${apartmentData ? `Wohnungslage: ${apartmentData.floor}. OG, Wohnung ${apartmentData.apartment}` : ''}
 
 Gewähltes Produkt: ${selectedTariff?.name}
 Geschwindigkeit: ${selectedTariff?.speed}
-Monatliche Kosten: ${selectedTariff?.monthlyPrice.toFixed(2).replace('.', ',')} €
+Vertragslaufzeit: ${isFiberBasic ? contractDuration : 24} Monate
 
-Zusatzoptionen:
-${selectedAddons.map(a => `- ${a.name}: ${a.monthlyPrice > 0 ? a.monthlyPrice.toFixed(2).replace('.', ',') + ' €/Monat' : 'inklusive'}`).join('\n')}
+MONATLICHE KOSTEN:
+- ${selectedTariff?.name}: ${(isFiberBasic && contractDuration === 12 ? selectedTariff?.monthlyPrice12 : selectedTariff?.monthlyPrice)?.toFixed(2).replace('.', ',')} €
+${selectedRouter && selectedRouter.id !== 'router-none' ? `- ${selectedRouter.name}: ${getRouterPrice().toFixed(2).replace('.', ',')} €${routerDiscount > 0 ? ` (${routerDiscount.toFixed(2).replace('.', ',')} € Rabatt)` : ''}` : ''}
+${tvSelection.package ? `- ${tvSelection.package.name}: ${tvSelection.package.monthlyPrice.toFixed(2).replace('.', ',')} €` : ''}
+${tvSelection.type === 'comin' && !tvSelection.package ? '- COM-IN TV: 10,00 €' : ''}
+${tvSelection.hdAddon ? `- ${tvSelection.hdAddon.name}: ${tvSelection.hdAddon.monthlyPrice.toFixed(2).replace('.', ',')} €` : ''}
+${tvSelection.hardware.filter(h => h.monthlyPrice > 0).map(h => `- ${h.name}: ${h.monthlyPrice.toFixed(2).replace('.', ',')} €`).join('\n')}
+${phoneSelection.enabled && !isFiberBasic ? `- Telefon-Flat (${phoneSelection.lines} Leitung(en)): ${(phoneSelection.lines * 2.95).toFixed(2).replace('.', ',')} €` : ''}
 
-Vertragslaufzeit: ${contractDuration} Monate
+EINMALIGE KOSTEN:
+- Bereitstellung inkl. Einrichtung: ${getSetupFee().toFixed(2).replace('.', ',')} €${isSetupFeeWaived() ? ' (entfällt durch Aktionscode)' : ''}
+${tvSelection.hardware.filter(h => h.oneTimePrice > 0).map(h => `- ${h.name}: ${h.oneTimePrice.toFixed(2).replace('.', ',')} €`).join('\n')}
+${tvSelection.waipuStick ? '- waipu.tv 4K Stick: 40,00 €' : ''}
 
 GESAMTKOSTEN:
 - Monatlich: ${getTotalMonthly().toFixed(2).replace('.', ',')} €
 - Einmalig: ${getTotalOneTime().toFixed(2).replace('.', ',')} €
+
+BANKVERBINDUNG:
+Kontoinhaber: ${bankData?.accountHolder}
+IBAN: ${bankData?.iban}
+
+Wunschtermin: ${preferredDateType === 'asap' ? 'Schnellstmöglich' : preferredDate}
+Bisherigen Anbieter kündigen: ${cancelPreviousProvider ? 'Ja' : 'Nein'}
+
+${appliedPromoCode ? `Aktionscode: ${appliedPromoCode.code} - ${appliedPromoCode.description}` : ''}
+${referralData.type === 'referral' ? `Kunden werben Kunden - Werber-Kundennr: ${referralData.referrerCustomerId}` : ''}
 
 Datum: ${new Date().toLocaleDateString('de-DE')}
 
@@ -154,6 +192,11 @@ Ein Unternehmen der Stadt Ingolstadt
               <p className="text-muted-foreground mt-1">
                 {address?.street} {address?.houseNumber}, {address?.postalCode} {address?.city}
               </p>
+              {apartmentData && (
+                <p className="text-muted-foreground text-sm">
+                  {apartmentData.floor}. OG, Wohnung {apartmentData.apartment}
+                </p>
+              )}
               <span className={cn(
                 "inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full",
                 address?.connectionType === 'ftth' ? "bg-success/10 text-success" : "bg-accent/10 text-accent"
@@ -179,6 +222,36 @@ Ein Unternehmen der Stadt Ingolstadt
           </div>
         </div>
 
+        {/* Bankdaten */}
+        <div className="bg-card rounded-xl shadow-soft p-5">
+          <div className="flex items-start gap-4">
+            <CreditCard className="w-5 h-5 text-accent mt-0.5" />
+            <div>
+              <h4 className="font-bold text-primary">Bankverbindung</h4>
+              <div className="text-muted-foreground mt-1 space-y-0.5">
+                <p>{bankData?.accountHolder}</p>
+                <p className="font-mono text-sm">{bankData?.iban}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Wunschtermin */}
+        <div className="bg-card rounded-xl shadow-soft p-5">
+          <div className="flex items-start gap-4">
+            <Calendar className="w-5 h-5 text-accent mt-0.5" />
+            <div>
+              <h4 className="font-bold text-primary">Wunschtermin</h4>
+              <p className="text-muted-foreground mt-1">
+                {preferredDateType === 'asap' ? 'Schnellstmöglich' : preferredDate}
+              </p>
+              <p className="text-muted-foreground text-sm">
+                Bisherigen Anbieter kündigen: {cancelPreviousProvider ? 'Ja' : 'Nein'}
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Tarif */}
         <div className="bg-card rounded-xl shadow-soft p-5">
           <div className="flex items-start gap-4">
@@ -187,29 +260,125 @@ Ein Unternehmen der Stadt Ingolstadt
               <div className="flex justify-between items-start">
                 <div>
                   <h4 className="font-bold text-primary">{selectedTariff?.name}</h4>
-                  <p className="text-muted-foreground mt-1">{selectedTariff?.speed} • {contractDuration} Monate Laufzeit</p>
+                  <p className="text-muted-foreground mt-1">{selectedTariff?.speed} • {isFiberBasic ? contractDuration : 24} Monate Laufzeit</p>
+                  {isFiberBasic && (
+                    <p className="text-xs text-success mt-1">✓ Telefon inklusive</p>
+                  )}
                 </div>
-                <p className="font-bold text-accent text-lg">{selectedTariff?.monthlyPrice.toFixed(2).replace('.', ',')} €/Monat</p>
+                <p className="font-bold text-accent text-lg">
+                  {(isFiberBasic && contractDuration === 12 ? selectedTariff?.monthlyPrice12 : selectedTariff?.monthlyPrice)?.toFixed(2).replace('.', ',')} €/Monat
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Addons */}
-        {selectedAddons.length > 0 && (
+        {/* Router */}
+        {selectedRouter && selectedRouter.id !== 'router-none' && (
           <div className="bg-card rounded-xl shadow-soft p-5">
             <div className="flex items-start gap-4">
-              <Package className="w-5 h-5 text-accent mt-0.5" />
+              <Router className="w-5 h-5 text-accent mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-bold text-primary">Zusatzoptionen</h4>
-                <div className="mt-2 space-y-2">
-                  {selectedAddons.map(addon => (
-                    <div key={addon.id} className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">{addon.name}</span>
-                      <span className="font-medium">{addon.monthlyPrice > 0 ? `${addon.monthlyPrice.toFixed(2).replace('.', ',')} €/Monat` : 'inklusive'}</span>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-bold text-primary">{selectedRouter.name}</h4>
+                    <p className="text-muted-foreground mt-1 text-sm">{selectedRouter.description}</p>
+                    {routerDiscount > 0 && (
+                      <p className="text-success text-sm mt-1">-{routerDiscount.toFixed(2).replace('.', ',')} € Rabatt</p>
+                    )}
+                  </div>
+                  <p className="font-bold text-accent">{getRouterPrice().toFixed(2).replace('.', ',')} €/Monat</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TV */}
+        {(tvSelection.type !== 'none' || tvSelection.package) && (
+          <div className="bg-card rounded-xl shadow-soft p-5">
+            <div className="flex items-start gap-4">
+              <Tv className="w-5 h-5 text-accent mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-bold text-primary">TV-Paket</h4>
+                <div className="mt-2 space-y-1 text-sm">
+                  {tvSelection.type === 'comin' && (
+                    <div className="flex justify-between">
+                      <span>COM-IN TV</span>
+                      <span>10,00 €/Monat</span>
+                    </div>
+                  )}
+                  {tvSelection.package && tvSelection.type === 'waipu' && (
+                    <div className="flex justify-between">
+                      <span>{tvSelection.package.name}</span>
+                      <span>{tvSelection.package.monthlyPrice.toFixed(2).replace('.', ',')} €/Monat</span>
+                    </div>
+                  )}
+                  {tvSelection.hdAddon && (
+                    <div className="flex justify-between">
+                      <span>{tvSelection.hdAddon.name}</span>
+                      <span>{tvSelection.hdAddon.monthlyPrice.toFixed(2).replace('.', ',')} €/Monat</span>
+                    </div>
+                  )}
+                  {tvSelection.hardware.map(hw => (
+                    <div key={hw.id} className="flex justify-between text-muted-foreground">
+                      <span>{hw.name}</span>
+                      <span>{hw.monthlyPrice > 0 ? `${hw.monthlyPrice.toFixed(2).replace('.', ',')} €/Monat` : `${hw.oneTimePrice.toFixed(2).replace('.', ',')} € einm.`}</span>
                     </div>
                   ))}
+                  {tvSelection.waipuStick && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>waipu.tv 4K Stick</span>
+                      <span>40,00 € einm.</span>
+                    </div>
+                  )}
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Telefon */}
+        {phoneSelection.enabled && !isFiberBasic && (
+          <div className="bg-card rounded-xl shadow-soft p-5">
+            <div className="flex items-start gap-4">
+              <Phone className="w-5 h-5 text-accent mt-0.5" />
+              <div className="flex-1">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-bold text-primary">Telefon-Flat Festnetz</h4>
+                    <p className="text-muted-foreground mt-1 text-sm">{phoneSelection.lines} Leitung(en)</p>
+                    {phoneSelection.portingRequired && phoneSelection.portingData && (
+                      <p className="text-muted-foreground text-sm">
+                        Rufnummernportierung: {phoneSelection.portingData.numberOfNumbers} Nummer(n) von {phoneSelection.portingData.previousProvider}
+                      </p>
+                    )}
+                  </div>
+                  <p className="font-bold text-accent">{(phoneSelection.lines * 2.95).toFixed(2).replace('.', ',')} €/Monat</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Promo Code / Referral */}
+        {(appliedPromoCode || referralData.type === 'referral') && (
+          <div className="bg-success/5 rounded-xl p-5 border border-success/20">
+            <div className="flex items-start gap-4">
+              {appliedPromoCode ? <Tag className="w-5 h-5 text-success mt-0.5" /> : <Gift className="w-5 h-5 text-success mt-0.5" />}
+              <div>
+                {appliedPromoCode && (
+                  <div>
+                    <h4 className="font-bold text-success">Aktionscode: {appliedPromoCode.code}</h4>
+                    <p className="text-success/80 text-sm mt-1">{appliedPromoCode.description}</p>
+                  </div>
+                )}
+                {referralData.type === 'referral' && (
+                  <div className={appliedPromoCode ? 'mt-3' : ''}>
+                    <h4 className="font-bold text-success">Kunden werben Kunden</h4>
+                    <p className="text-success/80 text-sm mt-1">50€ Prämie für Sie und den Werber (Kd-Nr: {referralData.referrerCustomerId})</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -223,11 +392,12 @@ Ein Unternehmen der Stadt Ingolstadt
               <span>Monatliche Kosten</span>
               <span className="font-bold text-xl text-accent">{getTotalMonthly().toFixed(2).replace('.', ',')} €</span>
             </div>
-            {getTotalOneTime() > 0 && (
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Einmalige Kosten</span>
-                <span>{getTotalOneTime().toFixed(2).replace('.', ',')} €</span>
-              </div>
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>Einmalige Kosten</span>
+              <span>{getTotalOneTime().toFixed(2).replace('.', ',')} €</span>
+            </div>
+            {isSetupFeeWaived() && (
+              <p className="text-success text-sm">✓ Anschlussgebühr entfällt durch Aktionscode</p>
             )}
           </div>
         </div>
