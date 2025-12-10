@@ -20,10 +20,15 @@ import { toast } from '@/hooks/use-toast';
 export function OrderSummary() {
   const { 
     address, 
-    selectedTariff, 
+    selectedTariff,
+    selectedRouter,
+    selectedTv, 
     selectedAddons, 
     contractDuration,
     customerData,
+    bankData,
+    preferredDateType,
+    preferredDate,
     vzfDownloaded,
     vzfConfirmed,
     setVzfDownloaded,

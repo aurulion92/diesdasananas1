@@ -19,13 +19,23 @@ export function getConnectionType(ausbauart: string): ConnectionType {
   const normalized = ausbauart.toLowerCase().trim();
   
   // FTTH = All tariffs available
-  if (normalized === 'ftth') {
+  const ftthTypes = [
+    'ftth',
+    'mfh, ftth bis pop',
+    'mfh, ftth bis aktivtechnik',
+    'aktivtechnik'
+  ];
+  
+  if (ftthTypes.some(type => normalized === type.toLowerCase() || normalized.includes(type.toLowerCase()))) {
     return 'ftth';
   }
   
   // Limited connection types = Only FiberBasic 100
   const limitedTypes = [
     'mfh, gfast',
+    'fttb (g.fast)',
+    'fttb',
+    'mfh, fttb',
     'efh, allnet-konverter vdsl',
     'allnet-konverter,',
     'allnet-konverter',
@@ -101,6 +111,50 @@ export async function checkAddress(
   );
   
   return found || null;
+}
+
+// Get unique streets for autocomplete (min 3 characters)
+export async function searchStreets(query: string, city: string): Promise<string[]> {
+  if (query.length < 3) return [];
+  
+  const addresses = await loadAddresses();
+  const normalizedCity = city.toLowerCase().trim();
+  const normalizedQuery = query.toLowerCase().trim();
+  
+  const streets = new Set<string>();
+  addresses
+    .filter(addr => 
+      addr.city.toLowerCase() === normalizedCity &&
+      addr.street.toLowerCase().includes(normalizedQuery)
+    )
+    .forEach(addr => streets.add(addr.street));
+  
+  return Array.from(streets).sort().slice(0, 10);
+}
+
+// Get house numbers for a specific street
+export async function getHouseNumbers(street: string, city: string): Promise<string[]> {
+  const addresses = await loadAddresses();
+  const normalizedStreet = street.toLowerCase().trim();
+  const normalizedCity = city.toLowerCase().trim();
+  
+  const houseNumbers = new Set<string>();
+  addresses
+    .filter(addr => 
+      addr.city.toLowerCase() === normalizedCity &&
+      addr.street.toLowerCase() === normalizedStreet
+    )
+    .forEach(addr => houseNumbers.add(addr.houseNumber));
+  
+  // Sort house numbers naturally (1, 2, 3, 10, 11... not 1, 10, 11, 2, 3...)
+  return Array.from(houseNumbers).sort((a, b) => {
+    const numA = parseInt(a, 10);
+    const numB = parseInt(b, 10);
+    if (!isNaN(numA) && !isNaN(numB)) {
+      return numA - numB;
+    }
+    return a.localeCompare(b);
+  });
 }
 
 // Get unique streets for autocomplete (optional)

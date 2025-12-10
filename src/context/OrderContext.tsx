@@ -11,14 +11,25 @@ interface CustomerData {
   birthDate: string;
 }
 
+interface BankData {
+  accountHolder: string;
+  iban: string;
+  bic?: string;
+}
+
 interface OrderState {
   step: number;
   address: AddressData | null;
   connectionType: ConnectionType | null;
   selectedTariff: TariffOption | null;
+  selectedRouter: TariffAddon | null;
+  selectedTv: TariffAddon | null;
   selectedAddons: TariffAddon[];
   contractDuration: 12 | 24;
   customerData: CustomerData | null;
+  bankData: BankData | null;
+  preferredDate: string | null;
+  preferredDateType: 'asap' | 'specific' | null;
   vzfDownloaded: boolean;
   vzfConfirmed: boolean;
 }
@@ -28,14 +39,20 @@ interface OrderContextType extends OrderState {
   setAddress: (address: AddressData) => void;
   setConnectionType: (type: ConnectionType) => void;
   setSelectedTariff: (tariff: TariffOption) => void;
+  setSelectedRouter: (router: TariffAddon | null) => void;
+  setSelectedTv: (tv: TariffAddon | null) => void;
   toggleAddon: (addon: TariffAddon) => void;
   setContractDuration: (duration: 12 | 24) => void;
   setCustomerData: (data: CustomerData) => void;
+  setBankData: (data: BankData) => void;
+  setPreferredDate: (date: string | null) => void;
+  setPreferredDateType: (type: 'asap' | 'specific' | null) => void;
   setVzfDownloaded: (downloaded: boolean) => void;
   setVzfConfirmed: (confirmed: boolean) => void;
   getTotalMonthly: () => number;
   getTotalOneTime: () => number;
   resetOrder: () => void;
+  canNavigateToStep: (step: number) => boolean;
 }
 
 const initialState: OrderState = {
@@ -43,9 +60,14 @@ const initialState: OrderState = {
   address: null,
   connectionType: null,
   selectedTariff: null,
+  selectedRouter: null,
+  selectedTv: null,
   selectedAddons: [],
   contractDuration: 24,
   customerData: null,
+  bankData: null,
+  preferredDate: null,
+  preferredDateType: null,
   vzfDownloaded: false,
   vzfConfirmed: false,
 };
@@ -68,6 +90,12 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   
   const setSelectedTariff = (selectedTariff: TariffOption) => 
     setState(prev => ({ ...prev, selectedTariff }));
+
+  const setSelectedRouter = (selectedRouter: TariffAddon | null) =>
+    setState(prev => ({ ...prev, selectedRouter }));
+
+  const setSelectedTv = (selectedTv: TariffAddon | null) =>
+    setState(prev => ({ ...prev, selectedTv }));
   
   const toggleAddon = (addon: TariffAddon) => {
     setState(prev => {
@@ -75,9 +103,9 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       if (exists) {
         return { ...prev, selectedAddons: prev.selectedAddons.filter(a => a.id !== addon.id) };
       }
-      // Remove other addons of same category if it's router
-      if (addon.category === 'router') {
-        const filtered = prev.selectedAddons.filter(a => a.category !== 'router');
+      // Remove other addons of same category if it's router or tv
+      if (addon.category === 'router' || addon.category === 'tv') {
+        const filtered = prev.selectedAddons.filter(a => a.category !== addon.category);
         return { ...prev, selectedAddons: [...filtered, addon] };
       }
       return { ...prev, selectedAddons: [...prev.selectedAddons, addon] };
@@ -89,6 +117,15 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   
   const setCustomerData = (customerData: CustomerData) => 
     setState(prev => ({ ...prev, customerData }));
+
+  const setBankData = (bankData: BankData) =>
+    setState(prev => ({ ...prev, bankData }));
+
+  const setPreferredDate = (preferredDate: string | null) =>
+    setState(prev => ({ ...prev, preferredDate }));
+
+  const setPreferredDateType = (preferredDateType: 'asap' | 'specific' | null) =>
+    setState(prev => ({ ...prev, preferredDateType }));
   
   const setVzfDownloaded = (vzfDownloaded: boolean) => 
     setState(prev => ({ ...prev, vzfDownloaded }));
@@ -98,18 +135,42 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
   const getTotalMonthly = () => {
     let total = state.selectedTariff?.monthlyPrice || 0;
+    if (state.selectedRouter && state.selectedRouter.monthlyPrice > 0) {
+      total += state.selectedRouter.monthlyPrice;
+    }
+    if (state.selectedTv && state.selectedTv.monthlyPrice > 0) {
+      total += state.selectedTv.monthlyPrice;
+    }
     state.selectedAddons.forEach(addon => {
       total += addon.monthlyPrice;
     });
+    // Add 5€ for 12 month contract
+    if (state.contractDuration === 12) {
+      total += 5;
+    }
     return total;
   };
 
   const getTotalOneTime = () => {
     let total = state.selectedTariff?.setupFee || 0;
+    if (state.selectedRouter) {
+      total += state.selectedRouter.oneTimePrice;
+    }
+    if (state.selectedTv) {
+      total += state.selectedTv.oneTimePrice;
+    }
     state.selectedAddons.forEach(addon => {
       total += addon.oneTimePrice;
     });
     return total;
+  };
+
+  const canNavigateToStep = (step: number): boolean => {
+    if (step === 1) return true;
+    if (step === 2) return !!state.address && state.connectionType !== 'not-connected';
+    if (step === 3) return !!state.selectedTariff;
+    if (step === 4) return !!state.customerData && !!state.bankData;
+    return false;
   };
 
   const resetOrder = () => setState(initialState);
@@ -121,14 +182,20 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       setAddress,
       setConnectionType,
       setSelectedTariff,
+      setSelectedRouter,
+      setSelectedTv,
       toggleAddon,
       setContractDuration,
       setCustomerData,
+      setBankData,
+      setPreferredDate,
+      setPreferredDateType,
       setVzfDownloaded,
       setVzfConfirmed,
       getTotalMonthly,
       getTotalOneTime,
       resetOrder,
+      canNavigateToStep,
     }}>
       {children}
     </OrderContext.Provider>

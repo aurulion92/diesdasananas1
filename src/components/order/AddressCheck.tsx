@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useOrder } from '@/context/OrderContext';
-import { checkAddress, ConnectionType } from '@/data/addressDatabase';
+import { checkAddress, searchStreets, getHouseNumbers, ConnectionType } from '@/data/addressDatabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Rocket, Loader2, AlertCircle, CheckCircle2, Phone, AlertTriangle } from 'lucide-react';
+import { Rocket, Loader2, AlertCircle, CheckCircle2, AlertTriangle, ChevronDown } from 'lucide-react';
 import { ContactForm } from './ContactForm';
+import { cn } from '@/lib/utils';
 
 export function AddressCheck() {
   const { setAddress, setStep, setConnectionType } = useOrder();
@@ -14,6 +15,86 @@ export function AddressCheck() {
   const [isChecking, setIsChecking] = useState(false);
   const [result, setResult] = useState<'ftth' | 'limited' | 'not-connected' | 'not-found' | null>(null);
   const [foundAddress, setFoundAddress] = useState<{ street: string; houseNumber: string; city: string } | null>(null);
+
+  // Autocomplete states
+  const [streetSuggestions, setStreetSuggestions] = useState<string[]>([]);
+  const [houseNumberSuggestions, setHouseNumberSuggestions] = useState<string[]>([]);
+  const [showStreetDropdown, setShowStreetDropdown] = useState(false);
+  const [showHouseNumberDropdown, setShowHouseNumberDropdown] = useState(false);
+  const [isLoadingStreets, setIsLoadingStreets] = useState(false);
+  const [isLoadingHouseNumbers, setIsLoadingHouseNumbers] = useState(false);
+
+  const streetInputRef = useRef<HTMLInputElement>(null);
+  const houseNumberInputRef = useRef<HTMLInputElement>(null);
+  const streetDropdownRef = useRef<HTMLDivElement>(null);
+  const houseNumberDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Search streets when typing (min 3 chars)
+  useEffect(() => {
+    const searchStreetsAsync = async () => {
+      if (street.length >= 3) {
+        setIsLoadingStreets(true);
+        const results = await searchStreets(street, city);
+        setStreetSuggestions(results);
+        setShowStreetDropdown(results.length > 0);
+        setIsLoadingStreets(false);
+      } else {
+        setStreetSuggestions([]);
+        setShowStreetDropdown(false);
+      }
+    };
+
+    const debounce = setTimeout(searchStreetsAsync, 200);
+    return () => clearTimeout(debounce);
+  }, [street, city]);
+
+  // Load house numbers when street is selected
+  useEffect(() => {
+    const loadHouseNumbers = async () => {
+      if (street && streetSuggestions.includes(street)) {
+        setIsLoadingHouseNumbers(true);
+        const results = await getHouseNumbers(street, city);
+        setHouseNumberSuggestions(results);
+        setIsLoadingHouseNumbers(false);
+      } else {
+        setHouseNumberSuggestions([]);
+      }
+    };
+
+    loadHouseNumbers();
+  }, [street, city, streetSuggestions]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (streetDropdownRef.current && !streetDropdownRef.current.contains(event.target as Node) &&
+          !streetInputRef.current?.contains(event.target as Node)) {
+        setShowStreetDropdown(false);
+      }
+      if (houseNumberDropdownRef.current && !houseNumberDropdownRef.current.contains(event.target as Node) &&
+          !houseNumberInputRef.current?.contains(event.target as Node)) {
+        setShowHouseNumberDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleStreetSelect = (selectedStreet: string) => {
+    setStreet(selectedStreet);
+    setShowStreetDropdown(false);
+    setHouseNumber('');
+    setResult(null);
+    // Focus house number input after selecting street
+    setTimeout(() => houseNumberInputRef.current?.focus(), 100);
+  };
+
+  const handleHouseNumberSelect = (selectedNumber: string) => {
+    setHouseNumber(selectedNumber);
+    setShowHouseNumberDropdown(false);
+    setResult(null);
+  };
 
   const handleCheck = async () => {
     setIsChecking(true);
@@ -49,6 +130,10 @@ export function AddressCheck() {
     setStep(2);
   };
 
+  // Check if house number exists in suggestions
+  const isValidHouseNumber = houseNumberSuggestions.includes(houseNumber);
+  const isValidStreet = streetSuggestions.includes(street) || street.length < 3;
+
   return (
     <div className="max-w-3xl mx-auto animate-slide-up">
       {/* Hero Section */}
@@ -71,29 +156,118 @@ export function AddressCheck() {
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {/* Stadt */}
           <div>
             <Input
               placeholder="Stadt"
               value={city}
-              onChange={(e) => setCity(e.target.value)}
+              onChange={(e) => {
+                setCity(e.target.value);
+                setStreet('');
+                setHouseNumber('');
+                setResult(null);
+              }}
               className="h-12 rounded-full bg-background border-border text-center"
             />
           </div>
-          <div>
-            <Input
-              placeholder="Straße"
-              value={street}
-              onChange={(e) => setStreet(e.target.value)}
-              className="h-12 rounded-full bg-background border-border text-center"
-            />
+
+          {/* Straße mit Autocomplete */}
+          <div className="relative">
+            <div className="relative">
+              <Input
+                ref={streetInputRef}
+                placeholder="Straße (mind. 3 Zeichen)"
+                value={street}
+                onChange={(e) => {
+                  setStreet(e.target.value);
+                  setHouseNumber('');
+                  setResult(null);
+                }}
+                onFocus={() => {
+                  if (streetSuggestions.length > 0) {
+                    setShowStreetDropdown(true);
+                  }
+                }}
+                className={cn(
+                  "h-12 rounded-full bg-background border-border text-center pr-10",
+                  isLoadingStreets && "pr-10"
+                )}
+              />
+              {isLoadingStreets && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 animate-spin text-muted-foreground" />
+              )}
+              {!isLoadingStreets && streetSuggestions.length > 0 && (
+                <ChevronDown 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground cursor-pointer"
+                  onClick={() => setShowStreetDropdown(!showStreetDropdown)}
+                />
+              )}
+            </div>
+            
+            {showStreetDropdown && streetSuggestions.length > 0 && (
+              <div 
+                ref={streetDropdownRef}
+                className="absolute z-50 w-full mt-1 bg-card border border-border rounded-xl shadow-lg max-h-60 overflow-auto"
+              >
+                {streetSuggestions.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    className="w-full px-4 py-3 text-left hover:bg-accent/10 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                    onClick={() => handleStreetSelect(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <div>
-            <Input
-              placeholder="Hausnummer"
-              value={houseNumber}
-              onChange={(e) => setHouseNumber(e.target.value)}
-              className="h-12 rounded-full bg-background border-border text-center"
-            />
+
+          {/* Hausnummer mit Dropdown */}
+          <div className="relative">
+            <div className="relative">
+              <Input
+                ref={houseNumberInputRef}
+                placeholder="Hausnummer"
+                value={houseNumber}
+                onChange={(e) => {
+                  setHouseNumber(e.target.value);
+                  setResult(null);
+                }}
+                onFocus={() => {
+                  if (houseNumberSuggestions.length > 0) {
+                    setShowHouseNumberDropdown(true);
+                  }
+                }}
+                disabled={!street || !streetSuggestions.includes(street)}
+                className={cn(
+                  "h-12 rounded-full bg-background border-border text-center pr-10",
+                  (!street || !streetSuggestions.includes(street)) && "opacity-50 cursor-not-allowed"
+                )}
+              />
+              {houseNumberSuggestions.length > 0 && (
+                <ChevronDown 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground cursor-pointer"
+                  onClick={() => setShowHouseNumberDropdown(!showHouseNumberDropdown)}
+                />
+              )}
+            </div>
+
+            {showHouseNumberDropdown && houseNumberSuggestions.length > 0 && (
+              <div 
+                ref={houseNumberDropdownRef}
+                className="absolute z-50 w-full mt-1 bg-card border border-border rounded-xl shadow-lg max-h-60 overflow-auto"
+              >
+                {houseNumberSuggestions.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    className="w-full px-4 py-3 text-left hover:bg-accent/10 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                    onClick={() => handleHouseNumberSelect(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -102,7 +276,7 @@ export function AddressCheck() {
             onClick={handleCheck} 
             variant="orange"
             size="lg"
-            disabled={!street || !houseNumber || !city || isChecking}
+            disabled={!street || !houseNumber || !city || isChecking || !isValidHouseNumber}
             className="px-10"
           >
             {isChecking ? (
@@ -115,6 +289,13 @@ export function AddressCheck() {
             )}
           </Button>
         </div>
+
+        {/* Hinweis wenn Hausnummer nicht in der Liste */}
+        {houseNumber && !isValidHouseNumber && houseNumberSuggestions.length > 0 && (
+          <p className="text-sm text-destructive mt-2 text-center">
+            Diese Hausnummer ist nicht in unserer Datenbank. Bitte wählen Sie eine aus der Liste.
+          </p>
+        )}
 
         {/* FTTH - Alle Tarife verfügbar */}
         {result === 'ftth' && (
@@ -201,8 +382,7 @@ export function AddressCheck() {
       {/* Demo Hinweis */}
       <div className="mt-6 p-4 bg-primary/5 rounded-xl border border-primary/10">
         <p className="text-sm text-muted-foreground text-center">
-          <strong>Demo:</strong> Testen Sie z.B. "Adam-Lechner-Straße 1" (FTTH) 
-          oder "Adam-Lechner-Straße 5" (Nicht ausgebaut)
+          <strong>Demo:</strong> Tippen Sie z.B. "Ada" um Straßenvorschläge zu sehen
         </p>
       </div>
     </div>
