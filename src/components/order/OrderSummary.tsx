@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { downloadVZF } from '@/utils/generateVZF';
 
 export function OrderSummary() {
   const { 
@@ -63,69 +64,26 @@ export function OrderSummary() {
   const routerDiscount = getRouterDiscount();
 
   const handleDownloadVZF = () => {
-    const vzfContent = `
-VERTRAGSZUSAMMENFASSUNG (VZF)
-==============================
-COM-IN - Ein Unternehmen der Stadt Ingolstadt
+    if (!selectedTariff) return;
 
-Kunde: ${customerData?.salutation === 'herr' ? 'Herr' : customerData?.salutation === 'frau' ? 'Frau' : ''} ${customerData?.firstName} ${customerData?.lastName}
-Anschlussadresse: ${address?.street} ${address?.houseNumber}, ${address?.postalCode} ${address?.city}
-${apartmentData ? `Wohnungslage: ${apartmentData.floor}. OG, Wohnung ${apartmentData.apartment}` : ''}
-
-Gewähltes Produkt: ${selectedTariff?.name}
-Geschwindigkeit: ${selectedTariff?.speed}
-Vertragslaufzeit: ${isFiberBasic ? contractDuration : 24} Monate
-
-MONATLICHE KOSTEN:
-- ${selectedTariff?.name}: ${(isFiberBasic && contractDuration === 12 ? selectedTariff?.monthlyPrice12 : selectedTariff?.monthlyPrice)?.toFixed(2).replace('.', ',')} €
-${selectedRouter && selectedRouter.id !== 'router-none' ? `- ${selectedRouter.name}: ${getRouterPrice().toFixed(2).replace('.', ',')} €${routerDiscount > 0 ? ` (${routerDiscount.toFixed(2).replace('.', ',')} € Rabatt)` : ''}` : ''}
-${tvSelection.type === 'comin' ? '- COM-IN TV: 10,00 €' : ''}
-${tvSelection.type === 'waipu' && tvSelection.package ? `- ${tvSelection.package.name}: ${tvSelection.package.monthlyPrice.toFixed(2).replace('.', ',')} €` : ''}
-${tvSelection.hdAddon ? `- ${tvSelection.hdAddon.name}: ${tvSelection.hdAddon.monthlyPrice.toFixed(2).replace('.', ',')} €` : ''}
-${tvSelection.hardware.filter(h => h.monthlyPrice > 0).map(h => `- ${h.name}: ${h.monthlyPrice.toFixed(2).replace('.', ',')} €`).join('\n')}
-${phoneSelection.enabled && !isFiberBasic ? `- Telefon-Flat (${phoneSelection.lines} Leitung(en)): ${(phoneSelection.lines * 2.95).toFixed(2).replace('.', ',')} €` : ''}
-
-EINMALIGE KOSTEN:
-- Bereitstellung inkl. Einrichtung: ${getSetupFee().toFixed(2).replace('.', ',')} €${isSetupFeeWaived() ? ' (entfällt durch Aktionscode)' : ''}
-${expressActivation ? '- Express-Anschaltung: 200,00 €' : ''}
-${tvSelection.hardware.filter(h => h.oneTimePrice > 0).map(h => `- ${h.name}: ${h.oneTimePrice.toFixed(2).replace('.', ',')} €`).join('\n')}
-${tvSelection.waipuStick ? '- waipu.tv 4K Stick: 40,00 €' : ''}
-
-GESAMTKOSTEN:
-- Monatlich: ${getTotalMonthly().toFixed(2).replace('.', ',')} €
-- Einmalig: ${getTotalOneTime().toFixed(2).replace('.', ',')} €
-
-BANKVERBINDUNG:
-Kontoinhaber: ${bankData?.accountHolder}
-IBAN: ${bankData?.iban}
-
-Wunschtermin: ${preferredDateType === 'asap' ? 'Schnellstmöglich' : preferredDate}
-${expressActivation ? 'Express-Anschaltung: Ja (innerhalb 3 Werktage)' : ''}
-${cancelPreviousProvider && providerCancellationData ? `
-WECHSELSERVICE:
-Bisheriger Anbieter: ${providerCancellationData.providerName}
-Telefonnummer: ${providerCancellationData.customerNumber}
-Übergang: ${providerCancellationData.portToNewConnection ? 'Nahtlos (Portierung)' : providerCancellationData.preferredDate === 'asap' ? 'Schnellstmöglich' : providerCancellationData.specificDate}
-` : ''}
-
-${appliedPromoCode ? `Aktionscode: ${appliedPromoCode.code} - ${appliedPromoCode.description}` : ''}
-${referralData.type === 'referral' && referralData.referralValidated ? `Kunden werben Kunden - Werber-Kundennr: ${referralData.referrerCustomerId}` : ''}
-
-Datum: ${new Date().toLocaleDateString('de-DE')}
-
-COM-IN GmbH
-Ein Unternehmen der Stadt Ingolstadt
-    `;
-
-    const blob = new Blob([vzfContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'COMIN_Vertragszusammenfassung_VZF.txt';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadVZF({
+      tariff: selectedTariff,
+      router: selectedRouter,
+      tvType: tvSelection.type,
+      tvPackage: tvSelection.package,
+      tvHdAddon: tvSelection.hdAddon,
+      tvHardware: tvSelection.hardware,
+      waipuStick: tvSelection.waipuStick,
+      phoneEnabled: phoneSelection.enabled,
+      phoneLines: phoneSelection.lines,
+      routerDiscount: routerDiscount,
+      setupFee: getSetupFee(),
+      setupFeeWaived: isSetupFeeWaived(),
+      contractDuration: isFiberBasic ? contractDuration : 24,
+      expressActivation: expressActivation,
+      promoCode: appliedPromoCode?.code,
+      isFiberBasic: isFiberBasic,
+    });
     
     setVzfDownloaded(true);
     toast({
