@@ -35,9 +35,11 @@ export function CartSidebar() {
               <span className={cn(
                 "inline-block mt-2 px-2 py-0.5 text-xs font-semibold rounded-full",
                 address.connectionType === 'ftth' && "bg-success/10 text-success",
-                address.connectionType === 'fttb' && "bg-accent/10 text-accent"
+                address.connectionType === 'limited' && "bg-accent/10 text-accent",
+                address.connectionType === 'not-connected' && "bg-destructive/10 text-destructive"
               )}>
-                {address.connectionType === 'ftth' ? 'FTTH' : 'FTTB'}
+                {address.connectionType === 'ftth' ? 'Glasfaser (FTTH)' : 
+                 address.connectionType === 'limited' ? 'Eingeschränkt' : 'Nicht verbunden'}
               </span>
             </div>
           </div>

@@ -21,8 +21,20 @@ export interface TariffAddon {
   category: 'router' | 'phone' | 'tv' | 'security';
 }
 
-// FTTH Tarife - "einfach Internet" Produkte von COM-IN
+// FTTH Tarife - "einfach Internet" Produkte von COM-IN (alle Tarife)
 export const ftthTariffs: TariffOption[] = [
+  {
+    id: "fiber-basic-100",
+    name: "FiberBasic 100",
+    displayName: "100",
+    speed: "100 Mbit/s",
+    downloadSpeed: 100,
+    uploadSpeed: 50,
+    monthlyPrice: 34.90,
+    setupFee: 0,
+    description: "Internet-Flatrate",
+    features: ["100 Mbit/s Download", "50 Mbit/s Upload", "Flatrate", "IPv4 & IPv6"],
+  },
   {
     id: "einfach-150",
     name: "einfach 150",
@@ -74,46 +86,24 @@ export const ftthTariffs: TariffOption[] = [
   },
 ];
 
-// FTTB Tarife (geringere Geschwindigkeiten)
-export const fttbTariffs: TariffOption[] = [
+// Limited connection tariff - nur FiberBasic 100
+export const limitedTariffs: TariffOption[] = [
   {
-    id: "einfach-50",
-    name: "einfach 50",
-    displayName: "50",
-    speed: "50 Mbit/s",
-    downloadSpeed: 50,
-    uploadSpeed: 10,
-    monthlyPrice: 29.00,
-    setupFee: 0,
-    description: "Internet-Flatrate",
-    features: ["50 Mbit/s Download", "10 Mbit/s Upload", "Flatrate", "IPv4 & IPv6"],
-  },
-  {
-    id: "einfach-100",
-    name: "einfach 100",
+    id: "fiber-basic-100",
+    name: "FiberBasic 100",
     displayName: "100",
     speed: "100 Mbit/s",
     downloadSpeed: 100,
-    uploadSpeed: 40,
-    monthlyPrice: 35.00,
-    setupFee: 0,
-    description: "Internet-Flatrate",
-    features: ["100 Mbit/s Download", "40 Mbit/s Upload", "Flatrate", "IPv4 & IPv6"],
-    recommended: true,
-  },
-  {
-    id: "einfach-200",
-    name: "einfach 200",
-    displayName: "200",
-    speed: "200 Mbit/s",
-    downloadSpeed: 200,
     uploadSpeed: 50,
-    monthlyPrice: 42.00,
+    monthlyPrice: 34.90,
     setupFee: 0,
     description: "Internet-Flatrate",
-    features: ["200 Mbit/s Download", "50 Mbit/s Upload", "Flatrate", "IPv4 & IPv6"],
+    features: ["100 Mbit/s Download", "50 Mbit/s Upload", "Flatrate", "IPv4 & IPv6"],
   },
 ];
+
+// Legacy FTTB tariffs (kept for compatibility but may not be used)
+export const fttbTariffs: TariffOption[] = limitedTariffs;
 
 export const tariffAddons: TariffAddon[] = [
   {
