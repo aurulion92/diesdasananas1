@@ -106,6 +106,11 @@ export function CustomerForm() {
     (cancellationData.preferredDate !== 'specific' || cancellationData.specificDate !== null)
   );
 
+  // Bei nahtlosem Übergang ist kein separater Termin nötig
+  const isDateValid = cancelPreviousProvider && cancellationData.portToNewConnection 
+    ? true  // Portierung bestimmt den Termin
+    : (dateType === 'asap' || (dateType === 'specific' && selectedDate));
+
   const isValid = formData.salutation && 
                   formData.firstName && 
                   formData.lastName && 
@@ -116,8 +121,7 @@ export function CustomerForm() {
                   formData.birthDate &&
                   bankData.accountHolder &&
                   bankData.iban.replace(/\s/g, '').length >= 22 &&
-                  dateType !== '' &&
-                  (dateType === 'asap' || (dateType === 'specific' && selectedDate)) &&
+                  isDateValid &&
                   isApartmentValid &&
                   isCancellationValid;
 
@@ -528,6 +532,10 @@ export function CustomerForm() {
                           handleCancellationChange('portToNewConnection', true);
                           handleCancellationChange('preferredDate', null);
                           handleCancellationChange('specificDate', null);
+                          // Bei nahtlosem Übergang: Haupttermin zurücksetzen da Portierung den Termin bestimmt
+                          setDateType('');
+                          setSelectedDate(undefined);
+                          setExpressActivation(false);
                         } else {
                           handleCancellationChange('portToNewConnection', false);
                           handleCancellationChange('preferredDate', value);
