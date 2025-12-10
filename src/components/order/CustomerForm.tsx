@@ -8,7 +8,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { User, ArrowRight, ArrowLeft, CalendarIcon, CreditCard, Clock, Building } from 'lucide-react';
+import { User, ArrowRight, ArrowLeft, CalendarIcon, CreditCard, Clock, Building, Phone, Zap, AlertCircle } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -21,7 +21,12 @@ export function CustomerForm() {
     setPreferredDateType, 
     setApartmentData,
     setCancelPreviousProvider,
+    setProviderCancellationData,
+    setExpressActivation,
     cancelPreviousProvider,
+    providerCancellationData,
+    expressActivation,
+    connectionType,
     isMFH,
     setStep 
   } = useOrder();
@@ -45,10 +50,20 @@ export function CustomerForm() {
     apartment: '',
   });
 
+  const [cancellationData, setCancellationData] = useState({
+    providerName: '',
+    customerNumber: '',
+    portToNewConnection: true,
+    preferredDate: null as 'asap' | 'specific' | null,
+    specificDate: null as string | null,
+  });
+
   const [dateType, setDateType] = useState<'asap' | 'specific' | ''>('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [cancellationDate, setCancellationDate] = useState<Date | undefined>(undefined);
 
   const isMFHBuilding = isMFH();
+  const canHaveExpress = connectionType === 'ftth' || connectionType === 'limited';
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -60,6 +75,10 @@ export function CustomerForm() {
 
   const handleApartmentChange = (field: string, value: string) => {
     setApartmentLocal(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCancellationChange = (field: string, value: any) => {
+    setCancellationData(prev => ({ ...prev, [field]: value }));
   };
 
   // Format IBAN with spaces
@@ -79,6 +98,14 @@ export function CustomerForm() {
 
   const isApartmentValid = !isMFHBuilding || (apartmentLocal.floor && apartmentLocal.apartment);
 
+  // Cancellation validation - need provider name and customer number
+  const isCancellationValid = !cancelPreviousProvider || (
+    cancellationData.providerName.trim() !== '' &&
+    cancellationData.customerNumber.trim() !== '' &&
+    (cancellationData.portToNewConnection || cancellationData.preferredDate !== null) &&
+    (cancellationData.preferredDate !== 'specific' || cancellationData.specificDate !== null)
+  );
+
   const isValid = formData.salutation && 
                   formData.firstName && 
                   formData.lastName && 
@@ -91,7 +118,8 @@ export function CustomerForm() {
                   bankData.iban.replace(/\s/g, '').length >= 22 &&
                   dateType !== '' &&
                   (dateType === 'asap' || (dateType === 'specific' && selectedDate)) &&
-                  isApartmentValid;
+                  isApartmentValid &&
+                  isCancellationValid;
 
   const handleContinue = () => {
     if (isValid) {
@@ -105,6 +133,15 @@ export function CustomerForm() {
       }
       if (isMFHBuilding && apartmentLocal.floor && apartmentLocal.apartment) {
         setApartmentData(apartmentLocal);
+      }
+      if (cancelPreviousProvider) {
+        setProviderCancellationData({
+          providerName: cancellationData.providerName,
+          customerNumber: cancellationData.customerNumber,
+          portToNewConnection: cancellationData.portToNewConnection,
+          preferredDate: cancellationData.portToNewConnection ? null : cancellationData.preferredDate,
+          specificDate: cancellationData.portToNewConnection ? null : cancellationData.specificDate,
+        });
       }
       setStep(4);
     }
@@ -329,49 +366,216 @@ export function CustomerForm() {
                 </Label>
                 
                 {dateType === 'specific' && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal h-12 rounded-xl",
-                          !selectedDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {selectedDate ? format(selectedDate, "PPP", { locale: de }) : "Datum wählen"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-card border border-border z-50" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={setSelectedDate}
-                        disabled={(date) => date < minDate}
-                        initialFocus
-                        className="pointer-events-auto"
-                        locale={de}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal h-12 rounded-xl",
+                            !selectedDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {selectedDate ? format(selectedDate, "PPP", { locale: de }) : "Datum wählen"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-card border border-border z-50" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={setSelectedDate}
+                          disabled={(date) => date < minDate}
+                          initialFocus
+                          className="pointer-events-auto"
+                          locale={de}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <div className="mt-2 p-3 bg-muted/50 rounded-lg flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <p className="text-xs text-muted-foreground">
+                        Bitte beachten Sie: Es handelt sich um einen unverbindlichen Wunschtermin. 
+                        Unsere Anschaltzeiten betragen aktuell ca. 2-3 Wochen.
+                      </p>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
           </RadioGroup>
 
+          {/* Express-Anschaltung */}
+          {canHaveExpress && (
+            <div className={cn(
+              "flex items-start space-x-3 p-4 rounded-xl border-2 transition-all",
+              expressActivation ? "border-accent bg-accent/5" : "border-border"
+            )}>
+              <Checkbox 
+                id="express-activation" 
+                checked={expressActivation}
+                onCheckedChange={(checked) => setExpressActivation(checked === true)}
+              />
+              <Label htmlFor="express-activation" className="cursor-pointer flex-1">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-accent" />
+                  <span className="font-semibold">Express-Anschaltung</span>
+                  <span className="bg-accent/10 text-accent text-xs px-2 py-0.5 rounded-full font-medium">
+                    +200,00 € einmalig
+                  </span>
+                </div>
+                <span className="block text-sm text-muted-foreground mt-1">
+                  Anschaltung innerhalb von 3 Werktagen (unabhängig von Portierung/Kündigung)
+                </span>
+              </Label>
+            </div>
+          )}
+
           {/* Bisherigen Anbieter kündigen */}
-          <div className="flex items-center space-x-3 p-4 bg-muted/50 rounded-xl">
-            <Checkbox 
-              id="cancel-provider" 
-              checked={cancelPreviousProvider}
-              onCheckedChange={(checked) => setCancelPreviousProvider(checked === true)}
-            />
-            <Label htmlFor="cancel-provider" className="cursor-pointer flex-1">
-              <span className="font-medium">Bisherigen Anbieter kündigen</span>
-              <span className="block text-sm text-muted-foreground">
-                COM-IN soll die Kündigung meines bisherigen Anbieters übernehmen
-              </span>
-            </Label>
+          <div className="space-y-4">
+            <div className={cn(
+              "flex items-start space-x-3 p-4 rounded-xl border-2 transition-all",
+              cancelPreviousProvider ? "border-accent bg-accent/5" : "border-border"
+            )}>
+              <Checkbox 
+                id="cancel-provider" 
+                checked={cancelPreviousProvider}
+                onCheckedChange={(checked) => setCancelPreviousProvider(checked === true)}
+              />
+              <Label htmlFor="cancel-provider" className="cursor-pointer flex-1">
+                <span className="font-medium">Wechselservice: Bisherigen Anbieter kündigen</span>
+                <span className="block text-sm text-muted-foreground">
+                  COM-IN übernimmt die Kündigung Ihres bisherigen Anbieters
+                </span>
+              </Label>
+            </div>
+
+            {/* Cancellation Details */}
+            {cancelPreviousProvider && (
+              <div className="ml-6 space-y-4 p-4 bg-muted/30 rounded-xl">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-foreground font-medium">Bisheriger Anbieter *</Label>
+                    <Input
+                      placeholder="z.B. Telekom, Vodafone..."
+                      value={cancellationData.providerName}
+                      onChange={(e) => handleCancellationChange('providerName', e.target.value)}
+                      className="mt-1.5 h-12 rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-foreground font-medium">Kundennummer beim Anbieter *</Label>
+                    <Input
+                      placeholder="Ihre Kundennummer"
+                      value={cancellationData.customerNumber}
+                      onChange={(e) => handleCancellationChange('customerNumber', e.target.value)}
+                      className="mt-1.5 h-12 rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground flex items-start gap-1">
+                  <Phone className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                  Ohne Kundennummer können wir die Kündigung nicht durchführen.
+                </p>
+
+                <div className="pt-3 border-t border-border">
+                  <Label className="text-foreground font-medium mb-3 block">Wechselzeitpunkt</Label>
+                  <RadioGroup 
+                    value={cancellationData.portToNewConnection ? 'port' : cancellationData.preferredDate || ''} 
+                    onValueChange={(value) => {
+                      if (value === 'port') {
+                        handleCancellationChange('portToNewConnection', true);
+                        handleCancellationChange('preferredDate', null);
+                        handleCancellationChange('specificDate', null);
+                      } else {
+                        handleCancellationChange('portToNewConnection', false);
+                        handleCancellationChange('preferredDate', value);
+                        if (value === 'asap') {
+                          handleCancellationChange('specificDate', null);
+                        }
+                      }
+                    }}
+                    className="space-y-3"
+                  >
+                    <div className={cn(
+                      "flex items-center space-x-3 p-3 rounded-lg border transition-all",
+                      cancellationData.portToNewConnection ? "border-accent bg-accent/5" : "border-border"
+                    )}>
+                      <RadioGroupItem value="port" id="port-seamless" />
+                      <Label htmlFor="port-seamless" className="cursor-pointer flex-1">
+                        <span className="font-medium">Nahtloser Übergang (Portierung)</span>
+                        <span className="block text-xs text-muted-foreground">
+                          Wechsel zum COM-IN-Anschluss ohne Unterbrechung
+                        </span>
+                      </Label>
+                    </div>
+
+                    <div className={cn(
+                      "flex items-center space-x-3 p-3 rounded-lg border transition-all",
+                      !cancellationData.portToNewConnection && cancellationData.preferredDate === 'asap' ? "border-accent bg-accent/5" : "border-border"
+                    )}>
+                      <RadioGroupItem value="asap" id="cancel-asap" />
+                      <Label htmlFor="cancel-asap" className="cursor-pointer flex-1">
+                        <span className="font-medium">Schnellstmöglich</span>
+                      </Label>
+                    </div>
+
+                    <div className={cn(
+                      "p-3 rounded-lg border transition-all",
+                      !cancellationData.portToNewConnection && cancellationData.preferredDate === 'specific' ? "border-accent bg-accent/5" : "border-border"
+                    )}>
+                      <div className="flex items-center space-x-3">
+                        <RadioGroupItem value="specific" id="cancel-specific" />
+                        <Label htmlFor="cancel-specific" className="cursor-pointer flex-1">
+                          <span className="font-medium">Anderer Termin</span>
+                        </Label>
+                      </div>
+                      
+                      {!cancellationData.portToNewConnection && cancellationData.preferredDate === 'specific' && (
+                        <div className="mt-3 ml-6">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal h-10 rounded-lg",
+                                  !cancellationDate && "text-muted-foreground"
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {cancellationDate ? format(cancellationDate, "PPP", { locale: de }) : "Datum wählen"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 bg-card border border-border z-50" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={cancellationDate}
+                                onSelect={(date) => {
+                                  setCancellationDate(date);
+                                  if (date) {
+                                    handleCancellationChange('specificDate', format(date, 'yyyy-MM-dd'));
+                                  }
+                                }}
+                                disabled={(date) => date < minDate}
+                                initialFocus
+                                className="pointer-events-auto"
+                                locale={de}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <p className="text-xs text-muted-foreground mt-2 flex items-start gap-1">
+                            <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                            Bitte beachten Sie: Es handelt sich um einen unverbindlichen Wunschtermin. 
+                            Unsere Anschaltzeiten betragen aktuell ca. 2-3 Wochen.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </RadioGroup>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

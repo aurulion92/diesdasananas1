@@ -2,7 +2,7 @@ import { useOrder } from '@/context/OrderContext';
 import { 
   ftthTariffs, 
   limitedTariffs, 
-  routerOptions, 
+  getRoutersForConnectionType,
   cominTvOptions,
   cominTvAddons,
   cominTvHardware,
@@ -35,14 +35,18 @@ import {
   Minus,
   Gift,
   Tag,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ReferralData {
   type: 'none' | 'internet' | 'social-media' | 'referral' | 'promo-code';
   referrerCustomerId?: string;
+  referralValidated?: boolean;
+  referralError?: string;
   promoCode?: string;
 }
 
@@ -62,6 +66,7 @@ export function TariffSelection() {
     setContractDuration,
     referralData,
     setReferralData,
+    validateReferralCustomerId,
     appliedPromoCode,
     promoCodeError,
     applyPromoCode,
@@ -71,6 +76,7 @@ export function TariffSelection() {
   } = useOrder();
 
   const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [referralInput, setReferralInput] = useState('');
 
   // Determine which tariffs to show based on connection type
   const tariffs = connectionType === 'ftth' ? ftthTariffs : limitedTariffs;
@@ -79,6 +85,19 @@ export function TariffSelection() {
   const isFiberBasic = selectedTariff?.id === 'fiber-basic-100';
   const isEinfachTariff = selectedTariff?.id?.startsWith('einfach-');
 
+  // Get available routers for this connection type
+  const availableRouters = getRoutersForConnectionType(connectionType);
+
+  // Reset router when connection type changes
+  useEffect(() => {
+    if (selectedRouter && selectedRouter.id !== 'router-none') {
+      const routerStillAvailable = availableRouters.some(r => r.id === selectedRouter.id);
+      if (!routerStillAvailable) {
+        setSelectedRouter(null);
+      }
+    }
+  }, [connectionType, availableRouters, selectedRouter, setSelectedRouter]);
+
   const handleContinue = () => {
     if (selectedTariff) {
       setStep(3);
@@ -86,7 +105,7 @@ export function TariffSelection() {
   };
 
   const handleRouterChange = (routerId: string) => {
-    const router = routerOptions.find(r => r.id === routerId) || null;
+    const router = availableRouters.find(r => r.id === routerId) || null;
     setSelectedRouter(router);
   };
 
@@ -169,6 +188,12 @@ export function TariffSelection() {
   const handleApplyPromoCode = () => {
     if (promoCodeInput.trim()) {
       applyPromoCode(promoCodeInput.trim());
+    }
+  };
+
+  const handleValidateReferral = () => {
+    if (referralInput.trim()) {
+      validateReferralCustomerId(referralInput.trim());
     }
   };
 
@@ -272,7 +297,7 @@ export function TariffSelection() {
         <div className="space-y-6 animate-fade-in">
           <h3 className="font-bold text-lg text-primary">Zusatzoptionen</h3>
           
-          {/* Router Dropdown */}
+          {/* Router Dropdown - filtered by connection type */}
           <div className="bg-card rounded-xl p-5 border border-border">
             <div className="flex items-center gap-2 mb-3">
               <Router className="w-5 h-5 text-accent" />
@@ -291,7 +316,7 @@ export function TariffSelection() {
                 <SelectValue placeholder="Router auswählen" />
               </SelectTrigger>
               <SelectContent className="bg-card border border-border z-50">
-                {routerOptions.map((router) => {
+                {availableRouters.map((router) => {
                   const showDiscount = (isEinfachTariff || appliedPromoCode?.routerDiscount) && 
                     router.discountedPrice !== undefined && 
                     router.discountedPrice !== router.monthlyPrice;
@@ -328,6 +353,10 @@ export function TariffSelection() {
                 Sie sparen {routerDiscount.toFixed(2).replace('.', ',')} €/Monat
               </p>
             )}
+            {/* Router availability hint */}
+            <p className="text-xs text-muted-foreground mt-3">
+              {isFtth ? 'Für Ihren FTTH-Anschluss: FRITZ!Box 5690 oder 5690 Pro' : 'Für Ihren FTTB-Anschluss: FRITZ!Box 7690'}
+            </p>
           </div>
 
           {/* TV Options - Only for FTTH (COM-IN TV) or always for WAIPU */}
@@ -426,6 +455,16 @@ export function TariffSelection() {
                         )}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* FTTB hint for COM-IN TV */}
+                {!isFtth && (
+                  <div className="p-3 rounded-lg border border-border bg-muted/30">
+                    <p className="text-sm text-muted-foreground">
+                      COM-IN TV (Kabel TV) ist an Ihrem Standort leider nicht verfügbar. 
+                      Wählen Sie alternativ waipu.tv Streaming.
+                    </p>
                   </div>
                 )}
                 
@@ -651,6 +690,9 @@ export function TariffSelection() {
                   clearPromoCode();
                   setPromoCodeInput('');
                 }
+                if (v !== 'referral') {
+                  setReferralInput('');
+                }
               }}
               className="space-y-3"
             >
@@ -693,16 +735,35 @@ export function TariffSelection() {
                       </p>
                     </div>
                     <div>
-                      <Label className="text-sm">Kundennummer des Werbers</Label>
-                      <Input 
-                        placeholder="z.B. 123456"
-                        value={referralData.referrerCustomerId || ''}
-                        onChange={(e) => setReferralData({
-                          ...referralData,
-                          referrerCustomerId: e.target.value,
-                        })}
-                        className="mt-1"
-                      />
+                      <Label className="text-sm">Kundennummer des Werbers *</Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Unsere Kundennummern beginnen mit "KD" oder "50000"
+                      </p>
+                      <div className="flex gap-2">
+                        <Input 
+                          placeholder="z.B. KD123456"
+                          value={referralInput}
+                          onChange={(e) => setReferralInput(e.target.value.toUpperCase())}
+                          className="flex-1"
+                        />
+                        <Button onClick={handleValidateReferral} variant="outline">
+                          Prüfen
+                        </Button>
+                      </div>
+                      
+                      {referralData.referralValidated && (
+                        <div className="flex items-center gap-2 text-success text-sm mt-2">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Kundennummer gültig! 🎉 50€ Prämie für beide!</span>
+                        </div>
+                      )}
+                      
+                      {referralData.referralError && (
+                        <div className="flex items-center gap-2 text-destructive text-sm mt-2">
+                          <XCircle className="w-4 h-4" />
+                          <span>{referralData.referralError}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

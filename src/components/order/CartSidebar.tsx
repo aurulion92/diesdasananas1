@@ -1,5 +1,5 @@
 import { useOrder } from '@/context/OrderContext';
-import { ShoppingCart, MapPin, Wifi, Package, Check, Globe, Router, Tv, Phone, Tag, Gift, X } from 'lucide-react';
+import { ShoppingCart, MapPin, Wifi, Package, Check, Globe, Router, Tv, Phone, Tag, Gift, X, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function CartSidebar() {
@@ -12,6 +12,7 @@ export function CartSidebar() {
     contractDuration,
     referralData,
     appliedPromoCode,
+    expressActivation,
     getRouterPrice,
     getRouterDiscount,
     getSetupFee,
@@ -119,20 +120,33 @@ export function CartSidebar() {
         )}
 
         {/* TV */}
-        {tvSelection.type !== 'none' && tvSelection.package && (
+        {tvSelection.type !== 'none' && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">TV-Paket</p>
             
-            {/* Main TV Package */}
-            <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-              <Tv className="w-4 h-4 text-accent" />
-              <div className="flex-1 flex justify-between items-center">
-                <p className="text-sm">{tvSelection.package.name}</p>
-                <p className="text-sm font-medium text-accent">
-                  {tvSelection.package.monthlyPrice.toFixed(2).replace('.', ',')} €
-                </p>
+            {/* COM-IN TV Base */}
+            {tvSelection.type === 'comin' && (
+              <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                <Tv className="w-4 h-4 text-accent" />
+                <div className="flex-1 flex justify-between items-center">
+                  <p className="text-sm">COM-IN TV</p>
+                  <p className="text-sm font-medium text-accent">10,00 €</p>
+                </div>
               </div>
-            </div>
+            )}
+            
+            {/* WAIPU Package */}
+            {tvSelection.type === 'waipu' && tvSelection.package && (
+              <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                <Tv className="w-4 h-4 text-accent" />
+                <div className="flex-1 flex justify-between items-center">
+                  <p className="text-sm">{tvSelection.package.name}</p>
+                  <p className="text-sm font-medium text-accent">
+                    {tvSelection.package.monthlyPrice.toFixed(2).replace('.', ',')} €
+                  </p>
+                </div>
+              </div>
+            )}
             
             {/* HD Addon */}
             {tvSelection.hdAddon && (
@@ -179,17 +193,6 @@ export function CartSidebar() {
           </div>
         )}
 
-        {/* COM-IN TV Base (without WAIPU package) */}
-        {tvSelection.type === 'comin' && (
-          <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-            <Tv className="w-4 h-4 text-accent" />
-            <div className="flex-1 flex justify-between items-center">
-              <p className="text-sm">COM-IN TV</p>
-              <p className="text-sm font-medium text-accent">10,00 €</p>
-            </div>
-          </div>
-        )}
-
         {/* Telefon */}
         {phoneSelection.enabled && isEinfachTariff && (
           <div className="space-y-2">
@@ -213,6 +216,17 @@ export function CartSidebar() {
           </div>
         )}
 
+        {/* Express Activation */}
+        {expressActivation && (
+          <div className="flex items-center gap-3 p-3 bg-accent/10 rounded-lg border border-accent/20">
+            <Zap className="w-4 h-4 text-accent" />
+            <div className="flex-1 flex justify-between items-center">
+              <p className="text-sm font-medium">Express-Anschaltung</p>
+              <p className="text-sm font-medium text-muted-foreground">200,00 € einm.</p>
+            </div>
+          </div>
+        )}
+
         {/* Promo Code / Referral Badge */}
         {appliedPromoCode && (
           <div className="flex items-start gap-3 p-3 bg-success/10 rounded-lg border border-success/20">
@@ -224,7 +238,7 @@ export function CartSidebar() {
           </div>
         )}
 
-        {referralData.type === 'referral' && (
+        {referralData.type === 'referral' && referralData.referralValidated && (
           <div className="flex items-start gap-3 p-3 bg-success/10 rounded-lg border border-success/20">
             <Gift className="w-4 h-4 text-success mt-0.5" />
             <div className="flex-1">
@@ -262,7 +276,7 @@ export function CartSidebar() {
                 </span>
               </div>
               
-              {/* Router */}
+              {/* Router - show discounted price */}
               {selectedRouter && selectedRouter.id !== 'router-none' && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>{selectedRouter.name}</span>
@@ -270,17 +284,25 @@ export function CartSidebar() {
                 </div>
               )}
               
-              {/* TV */}
-              {tvSelection.package && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{tvSelection.package.name}</span>
-                  <span>{tvSelection.package.monthlyPrice.toFixed(2).replace('.', ',')} €</span>
+              {/* Router Discount - show as separate line */}
+              {routerDiscount > 0 && (
+                <div className="flex justify-between text-success">
+                  <span>Router-Rabatt</span>
+                  <span>-{routerDiscount.toFixed(2).replace('.', ',')} €</span>
                 </div>
               )}
-              {tvSelection.type === 'comin' && !tvSelection.package && (
+              
+              {/* TV */}
+              {tvSelection.type === 'comin' && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>COM-IN TV</span>
                   <span>10,00 €</span>
+                </div>
+              )}
+              {tvSelection.type === 'waipu' && tvSelection.package && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>{tvSelection.package.name}</span>
+                  <span>{tvSelection.package.monthlyPrice.toFixed(2).replace('.', ',')} €</span>
                 </div>
               )}
               {tvSelection.hdAddon && (
@@ -301,14 +323,6 @@ export function CartSidebar() {
                 <div className="flex justify-between text-muted-foreground">
                   <span>Telefon ({phoneSelection.lines}x)</span>
                   <span>{(phoneSelection.lines * 2.95).toFixed(2).replace('.', ',')} €</span>
-                </div>
-              )}
-              
-              {/* Router Discount */}
-              {routerDiscount > 0 && (
-                <div className="flex justify-between text-success">
-                  <span>Router-Rabatt</span>
-                  <span>-{routerDiscount.toFixed(2).replace('.', ',')} €</span>
                 </div>
               )}
             </div>
@@ -334,6 +348,14 @@ export function CartSidebar() {
                   <span>{setupFee.toFixed(2).replace('.', ',')} €</span>
                 )}
               </div>
+              
+              {/* Express activation */}
+              {expressActivation && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Express-Anschaltung</span>
+                  <span>200,00 €</span>
+                </div>
+              )}
               
               {/* TV Hardware one-time */}
               {tvSelection.hardware.filter(h => h.oneTimePrice > 0).map(hw => (
