@@ -378,6 +378,14 @@ export function CartSidebar() {
                   <span>-99,00 €</span>
                 </div>
               )}
+              
+              {/* Referral Bonus */}
+              {referralData.type === 'referral' && referralData.referralValidated && (
+                <div className="flex justify-between text-success">
+                  <span>Kunden werben Kunden Prämie</span>
+                  <span>-50,00 €</span>
+                </div>
+              )}
             </div>
             
             {/* One-time Total */}
