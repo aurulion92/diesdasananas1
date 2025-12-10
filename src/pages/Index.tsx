@@ -1,14 +1,45 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { OrderProvider, useOrder } from '@/context/OrderContext';
+import { Header } from '@/components/layout/Header';
+import { ProgressSteps } from '@/components/order/ProgressSteps';
+import { CartSidebar } from '@/components/order/CartSidebar';
+import { AddressCheck } from '@/components/order/AddressCheck';
+import { TariffSelection } from '@/components/order/TariffSelection';
+import { CustomerForm } from '@/components/order/CustomerForm';
+import { OrderSummary } from '@/components/order/OrderSummary';
 
-const Index = () => {
+const steps = ['Adresse', 'Tarif', 'Daten', 'Abschluss'];
+
+function OrderFlow() {
+  const { step, connectionType } = useOrder();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <Header />
+      
+      <main className="container mx-auto px-4 py-8">
+        <ProgressSteps currentStep={step} steps={steps} />
+        
+        <div className="mt-8 grid lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            {step === 1 && <AddressCheck />}
+            {step === 2 && connectionType && connectionType !== 'none' && <TariffSelection />}
+            {step === 3 && <CustomerForm />}
+            {step === 4 && <OrderSummary />}
+          </div>
+          
+          <div className="hidden lg:block">
+            <CartSidebar />
+          </div>
+        </div>
+      </main>
     </div>
   );
-};
+}
 
-export default Index;
+export default function Index() {
+  return (
+    <OrderProvider>
+      <OrderFlow />
+    </OrderProvider>
+  );
+}
