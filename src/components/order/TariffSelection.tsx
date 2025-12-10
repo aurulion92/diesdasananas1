@@ -1,7 +1,8 @@
 import { useOrder } from '@/context/OrderContext';
 import { 
   ftthTariffs, 
-  limitedTariffs, 
+  limitedTariffs,
+  fiberBasicTariff,
   getRoutersForConnectionType,
   cominTvOptions,
   cominTvAddons,
@@ -37,7 +38,8 @@ import {
   Tag,
   AlertCircle,
   CheckCircle2,
-  XCircle
+  XCircle,
+  ChevronDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
@@ -78,8 +80,13 @@ export function TariffSelection() {
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [referralInput, setReferralInput] = useState('');
 
+  const [showFiberBasic, setShowFiberBasic] = useState(false);
+
   // Determine which tariffs to show based on connection type
-  const tariffs = connectionType === 'ftth' ? ftthTariffs : limitedTariffs;
+  const baseTariffs = connectionType === 'ftth' ? ftthTariffs : limitedTariffs;
+  const tariffs = connectionType === 'ftth' && showFiberBasic 
+    ? [...baseTariffs, fiberBasicTariff] 
+    : baseTariffs;
   const isLimited = connectionType === 'limited';
   const isFtth = connectionType === 'ftth';
   const isFiberBasic = selectedTariff?.id === 'fiber-basic-100';
@@ -154,7 +161,6 @@ export function TariffSelection() {
       });
     } else {
       const addon = cominTvAddons.find(a => a.id === addonId) || null;
-      // When selecting HD addon, automatically add smartcard
       const smartcard = cominTvHardware.find(h => h.id === 'tv-smartcard');
       setTvSelection({
         ...tvSelection,
@@ -169,7 +175,6 @@ export function TariffSelection() {
     const hardware = cominTvHardware.find(h => h.id === hardwareId);
     
     if (hardware) {
-      // Keep smartcard, replace receiver/CI module
       setTvSelection({
         ...tvSelection,
         hardware: smartcard ? [smartcard, hardware] : [hardware],
@@ -227,6 +232,19 @@ export function TariffSelection() {
           />
         ))}
       </div>
+
+      {/* FiberBasic versteckte Option für FTTH */}
+      {isFtth && !showFiberBasic && (
+        <div className="text-center">
+          <button
+            onClick={() => setShowFiberBasic(true)}
+            className="text-sm text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1"
+          >
+            <ChevronDown className="w-4 h-4" />
+            Weitere Optionen anzeigen
+          </button>
+        </div>
+      )}
 
       {/* Hinweis bei eingeschränkter Verfügbarkeit */}
       {isLimited && (
