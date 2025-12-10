@@ -1,16 +1,28 @@
-import { Rocket } from 'lucide-react';
+interface HeaderProps {
+  onLogoClick?: () => void;
+}
 
-export function Header() {
+export function Header({ onLogoClick }: HeaderProps) {
+  const handleLogoClick = () => {
+    if (onLogoClick) {
+      onLogoClick();
+    }
+  };
+
   return (
     <header className="bg-primary sticky top-0 z-50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <button 
+          onClick={handleLogoClick}
+          className="flex items-center gap-3 hover:opacity-90 transition-opacity"
+          title="Zurück zur Startseite"
+        >
           {/* COM-IN Logo */}
-          <div className="flex items-center">
+          <div className="flex items-center cursor-pointer">
             <span className="text-primary-foreground font-bold text-2xl tracking-tight">COM</span>
             <span className="bg-accent text-accent-foreground font-bold text-2xl px-1.5 py-0.5 rounded">IN</span>
           </div>
-        </div>
+        </button>
 
         <div className="hidden md:flex items-center gap-6 text-sm text-primary-foreground/90">
           <a href="tel:+49841885110" className="hover:text-primary-foreground transition-colors">
