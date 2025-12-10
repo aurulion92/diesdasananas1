@@ -105,23 +105,96 @@ export const limitedTariffs: TariffOption[] = [
 // Legacy FTTB tariffs (kept for compatibility but may not be used)
 export const fttbTariffs: TariffOption[] = limitedTariffs;
 
-export const tariffAddons: TariffAddon[] = [
+// Router-Optionen von COM-IN
+export const routerOptions: TariffAddon[] = [
   {
-    id: "router-basic",
-    name: "WLAN Router",
-    description: "Hochwertiger WLAN Router für optimale Abdeckung",
+    id: "router-none",
+    name: "Kein Router",
+    description: "Ich habe bereits einen eigenen Router",
     monthlyPrice: 0,
     oneTimePrice: 0,
     category: "router",
   },
   {
-    id: "router-pro",
-    name: "WLAN Mesh Router",
-    description: "WiFi 6 Router mit Mesh-Funktion für große Wohnungen",
-    monthlyPrice: 4.99,
+    id: "router-fritzbox-5690-pro",
+    name: "FRITZ!Box 5690 Pro",
+    description: "Premium WiFi 7 Router mit Glasfaser-Anschluss",
+    monthlyPrice: 9.99,
     oneTimePrice: 0,
     category: "router",
   },
+  {
+    id: "router-fritzbox-5690",
+    name: "FRITZ!Box 5690",
+    description: "WiFi 7 Router mit Glasfaser-Anschluss",
+    monthlyPrice: 7.99,
+    oneTimePrice: 0,
+    category: "router",
+  },
+  {
+    id: "router-fritzbox-7690",
+    name: "FRITZ!Box 7690",
+    description: "WiFi 7 Router für DSL/VDSL",
+    monthlyPrice: 6.99,
+    oneTimePrice: 0,
+    category: "router",
+  },
+];
+
+// TV-Pakete von COM-IN
+export const tvOptions: TariffAddon[] = [
+  {
+    id: "tv-none",
+    name: "Kein TV",
+    description: "Ohne TV-Paket bestellen",
+    monthlyPrice: 0,
+    oneTimePrice: 0,
+    category: "tv",
+  },
+  {
+    id: "tv-comin",
+    name: "COM-IN TV",
+    description: "Grundpaket mit über 100 Sendern",
+    monthlyPrice: 5.99,
+    oneTimePrice: 0,
+    category: "tv",
+  },
+  {
+    id: "tv-comin-basishd",
+    name: "COM-IN TV inkl. BasisHD",
+    description: "Mit HD-Qualität für die wichtigsten Sender",
+    monthlyPrice: 8.99,
+    oneTimePrice: 0,
+    category: "tv",
+  },
+  {
+    id: "tv-comin-familyhd",
+    name: "COM-IN TV inkl. BasisHD und FamilyHD",
+    description: "HD für die ganze Familie + Kindersender",
+    monthlyPrice: 12.99,
+    oneTimePrice: 0,
+    category: "tv",
+  },
+  {
+    id: "tv-waipu-perfect-plus",
+    name: "waipu.tv Perfect Plus",
+    description: "Streaming TV mit über 250 Sendern",
+    monthlyPrice: 12.99,
+    oneTimePrice: 0,
+    category: "tv",
+  },
+  {
+    id: "tv-waipu-comfort",
+    name: "waipu.tv Comfort",
+    description: "Streaming TV mit über 180 Sendern",
+    monthlyPrice: 6.99,
+    oneTimePrice: 0,
+    category: "tv",
+  },
+];
+
+// Telefon-Optionen
+export const phoneOptions: TariffAddon[] = [
   {
     id: "phone-flat",
     name: "Telefon-Flat Festnetz",
@@ -138,28 +211,11 @@ export const tariffAddons: TariffAddon[] = [
     oneTimePrice: 0,
     category: "phone",
   },
-  {
-    id: "tv-basic",
-    name: "TV Paket Basic",
-    description: "50+ HD Sender inklusive",
-    monthlyPrice: 7.99,
-    oneTimePrice: 0,
-    category: "tv",
-  },
-  {
-    id: "tv-premium",
-    name: "TV Paket Premium",
-    description: "100+ HD Sender + Premium Inhalte",
-    monthlyPrice: 14.99,
-    oneTimePrice: 0,
-    category: "tv",
-  },
-  {
-    id: "security",
-    name: "Internet Security",
-    description: "Virenschutz für bis zu 5 Geräte",
-    monthlyPrice: 3.99,
-    oneTimePrice: 0,
-    category: "security",
-  },
+];
+
+// Kombinierte Addon-Liste für Kompatibilität
+export const tariffAddons: TariffAddon[] = [
+  ...routerOptions,
+  ...phoneOptions,
+  ...tvOptions,
 ];

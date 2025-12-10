@@ -1,9 +1,9 @@
 import { useOrder } from '@/context/OrderContext';
-import { ftthTariffs, limitedTariffs, tariffAddons, TariffOption, TariffAddon } from '@/data/tariffs';
+import { ftthTariffs, limitedTariffs, routerOptions, tvOptions, phoneOptions, TariffOption, TariffAddon } from '@/data/tariffs';
 import { Button } from '@/components/ui/button';
-import { Check, ArrowRight, ArrowDown, ArrowUp, Globe, Rocket, Phone, Mail } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Check, ArrowRight, ArrowLeft, ArrowDown, ArrowUp, Globe, Rocket, Phone, Mail } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ContactForm } from './ContactForm';
 
 export function TariffSelection() {
   const { 
@@ -11,6 +11,10 @@ export function TariffSelection() {
     address,
     selectedTariff, 
     setSelectedTariff, 
+    selectedRouter,
+    setSelectedRouter,
+    selectedTv,
+    setSelectedTv,
     selectedAddons,
     toggleAddon,
     contractDuration,
@@ -22,17 +26,20 @@ export function TariffSelection() {
   const tariffs = connectionType === 'ftth' ? ftthTariffs : limitedTariffs;
   const isLimited = connectionType === 'limited';
 
-  const groupedAddons = {
-    router: tariffAddons.filter(a => a.category === 'router'),
-    phone: tariffAddons.filter(a => a.category === 'phone'),
-    tv: tariffAddons.filter(a => a.category === 'tv'),
-    security: tariffAddons.filter(a => a.category === 'security'),
-  };
-
   const handleContinue = () => {
     if (selectedTariff) {
       setStep(3);
     }
+  };
+
+  const handleRouterChange = (routerId: string) => {
+    const router = routerOptions.find(r => r.id === routerId) || null;
+    setSelectedRouter(router);
+  };
+
+  const handleTvChange = (tvId: string) => {
+    const tv = tvOptions.find(t => t.id === tvId) || null;
+    setSelectedTv(tv);
   };
 
   return (
@@ -143,56 +150,67 @@ export function TariffSelection() {
         <div className="space-y-6 animate-fade-in">
           <h3 className="font-bold text-lg text-primary">Zusatzoptionen</h3>
           
-          {/* Router */}
-          <div>
-            <p className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Router</p>
-            <div className="grid gap-3 md:grid-cols-2">
-              {groupedAddons.router.map((addon) => (
-                <AddonCard
-                  key={addon.id}
-                  addon={addon}
-                  isSelected={selectedAddons.some(a => a.id === addon.id)}
-                  onToggle={() => toggleAddon(addon)}
-                />
-              ))}
-            </div>
+          {/* Router Dropdown */}
+          <div className="bg-card rounded-xl p-5 border border-border">
+            <p className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Router auswählen</p>
+            <Select 
+              value={selectedRouter?.id || 'router-none'} 
+              onValueChange={handleRouterChange}
+            >
+              <SelectTrigger className="h-12 rounded-xl">
+                <SelectValue placeholder="Router auswählen" />
+              </SelectTrigger>
+              <SelectContent>
+                {routerOptions.map((router) => (
+                  <SelectItem key={router.id} value={router.id}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>{router.name}</span>
+                      {router.monthlyPrice > 0 && (
+                        <span className="text-accent ml-2">+{router.monthlyPrice.toFixed(2).replace('.', ',')} €/Monat</span>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedRouter && selectedRouter.id !== 'router-none' && (
+              <p className="text-sm text-muted-foreground mt-2">{selectedRouter.description}</p>
+            )}
+          </div>
+
+          {/* TV Dropdown */}
+          <div className="bg-card rounded-xl p-5 border border-border">
+            <p className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">TV-Paket auswählen</p>
+            <Select 
+              value={selectedTv?.id || 'tv-none'} 
+              onValueChange={handleTvChange}
+            >
+              <SelectTrigger className="h-12 rounded-xl">
+                <SelectValue placeholder="TV-Paket auswählen" />
+              </SelectTrigger>
+              <SelectContent>
+                {tvOptions.map((tv) => (
+                  <SelectItem key={tv.id} value={tv.id}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>{tv.name}</span>
+                      {tv.monthlyPrice > 0 && (
+                        <span className="text-accent ml-2">+{tv.monthlyPrice.toFixed(2).replace('.', ',')} €/Monat</span>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedTv && selectedTv.id !== 'tv-none' && (
+              <p className="text-sm text-muted-foreground mt-2">{selectedTv.description}</p>
+            )}
           </div>
 
           {/* Telefon */}
           <div>
             <p className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Telefonie</p>
             <div className="grid gap-3 md:grid-cols-2">
-              {groupedAddons.phone.map((addon) => (
-                <AddonCard
-                  key={addon.id}
-                  addon={addon}
-                  isSelected={selectedAddons.some(a => a.id === addon.id)}
-                  onToggle={() => toggleAddon(addon)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* TV */}
-          <div>
-            <p className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">TV-Optionen</p>
-            <div className="grid gap-3 md:grid-cols-2">
-              {groupedAddons.tv.map((addon) => (
-                <AddonCard
-                  key={addon.id}
-                  addon={addon}
-                  isSelected={selectedAddons.some(a => a.id === addon.id)}
-                  onToggle={() => toggleAddon(addon)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Security */}
-          <div>
-            <p className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Sicherheit</p>
-            <div className="grid gap-3 md:grid-cols-2">
-              {groupedAddons.security.map((addon) => (
+              {phoneOptions.map((addon) => (
                 <AddonCard
                   key={addon.id}
                   addon={addon}
@@ -205,15 +223,29 @@ export function TariffSelection() {
         </div>
       )}
 
-      {/* Weiter Button */}
-      {selectedTariff && (
-        <div className="flex justify-end pt-4">
-          <Button onClick={handleContinue} size="lg" variant="orange" className="px-10">
+      {/* Navigation Buttons */}
+      <div className="flex gap-4 pt-4">
+        <Button 
+          variant="outline" 
+          onClick={() => setStep(1)}
+          className="h-12 px-8 rounded-full"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Zurück
+        </Button>
+        
+        {selectedTariff && (
+          <Button 
+            onClick={handleContinue} 
+            size="lg" 
+            variant="orange" 
+            className="flex-1 h-12"
+          >
             Weiter zu Ihren Daten
             <ArrowRight className="w-4 h-4" />
           </Button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
