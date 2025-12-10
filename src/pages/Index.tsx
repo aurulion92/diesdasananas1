@@ -9,7 +9,7 @@ import { OrderSummary } from '@/components/order/OrderSummary';
 
 const steps = ['Adresse', 'Tarif', 'Daten', 'Abschluss'];
 
-function OrderFlow() {
+const OrderFlow = () => {
   const { step, connectionType } = useOrder();
 
   return (
@@ -34,12 +34,14 @@ function OrderFlow() {
       </main>
     </div>
   );
-}
+};
 
-export default function Index() {
+const Index = () => {
   return (
     <OrderProvider>
       <OrderFlow />
     </OrderProvider>
   );
-}
+};
+
+export default Index;
