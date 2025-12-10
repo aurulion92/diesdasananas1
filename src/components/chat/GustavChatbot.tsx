@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Send, Phone, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { GustavAvatar } from './GustavAvatar';
+import gustavMascot from '@/assets/gustav-mascot.png';
 
 interface Message {
   id: string;
@@ -120,7 +120,6 @@ export const GustavChatbot = () => {
       }
     }
 
-    // Finalize message ID
     setMessages((prev) =>
       prev.map((m) =>
         m.id.startsWith('streaming-') ? { ...m, id: Date.now().toString() } : m
@@ -175,7 +174,7 @@ export const GustavChatbot = () => {
 
   return (
     <>
-      {/* Chat Bubble */}
+      {/* Chat Bubble - Original Gustav, ruhig */}
       <button
         onClick={() => setIsOpen(true)}
         onMouseEnter={() => setIsHovered(true)}
@@ -186,19 +185,23 @@ export const GustavChatbot = () => {
         aria-label="Chat mit Gustav öffnen"
       >
         <div className="relative group">
-          {/* Subtle glow effect */}
-          <div className={`absolute -inset-2 bg-accent/20 rounded-full blur-lg transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-50'}`} />
+          {/* Subtle glow on hover */}
+          <div className={`absolute -inset-2 bg-accent/20 rounded-full blur-lg transition-opacity duration-500 ${isHovered ? 'opacity-100' : 'opacity-40'}`} />
           
-          {/* Gustav container */}
+          {/* Gustav - ruhig, nur sanfter Hover-Effekt */}
           <div 
-            className={`relative w-20 h-20 rounded-full bg-card shadow-card border-2 transition-all duration-300 flex items-center justify-center ${
-              isHovered ? 'scale-110 border-accent shadow-lg' : 'border-accent/30'
+            className={`relative w-20 h-20 rounded-full bg-card shadow-card border-2 overflow-hidden transition-all duration-300 ${
+              isHovered ? 'scale-105 border-accent shadow-lg' : 'border-accent/30'
             }`}
           >
-            <GustavAvatar size={56} isActive={isHovered} />
+            <img
+              src={gustavMascot}
+              alt="Gustav - COM-IN Maskottchen"
+              className="w-full h-full object-cover"
+            />
           </div>
           
-          {/* Speech bubble hint */}
+          {/* Speech bubble hint on hover */}
           <div 
             className={`absolute -top-12 right-0 bg-card rounded-xl px-3 py-2 shadow-card border border-border transition-all duration-300 whitespace-nowrap ${
               isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
@@ -227,10 +230,13 @@ export const GustavChatbot = () => {
           {/* Header */}
           <div className="bg-primary p-4 flex items-center gap-3">
             <div className="relative">
-              <div className="w-14 h-14 rounded-full bg-card overflow-hidden border-2 border-accent/50 flex items-center justify-center">
-                <GustavAvatar size={44} isActive />
+              <div className="w-14 h-14 rounded-full bg-card overflow-hidden border-2 border-accent/50">
+                <img
+                  src={gustavMascot}
+                  alt="Gustav"
+                  className="w-full h-full object-cover"
+                />
               </div>
-              {/* Online indicator */}
               <div className="absolute bottom-0 right-0 w-4 h-4 bg-success rounded-full border-2 border-primary" />
             </div>
             <div className="flex-1">
@@ -261,8 +267,8 @@ export const GustavChatbot = () => {
                     }`}
                   >
                     {message.role === 'assistant' && (
-                      <div className="w-8 h-8 rounded-full bg-accent/10 overflow-hidden mr-2 flex-shrink-0 flex items-center justify-center">
-                        <GustavAvatar size={24} />
+                      <div className="w-8 h-8 rounded-full bg-accent/10 overflow-hidden mr-2 flex-shrink-0">
+                        <img src={gustavMascot} alt="" className="w-full h-full object-cover" />
                       </div>
                     )}
                     <div
@@ -288,8 +294,8 @@ export const GustavChatbot = () => {
                 ))}
                 {isLoading && (
                   <div className="flex justify-start">
-                    <div className="w-8 h-8 rounded-full bg-accent/10 overflow-hidden mr-2 flex-shrink-0 flex items-center justify-center">
-                      <GustavAvatar size={24} />
+                    <div className="w-8 h-8 rounded-full bg-accent/10 overflow-hidden mr-2 flex-shrink-0">
+                      <img src={gustavMascot} alt="" className="w-full h-full object-cover" />
                     </div>
                     <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3">
                       <div className="flex gap-1.5">
@@ -334,7 +340,6 @@ export const GustavChatbot = () => {
               </div>
             </>
           ) : (
-            /* Callback Form */
             <div className="p-4 min-h-[300px]">
               {!callbackSubmitted ? (
                 <form onSubmit={handleCallbackSubmit} className="space-y-4">
