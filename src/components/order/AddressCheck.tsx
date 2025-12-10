@@ -4,15 +4,15 @@ import { checkAddress } from '@/data/mockAddresses';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MapPin, Search, Loader2, AlertCircle, CheckCircle2, Phone } from 'lucide-react';
+import { Rocket, Search, Loader2, AlertCircle, CheckCircle2, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function AddressCheck() {
   const { setAddress, setStep } = useOrder();
+  const [city, setCity] = useState('Ingolstadt');
   const [street, setStreet] = useState('');
   const [houseNumber, setHouseNumber] = useState('');
   const [postalCode, setPostalCode] = useState('');
-  const [city, setCity] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [result, setResult] = useState<'found' | 'not-found' | null>(null);
 
@@ -40,95 +40,84 @@ export function AddressCheck() {
   };
 
   return (
-    <div className="max-w-xl mx-auto animate-slide-up">
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full gradient-hero flex items-center justify-center shadow-glow">
-          <MapPin className="w-8 h-8 text-primary-foreground" />
+    <div className="max-w-3xl mx-auto animate-slide-up">
+      {/* Hero Section */}
+      <div className="text-center mb-10">
+        <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+          <Rocket className="w-16 h-16 text-primary" strokeWidth={1.5} />
         </div>
-        <h2 className="text-2xl font-bold mb-2">Verfügbarkeit prüfen</h2>
-        <p className="text-muted-foreground">
-          Geben Sie Ihre Adresse ein, um die verfügbaren Tarife zu sehen
+        <h1 className="text-3xl md:text-4xl font-bold text-primary mb-3">
+          Jetzt Verfügbarkeit prüfen
+        </h1>
+        <p className="text-accent font-medium text-lg">
+          ...und gigaschnell lossurfen mit unseren neuen <span className="font-bold">einfach Internet</span> Produkten!
         </p>
       </div>
 
-      <div className="bg-card rounded-xl shadow-card p-6 space-y-6">
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2">
-            <Label htmlFor="street">Straße</Label>
-            <Input
-              id="street"
-              placeholder="z.B. Hauptstraße"
-              value={street}
-              onChange={(e) => setStreet(e.target.value)}
-              className="mt-1.5"
-            />
-          </div>
-          <div>
-            <Label htmlFor="houseNumber">Hausnr.</Label>
-            <Input
-              id="houseNumber"
-              placeholder="z.B. 1"
-              value={houseNumber}
-              onChange={(e) => setHouseNumber(e.target.value)}
-              className="mt-1.5"
-            />
-          </div>
-        </div>
+      {/* Formular */}
+      <div className="bg-card rounded-2xl shadow-card p-6 md:p-8">
+        <p className="text-center text-foreground mb-6 font-medium">
+          Geben Sie Ihre Straße und Ihre Hausnummer an, damit wir prüfen können, welche Produkte an Ihrem Standort verfügbar sind.
+        </p>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div>
-            <Label htmlFor="postalCode">PLZ</Label>
             <Input
-              id="postalCode"
-              placeholder="z.B. 10115"
-              value={postalCode}
-              onChange={(e) => setPostalCode(e.target.value)}
-              className="mt-1.5"
-            />
-          </div>
-          <div>
-            <Label htmlFor="city">Ort</Label>
-            <Input
-              id="city"
-              placeholder="z.B. Berlin"
+              placeholder="Ingolstadt"
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              className="mt-1.5"
+              className="h-12 rounded-full bg-background border-border text-center"
+            />
+          </div>
+          <div>
+            <Input
+              placeholder="Straße"
+              value={street}
+              onChange={(e) => setStreet(e.target.value)}
+              className="h-12 rounded-full bg-background border-border text-center"
+            />
+          </div>
+          <div>
+            <Input
+              placeholder="Hausnummer"
+              value={houseNumber}
+              onChange={(e) => setHouseNumber(e.target.value)}
+              className="h-12 rounded-full bg-background border-border text-center"
             />
           </div>
         </div>
 
-        <Button 
-          onClick={handleCheck} 
-          className="w-full" 
-          size="lg"
-          disabled={!street || !houseNumber || !postalCode || isChecking}
-        >
-          {isChecking ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Prüfe Verfügbarkeit...
-            </>
-          ) : (
-            <>
-              <Search className="w-4 h-4" />
-              Verfügbarkeit prüfen
-            </>
-          )}
-        </Button>
+        <div className="flex justify-end">
+          <Button 
+            onClick={handleCheck} 
+            variant="orange"
+            size="lg"
+            disabled={!street || !houseNumber || isChecking}
+            className="px-10"
+          >
+            {isChecking ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Prüfe...
+              </>
+            ) : (
+              'Weiter'
+            )}
+          </Button>
+        </div>
 
         {/* Ergebnis anzeigen */}
         {result === 'found' && (
-          <div className="animate-scale-in p-4 bg-success/10 border border-success/20 rounded-lg">
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-6 h-6 text-success flex-shrink-0" />
+          <div className="animate-scale-in mt-6 p-5 bg-success/10 border border-success/20 rounded-xl">
+            <div className="flex items-start gap-4">
+              <CheckCircle2 className="w-6 h-6 text-success flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-semibold text-success">Glasfaser verfügbar!</h4>
-                <p className="text-sm text-muted-foreground mt-1">
-                  An Ihrer Adresse ist Glasfaser-Internet verfügbar. Wählen Sie jetzt Ihren Wunschtarif.
+                <h4 className="font-bold text-success text-lg">Glasfaser verfügbar!</h4>
+                <p className="text-muted-foreground mt-1">
+                  An Ihrer Adresse sind unsere einfach Internet Produkte verfügbar. Wählen Sie jetzt Ihren Wunschtarif.
                 </p>
-                <Button onClick={handleContinue} className="mt-4" variant="success">
-                  Weiter zur Tarifauswahl
+                <Button onClick={handleContinue} variant="success" className="mt-4">
+                  Weiter zur Produktauswahl
                 </Button>
               </div>
             </div>
@@ -136,23 +125,23 @@ export function AddressCheck() {
         )}
 
         {result === 'not-found' && (
-          <div className="animate-scale-in p-4 bg-warning/10 border border-warning/20 rounded-lg">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-6 h-6 text-warning flex-shrink-0" />
+          <div className="animate-scale-in mt-6 p-5 bg-accent/10 border border-accent/20 rounded-xl">
+            <div className="flex items-start gap-4">
+              <AlertCircle className="w-6 h-6 text-accent flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-semibold text-warning">Adresse nicht gefunden</h4>
-                <p className="text-sm text-muted-foreground mt-1">
+                <h4 className="font-bold text-accent text-lg">Adresse nicht gefunden</h4>
+                <p className="text-muted-foreground mt-1">
                   Ihre Adresse ist aktuell nicht in unserer Datenbank hinterlegt. 
                   Wir prüfen gerne die Ausbaumöglichkeiten für Sie.
                 </p>
-                <div className="mt-4 p-3 bg-card rounded-lg border">
+                <div className="mt-4 p-4 bg-card rounded-xl border border-border">
                   <p className="text-sm font-medium mb-2">Kontaktieren Sie uns:</p>
                   <a 
-                    href="tel:+4912345678" 
-                    className="inline-flex items-center gap-2 text-primary hover:underline"
+                    href="tel:+49841885110" 
+                    className="inline-flex items-center gap-2 text-primary font-semibold hover:underline"
                   >
                     <Phone className="w-4 h-4" />
-                    +49 123 456 78
+                    +49 841 88511-0
                   </a>
                 </div>
               </div>
@@ -162,10 +151,10 @@ export function AddressCheck() {
       </div>
 
       {/* Demo Hinweis */}
-      <div className="mt-6 p-4 bg-secondary/50 rounded-lg border border-border">
-        <p className="text-sm text-muted-foreground">
-          <strong>Demo-Hinweis:</strong> Testen Sie mit "Hauptstraße 1, 10115 Berlin" (FTTH) 
-          oder "Parkstraße 15, 10115 Berlin" (FTTB)
+      <div className="mt-6 p-4 bg-primary/5 rounded-xl border border-primary/10">
+        <p className="text-sm text-muted-foreground text-center">
+          <strong>Demo:</strong> Testen Sie mit "Hauptstraße 1" (PLZ: 10115, FTTH) 
+          oder "Parkstraße 15" (PLZ: 10115, FTTB)
         </p>
       </div>
     </div>

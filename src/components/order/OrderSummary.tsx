@@ -8,10 +8,11 @@ import {
   ArrowLeft, 
   CheckCircle2, 
   MapPin, 
-  Wifi, 
+  Globe, 
   User, 
   Package,
-  PartyPopper
+  PartyPopper,
+  Rocket
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -35,35 +36,38 @@ export function OrderSummary() {
   const [orderComplete, setOrderComplete] = useState(false);
 
   const handleDownloadVZF = () => {
-    // Simuliere VZF Download
     const vzfContent = `
 VERTRAGSZUSAMMENFASSUNG (VZF)
 ==============================
+COM-IN - Ein Unternehmen der Stadt Ingolstadt
 
 Kunde: ${customerData?.salutation === 'herr' ? 'Herr' : customerData?.salutation === 'frau' ? 'Frau' : ''} ${customerData?.firstName} ${customerData?.lastName}
 Adresse: ${address?.street} ${address?.houseNumber}, ${address?.postalCode} ${address?.city}
 
-Gewählter Tarif: ${selectedTariff?.name}
+Gewähltes Produkt: ${selectedTariff?.name}
 Geschwindigkeit: ${selectedTariff?.speed}
-Monatliche Kosten: ${selectedTariff?.monthlyPrice.toFixed(2)} €
+Monatliche Kosten: ${selectedTariff?.monthlyPrice.toFixed(2).replace('.', ',')} €
 
 Zusatzoptionen:
-${selectedAddons.map(a => `- ${a.name}: ${a.monthlyPrice > 0 ? a.monthlyPrice.toFixed(2) + ' €/Monat' : 'inklusive'}`).join('\n')}
+${selectedAddons.map(a => `- ${a.name}: ${a.monthlyPrice > 0 ? a.monthlyPrice.toFixed(2).replace('.', ',') + ' €/Monat' : 'inklusive'}`).join('\n')}
 
 Vertragslaufzeit: ${contractDuration} Monate
 
 GESAMTKOSTEN:
-- Monatlich: ${getTotalMonthly().toFixed(2)} €
-- Einmalig: ${getTotalOneTime().toFixed(2)} €
+- Monatlich: ${getTotalMonthly().toFixed(2).replace('.', ',')} €
+- Einmalig: ${getTotalOneTime().toFixed(2).replace('.', ',')} €
 
 Datum: ${new Date().toLocaleDateString('de-DE')}
+
+COM-IN GmbH
+Ein Unternehmen der Stadt Ingolstadt
     `;
 
     const blob = new Blob([vzfContent], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'Vertragszusammenfassung_VZF.txt';
+    a.download = 'COMIN_Vertragszusammenfassung_VZF.txt';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -80,7 +84,7 @@ Datum: ${new Date().toLocaleDateString('de-DE')}
     setOrderComplete(true);
     toast({
       title: "Bestellung erfolgreich!",
-      description: "Vielen Dank für Ihre Bestellung. Sie erhalten in Kürze eine Bestätigung per E-Mail.",
+      description: "Vielen Dank für Ihre Bestellung bei COM-IN.",
     });
   };
 
@@ -90,30 +94,30 @@ Datum: ${new Date().toLocaleDateString('de-DE')}
         <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-success/10 flex items-center justify-center">
           <PartyPopper className="w-12 h-12 text-success" />
         </div>
-        <h2 className="text-2xl font-bold mb-2">Bestellung abgeschlossen!</h2>
+        <h2 className="text-2xl font-bold text-primary mb-2">Bestellung abgeschlossen!</h2>
         <p className="text-muted-foreground mb-8">
           Vielen Dank für Ihre Bestellung, {customerData?.firstName}! 
           Sie erhalten in Kürze eine Bestätigungs-E-Mail an {customerData?.email}.
         </p>
         
-        <div className="bg-card rounded-xl shadow-card p-6 text-left space-y-4">
-          <h3 className="font-semibold">Ihre Bestelldetails</h3>
+        <div className="bg-card rounded-2xl shadow-card p-6 text-left space-y-4">
+          <h3 className="font-bold text-primary">Ihre Bestelldetails</h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Bestellnummer:</span>
-              <span className="font-mono">ORD-{Date.now().toString(36).toUpperCase()}</span>
+              <span className="font-mono font-bold">COM-{Date.now().toString(36).toUpperCase()}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Tarif:</span>
-              <span>{selectedTariff?.name}</span>
+              <span className="text-muted-foreground">Produkt:</span>
+              <span className="font-medium">{selectedTariff?.name}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Monatliche Kosten:</span>
-              <span className="font-bold">{getTotalMonthly().toFixed(2)} €</span>
+              <span className="font-bold text-accent">{getTotalMonthly().toFixed(2).replace('.', ',')} €</span>
             </div>
           </div>
           
-          <div className="pt-4 border-t">
+          <div className="pt-4 border-t border-border">
             <p className="text-sm text-muted-foreground">
               Wir werden uns in den nächsten Tagen bezüglich des Installationstermins bei Ihnen melden.
             </p>
@@ -125,31 +129,29 @@ Datum: ${new Date().toLocaleDateString('de-DE')}
 
   return (
     <div className="max-w-2xl mx-auto animate-slide-up">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-full gradient-hero flex items-center justify-center">
-          <FileText className="w-5 h-5 text-primary-foreground" />
+      <div className="text-center mb-8">
+        <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-accent/10 flex items-center justify-center">
+          <FileText className="w-7 h-7 text-accent" />
         </div>
-        <div>
-          <h2 className="text-xl font-bold">Bestellübersicht</h2>
-          <p className="text-sm text-muted-foreground">
-            Prüfen Sie Ihre Angaben und schließen Sie die Bestellung ab
-          </p>
-        </div>
+        <h2 className="text-2xl font-bold text-primary">Zusammenfassung</h2>
+        <p className="text-muted-foreground mt-1">
+          Prüfen Sie Ihre Angaben und schließen Sie die Bestellung ab
+        </p>
       </div>
 
       <div className="space-y-4">
         {/* Adresse */}
         <div className="bg-card rounded-xl shadow-soft p-5">
-          <div className="flex items-start gap-3">
-            <MapPin className="w-5 h-5 text-primary mt-0.5" />
+          <div className="flex items-start gap-4">
+            <MapPin className="w-5 h-5 text-accent mt-0.5" />
             <div>
-              <h4 className="font-semibold">Anschlussadresse</h4>
-              <p className="text-sm text-muted-foreground mt-1">
+              <h4 className="font-bold text-primary">Anschlussadresse</h4>
+              <p className="text-muted-foreground mt-1">
                 {address?.street} {address?.houseNumber}, {address?.postalCode} {address?.city}
               </p>
               <span className={cn(
-                "inline-block mt-2 px-2 py-0.5 text-xs font-medium rounded-full",
-                address?.connectionType === 'ftth' ? "bg-success/10 text-success" : "bg-primary/10 text-primary"
+                "inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full",
+                address?.connectionType === 'ftth' ? "bg-success/10 text-success" : "bg-accent/10 text-accent"
               )}>
                 {address?.connectionType === 'ftth' ? 'FTTH - Glasfaser bis in die Wohnung' : 'FTTB - Glasfaser bis zum Gebäude'}
               </span>
@@ -159,11 +161,11 @@ Datum: ${new Date().toLocaleDateString('de-DE')}
 
         {/* Kundendaten */}
         <div className="bg-card rounded-xl shadow-soft p-5">
-          <div className="flex items-start gap-3">
-            <User className="w-5 h-5 text-primary mt-0.5" />
+          <div className="flex items-start gap-4">
+            <User className="w-5 h-5 text-accent mt-0.5" />
             <div>
-              <h4 className="font-semibold">Kundendaten</h4>
-              <div className="text-sm text-muted-foreground mt-1 space-y-1">
+              <h4 className="font-bold text-primary">Kundendaten</h4>
+              <div className="text-muted-foreground mt-1 space-y-0.5">
                 <p>{customerData?.salutation === 'herr' ? 'Herr' : customerData?.salutation === 'frau' ? 'Frau' : ''} {customerData?.firstName} {customerData?.lastName}</p>
                 <p>{customerData?.email}</p>
                 <p>{customerData?.phone}</p>
@@ -174,15 +176,15 @@ Datum: ${new Date().toLocaleDateString('de-DE')}
 
         {/* Tarif */}
         <div className="bg-card rounded-xl shadow-soft p-5">
-          <div className="flex items-start gap-3">
-            <Wifi className="w-5 h-5 text-primary mt-0.5" />
+          <div className="flex items-start gap-4">
+            <Globe className="w-5 h-5 text-accent mt-0.5" />
             <div className="flex-1">
               <div className="flex justify-between items-start">
                 <div>
-                  <h4 className="font-semibold">{selectedTariff?.name}</h4>
-                  <p className="text-sm text-muted-foreground mt-1">{selectedTariff?.speed} • {contractDuration} Monate Laufzeit</p>
+                  <h4 className="font-bold text-primary">{selectedTariff?.name}</h4>
+                  <p className="text-muted-foreground mt-1">{selectedTariff?.speed} • {contractDuration} Monate Laufzeit</p>
                 </div>
-                <p className="font-bold">{selectedTariff?.monthlyPrice.toFixed(2)} €/Monat</p>
+                <p className="font-bold text-accent text-lg">{selectedTariff?.monthlyPrice.toFixed(2).replace('.', ',')} €/Monat</p>
               </div>
             </div>
           </div>
@@ -191,15 +193,15 @@ Datum: ${new Date().toLocaleDateString('de-DE')}
         {/* Addons */}
         {selectedAddons.length > 0 && (
           <div className="bg-card rounded-xl shadow-soft p-5">
-            <div className="flex items-start gap-3">
-              <Package className="w-5 h-5 text-primary mt-0.5" />
+            <div className="flex items-start gap-4">
+              <Package className="w-5 h-5 text-accent mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-semibold">Zusatzoptionen</h4>
+                <h4 className="font-bold text-primary">Zusatzoptionen</h4>
                 <div className="mt-2 space-y-2">
                   {selectedAddons.map(addon => (
                     <div key={addon.id} className="flex justify-between text-sm">
                       <span className="text-muted-foreground">{addon.name}</span>
-                      <span>{addon.monthlyPrice > 0 ? `${addon.monthlyPrice.toFixed(2)} €/Monat` : 'inklusive'}</span>
+                      <span className="font-medium">{addon.monthlyPrice > 0 ? `${addon.monthlyPrice.toFixed(2).replace('.', ',')} €/Monat` : 'inklusive'}</span>
                     </div>
                   ))}
                 </div>
@@ -208,43 +210,45 @@ Datum: ${new Date().toLocaleDateString('de-DE')}
           </div>
         )}
 
-        {/* Kosten Zusammenfassung */}
-        <div className="bg-primary/5 rounded-xl p-5 border border-primary/20">
-          <h4 className="font-semibold mb-3">Kostenübersicht</h4>
+        {/* Kosten */}
+        <div className="bg-accent/5 rounded-xl p-5 border border-accent/20">
+          <h4 className="font-bold text-primary mb-3">Kostenübersicht</h4>
           <div className="space-y-2">
             <div className="flex justify-between">
               <span>Monatliche Kosten</span>
-              <span className="font-bold text-lg">{getTotalMonthly().toFixed(2)} €</span>
+              <span className="font-bold text-xl text-accent">{getTotalMonthly().toFixed(2).replace('.', ',')} €</span>
             </div>
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Einmalige Kosten</span>
-              <span>{getTotalOneTime().toFixed(2)} €</span>
-            </div>
+            {getTotalOneTime() > 0 && (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Einmalige Kosten</span>
+                <span>{getTotalOneTime().toFixed(2).replace('.', ',')} €</span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* VZF Download */}
-        <div className="bg-card rounded-xl shadow-card p-6 border-2 border-dashed border-primary/30">
+        <div className="bg-card rounded-xl shadow-card p-6 border-2 border-dashed border-accent/30">
           <div className="flex items-start gap-4">
             <div className={cn(
               "w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0",
-              vzfDownloaded ? "bg-success/10" : "bg-primary/10"
+              vzfDownloaded ? "bg-success/10" : "bg-accent/10"
             )}>
               {vzfDownloaded ? (
                 <CheckCircle2 className="w-6 h-6 text-success" />
               ) : (
-                <FileText className="w-6 h-6 text-primary" />
+                <FileText className="w-6 h-6 text-accent" />
               )}
             </div>
             <div className="flex-1">
-              <h4 className="font-semibold">Vertragszusammenfassung (VZF)</h4>
+              <h4 className="font-bold text-primary">Vertragszusammenfassung (VZF)</h4>
               <p className="text-sm text-muted-foreground mt-1">
                 Vor Vertragsabschluss müssen Sie die Vertragszusammenfassung herunterladen und bestätigen.
               </p>
               
               <Button 
                 onClick={handleDownloadVZF}
-                variant={vzfDownloaded ? "secondary" : "default"}
+                variant={vzfDownloaded ? "secondary" : "orange"}
                 className="mt-4"
               >
                 <Download className="w-4 h-4" />
@@ -252,7 +256,7 @@ Datum: ${new Date().toLocaleDateString('de-DE')}
               </Button>
 
               {vzfDownloaded && (
-                <div className="flex items-center gap-2 mt-4">
+                <div className="flex items-center gap-3 mt-4">
                   <Checkbox 
                     id="vzf-confirm" 
                     checked={vzfConfirmed}
@@ -268,11 +272,11 @@ Datum: ${new Date().toLocaleDateString('de-DE')}
         </div>
 
         {/* Buttons */}
-        <div className="flex gap-3 pt-4">
+        <div className="flex gap-4 pt-4">
           <Button 
             variant="outline" 
             onClick={() => setStep(3)}
-            className="flex-1"
+            className="flex-1 h-12 rounded-full"
           >
             <ArrowLeft className="w-4 h-4" />
             Zurück
@@ -280,10 +284,10 @@ Datum: ${new Date().toLocaleDateString('de-DE')}
           <Button 
             onClick={handleOrder}
             disabled={!vzfDownloaded || !vzfConfirmed}
-            className="flex-1"
-            variant="hero"
+            className="flex-1 h-12"
+            variant="orange"
           >
-            <CheckCircle2 className="w-4 h-4" />
+            <Rocket className="w-4 h-4" />
             Jetzt verbindlich bestellen
           </Button>
         </div>

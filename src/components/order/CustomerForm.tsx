@@ -33,23 +33,21 @@ export function CustomerForm() {
 
   return (
     <div className="max-w-xl mx-auto animate-slide-up">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-full gradient-hero flex items-center justify-center">
-          <User className="w-5 h-5 text-primary-foreground" />
+      <div className="text-center mb-8">
+        <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-accent/10 flex items-center justify-center">
+          <User className="w-7 h-7 text-accent" />
         </div>
-        <div>
-          <h2 className="text-xl font-bold">Ihre persönlichen Daten</h2>
-          <p className="text-sm text-muted-foreground">
-            Für Ihren Vertrag benötigen wir folgende Angaben
-          </p>
-        </div>
+        <h2 className="text-2xl font-bold text-primary">Ihre persönlichen Daten</h2>
+        <p className="text-muted-foreground mt-1">
+          Für Ihren Vertrag benötigen wir folgende Angaben
+        </p>
       </div>
 
-      <div className="bg-card rounded-xl shadow-card p-6 space-y-6">
+      <div className="bg-card rounded-2xl shadow-card p-6 md:p-8 space-y-5">
         <div>
-          <Label htmlFor="salutation">Anrede</Label>
+          <Label htmlFor="salutation" className="text-foreground font-medium">Anrede</Label>
           <Select onValueChange={(value) => handleChange('salutation', value)}>
-            <SelectTrigger className="mt-1.5">
+            <SelectTrigger className="mt-1.5 h-12 rounded-xl">
               <SelectValue placeholder="Bitte wählen" />
             </SelectTrigger>
             <SelectContent>
@@ -62,67 +60,67 @@ export function CustomerForm() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="firstName">Vorname</Label>
+            <Label htmlFor="firstName" className="text-foreground font-medium">Vorname</Label>
             <Input
               id="firstName"
               placeholder="Max"
               value={formData.firstName}
               onChange={(e) => handleChange('firstName', e.target.value)}
-              className="mt-1.5"
+              className="mt-1.5 h-12 rounded-xl"
             />
           </div>
           <div>
-            <Label htmlFor="lastName">Nachname</Label>
+            <Label htmlFor="lastName" className="text-foreground font-medium">Nachname</Label>
             <Input
               id="lastName"
               placeholder="Mustermann"
               value={formData.lastName}
               onChange={(e) => handleChange('lastName', e.target.value)}
-              className="mt-1.5"
+              className="mt-1.5 h-12 rounded-xl"
             />
           </div>
         </div>
 
         <div>
-          <Label htmlFor="birthDate">Geburtsdatum</Label>
+          <Label htmlFor="birthDate" className="text-foreground font-medium">Geburtsdatum</Label>
           <Input
             id="birthDate"
             type="date"
             value={formData.birthDate}
             onChange={(e) => handleChange('birthDate', e.target.value)}
-            className="mt-1.5"
+            className="mt-1.5 h-12 rounded-xl"
           />
         </div>
 
         <div>
-          <Label htmlFor="email">E-Mail-Adresse</Label>
+          <Label htmlFor="email" className="text-foreground font-medium">E-Mail-Adresse</Label>
           <Input
             id="email"
             type="email"
             placeholder="max.mustermann@email.de"
             value={formData.email}
             onChange={(e) => handleChange('email', e.target.value)}
-            className="mt-1.5"
+            className="mt-1.5 h-12 rounded-xl"
           />
         </div>
 
         <div>
-          <Label htmlFor="phone">Telefonnummer</Label>
+          <Label htmlFor="phone" className="text-foreground font-medium">Telefonnummer</Label>
           <Input
             id="phone"
             type="tel"
-            placeholder="+49 123 456789"
+            placeholder="+49 841 12345"
             value={formData.phone}
             onChange={(e) => handleChange('phone', e.target.value)}
-            className="mt-1.5"
+            className="mt-1.5 h-12 rounded-xl"
           />
         </div>
 
-        <div className="flex gap-3 pt-4">
+        <div className="flex gap-4 pt-4">
           <Button 
             variant="outline" 
             onClick={() => setStep(2)}
-            className="flex-1"
+            className="flex-1 h-12 rounded-full"
           >
             <ArrowLeft className="w-4 h-4" />
             Zurück
@@ -130,8 +128,8 @@ export function CustomerForm() {
           <Button 
             onClick={handleContinue}
             disabled={!isValid}
-            className="flex-1"
-            variant="hero"
+            className="flex-1 h-12"
+            variant="orange"
           >
             Weiter zur Übersicht
             <ArrowRight className="w-4 h-4" />
