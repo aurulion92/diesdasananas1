@@ -276,16 +276,16 @@ export function CartSidebar() {
                 </span>
               </div>
               
-              {/* Router - show discounted price */}
+              {/* Router - show ORIGINAL price, discount shown separately */}
               {selectedRouter && selectedRouter.id !== 'router-none' && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>{selectedRouter.name}</span>
-                  <span>{getRouterPrice().toFixed(2).replace('.', ',')} €</span>
+                  <span>{selectedRouter.monthlyPrice.toFixed(2).replace('.', ',')} €</span>
                 </div>
               )}
               
-              {/* Router Discount - show as separate line */}
-              {routerDiscount > 0 && (
+              {/* Router Discount - show as separate line (this reduces the total) */}
+              {routerDiscount > 0 && selectedRouter && selectedRouter.id !== 'router-none' && (
                 <div className="flex justify-between text-success">
                   <span>Router-Rabatt</span>
                   <span>-{routerDiscount.toFixed(2).replace('.', ',')} €</span>
