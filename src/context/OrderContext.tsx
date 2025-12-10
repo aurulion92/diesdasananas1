@@ -331,38 +331,44 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     return state.address?.houseType?.toUpperCase() === 'MFH';
   };
 
-  // Check if router discount applies (einfach tariffs OR promo code)
-  const hasRouterDiscount = (): boolean => {
+  // Check if einfach tariff discount applies (4€ on routers)
+  const hasEinfachTariffDiscount = (): boolean => {
     if (!state.selectedTariff) return false;
-    
-    // Check if it's an "einfach" tariff (not FiberBasic)
-    const isEinfachTariff = state.selectedTariff.id.startsWith('einfach-');
-    
-    // Check if promo code gives router discount
-    const hasPromoDiscount = state.appliedPromoCode?.routerDiscount && state.appliedPromoCode.routerDiscount > 0;
-    
-    // Discount applies if EITHER condition is met (not stacking)
-    return isEinfachTariff || !!hasPromoDiscount;
+    return state.selectedTariff.id.startsWith('einfach-');
+  };
+
+  // Get the promo code router discount amount
+  const getPromoCodeRouterDiscount = (): number => {
+    if (!state.appliedPromoCode) return 0;
+    return state.appliedPromoCode.routerDiscount || 0;
   };
 
   const getRouterPrice = (): number => {
     if (!state.selectedRouter || state.selectedRouter.id === 'router-none') return 0;
     
-    if (hasRouterDiscount() && state.selectedRouter.discountedPrice !== undefined) {
-      return state.selectedRouter.discountedPrice;
+    let price = state.selectedRouter.monthlyPrice;
+    
+    // Apply einfach tariff discount first (uses discountedPrice if available)
+    if (hasEinfachTariffDiscount() && state.selectedRouter.discountedPrice !== undefined) {
+      price = state.selectedRouter.discountedPrice;
     }
     
-    return state.selectedRouter.monthlyPrice;
+    // Apply promo code discount on top (but don't go below 0)
+    const promoDiscount = getPromoCodeRouterDiscount();
+    if (promoDiscount > 0) {
+      price = Math.max(0, price - promoDiscount);
+    }
+    
+    return price;
   };
 
   const getRouterDiscount = (): number => {
     if (!state.selectedRouter || state.selectedRouter.id === 'router-none') return 0;
     
-    if (hasRouterDiscount() && state.selectedRouter.discountedPrice !== undefined) {
-      return state.selectedRouter.monthlyPrice - state.selectedRouter.discountedPrice;
-    }
+    const originalPrice = state.selectedRouter.monthlyPrice;
+    const finalPrice = getRouterPrice();
     
-    return 0;
+    return originalPrice - finalPrice;
   };
 
   const isSetupFeeWaived = (): boolean => {
