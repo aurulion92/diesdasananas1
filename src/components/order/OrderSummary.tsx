@@ -56,6 +56,7 @@ export function OrderSummary() {
     getRouterDiscount,
     getSetupFee,
     isSetupFeeWaived,
+    getReferralBonus,
     setStep 
   } = useOrder();
 
@@ -471,6 +472,12 @@ export function OrderSummary() {
               <span>Einmalige Kosten</span>
               <span>{getTotalOneTime().toFixed(2).replace('.', ',')} €</span>
             </div>
+            {getReferralBonus() > 0 && (
+              <div className="flex justify-between text-sm text-success">
+                <span>Kunden werben Kunden Prämie</span>
+                <span>-{getReferralBonus().toFixed(2).replace('.', ',')} €</span>
+              </div>
+            )}
             {isSetupFeeWaived() && (
               <p className="text-success text-sm">✓ Anschlussgebühr entfällt durch Aktionscode</p>
             )}

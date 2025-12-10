@@ -114,6 +114,7 @@ interface OrderContextType extends OrderState {
   getRouterDiscount: () => number;
   getSetupFee: () => number;
   isSetupFeeWaived: () => boolean;
+  getReferralBonus: () => number;
   resetOrder: () => void;
   canNavigateToStep: (step: number) => boolean;
   isMFH: () => boolean;
@@ -414,6 +415,13 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     return total;
   };
 
+  const getReferralBonus = (): number => {
+    if (state.referralData.type === 'referral' && state.referralData.referralValidated) {
+      return 50;
+    }
+    return 0;
+  };
+
   const getTotalOneTime = () => {
     let total = getSetupFee();
     
@@ -442,7 +450,10 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
       total += addon.oneTimePrice;
     });
     
-    return total;
+    // Subtract referral bonus
+    total -= getReferralBonus();
+    
+    return Math.max(0, total); // Never go below 0
   };
 
   const canNavigateToStep = (step: number): boolean => {
@@ -487,6 +498,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
       getRouterDiscount,
       getSetupFee,
       isSetupFeeWaived,
+      getReferralBonus,
       resetOrder,
       canNavigateToStep,
       isMFH,
