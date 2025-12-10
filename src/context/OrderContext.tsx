@@ -30,7 +30,7 @@ interface ApartmentData {
 
 interface ProviderCancellationData {
   providerName: string;
-  customerNumber: string; // Customer number at previous provider for cancellation
+  customerNumber: string; // Phone number for cancellation (Telefonnummer zum Kündigen)
   portToNewConnection: boolean; // Seamless transition
   preferredDate: 'asap' | 'specific' | null;
   specificDate: string | null;

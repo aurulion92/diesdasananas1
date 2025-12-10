@@ -104,7 +104,7 @@ ${expressActivation ? 'Express-Anschaltung: Ja (innerhalb 3 Werktage)' : ''}
 ${cancelPreviousProvider && providerCancellationData ? `
 WECHSELSERVICE:
 Bisheriger Anbieter: ${providerCancellationData.providerName}
-Kundennummer: ${providerCancellationData.customerNumber}
+Telefonnummer: ${providerCancellationData.customerNumber}
 Übergang: ${providerCancellationData.portToNewConnection ? 'Nahtlos (Portierung)' : providerCancellationData.preferredDate === 'asap' ? 'Schnellstmöglich' : providerCancellationData.specificDate}
 ` : ''}
 
@@ -356,7 +356,7 @@ Ein Unternehmen der Stadt Ingolstadt
                 <h4 className="font-bold text-primary">Wechselservice</h4>
                 <div className="text-muted-foreground mt-1 space-y-0.5">
                   <p>Bisheriger Anbieter: {providerCancellationData.providerName}</p>
-                  <p>Kundennummer: {providerCancellationData.customerNumber}</p>
+                  <p>Telefonnummer: {providerCancellationData.customerNumber}</p>
                   <p>Übergang: {providerCancellationData.portToNewConnection 
                     ? 'Nahtlos (Portierung)' 
                     : providerCancellationData.preferredDate === 'asap' 
