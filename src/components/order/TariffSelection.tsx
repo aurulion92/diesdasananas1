@@ -330,8 +330,8 @@ export function TariffSelection() {
             )}
           </div>
 
-          {/* TV Options - Only for FTTH */}
-          {isFtth && (
+          {/* TV Options - Only for FTTH (COM-IN TV) or always for WAIPU */}
+          {selectedTariff && (
             <div className="bg-card rounded-xl p-5 border border-border">
               <div className="flex items-center gap-2 mb-3">
                 <Tv className="w-5 h-5 text-accent" />
@@ -351,80 +351,83 @@ export function TariffSelection() {
                   <Label htmlFor="tv-none" className="flex-1 cursor-pointer">Kein TV</Label>
                 </div>
                 
-                <div className={cn(
-                  "p-3 rounded-lg border transition-all",
-                  tvSelection.type === 'comin' ? "border-accent bg-accent/5" : "border-border"
-                )}>
-                  <div className="flex items-center space-x-3">
-                    <RadioGroupItem value="comin" id="tv-comin" />
-                    <Label htmlFor="tv-comin" className="flex-1 cursor-pointer">
-                      <div className="flex justify-between items-center">
-                        <span>COM-IN TV (Kabel TV)</span>
-                        <span className="text-accent font-medium">10,00 €/Monat</span>
-                      </div>
-                    </Label>
-                  </div>
-                  
-                  {tvSelection.type === 'comin' && (
-                    <div className="mt-4 ml-6 space-y-4">
-                      {/* HD Addon */}
-                      <div>
-                        <Label className="text-sm text-muted-foreground">HD-Paket (optional)</Label>
-                        <Select 
-                          value={tvSelection.hdAddon?.id || 'none'} 
-                          onValueChange={handleHdAddonChange}
-                        >
-                          <SelectTrigger className="mt-2">
-                            <SelectValue placeholder="HD-Paket wählen" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-card border border-border z-50">
-                            <SelectItem value="none">Kein HD-Paket</SelectItem>
-                            {cominTvAddons.map((addon) => (
-                              <SelectItem key={addon.id} value={addon.id}>
-                                <div className="flex justify-between items-center w-full gap-4">
-                                  <span>{addon.name}</span>
-                                  <span className="text-accent">+{addon.monthlyPrice.toFixed(2).replace('.', ',')} €/Monat</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      {/* Hardware selection - only if HD package selected */}
-                      {tvSelection.hdAddon && (
-                        <div>
-                          <Label className="text-sm text-muted-foreground">Hardware (erforderlich)</Label>
-                          <p className="text-xs text-muted-foreground mb-2">Smartcard Aktivierung: 29,90 € einmalig</p>
-                          <RadioGroup 
-                            value={tvSelection.hardware.find(h => h.id !== 'tv-smartcard')?.id || ''}
-                            onValueChange={handleHardwareChange}
-                            className="space-y-2 mt-2"
-                          >
-                            <div className="flex items-center space-x-3 p-2 rounded border border-border">
-                              <RadioGroupItem value="tv-receiver" id="tv-receiver" />
-                              <Label htmlFor="tv-receiver" className="flex-1 cursor-pointer text-sm">
-                                <div className="flex justify-between">
-                                  <span>Technistar 4K ISIO (1TB) Miete</span>
-                                  <span className="text-accent">4,90 €/Monat</span>
-                                </div>
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-3 p-2 rounded border border-border">
-                              <RadioGroupItem value="tv-ci-module" id="tv-ci-module" />
-                              <Label htmlFor="tv-ci-module" className="flex-1 cursor-pointer text-sm">
-                                <div className="flex justify-between">
-                                  <span>CI+ Modul (M7) Kauf</span>
-                                  <span className="text-accent">79,90 € einmalig</span>
-                                </div>
-                              </Label>
-                            </div>
-                          </RadioGroup>
+                {/* COM-IN TV - nur bei FTTH verfügbar */}
+                {isFtth && (
+                  <div className={cn(
+                    "p-3 rounded-lg border transition-all",
+                    tvSelection.type === 'comin' ? "border-accent bg-accent/5" : "border-border"
+                  )}>
+                    <div className="flex items-center space-x-3">
+                      <RadioGroupItem value="comin" id="tv-comin" />
+                      <Label htmlFor="tv-comin" className="flex-1 cursor-pointer">
+                        <div className="flex justify-between items-center">
+                          <span>COM-IN TV (Kabel TV)</span>
+                          <span className="text-accent font-medium">10,00 €/Monat</span>
                         </div>
-                      )}
+                      </Label>
                     </div>
-                  )}
-                </div>
+                  
+                    {tvSelection.type === 'comin' && (
+                      <div className="mt-4 ml-6 space-y-4">
+                        {/* HD Addon */}
+                        <div>
+                          <Label className="text-sm text-muted-foreground">HD-Paket (optional)</Label>
+                          <Select 
+                            value={tvSelection.hdAddon?.id || 'none'} 
+                            onValueChange={handleHdAddonChange}
+                          >
+                            <SelectTrigger className="mt-2">
+                              <SelectValue placeholder="HD-Paket wählen" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-card border border-border z-50">
+                              <SelectItem value="none">Kein HD-Paket</SelectItem>
+                              {cominTvAddons.map((addon) => (
+                                <SelectItem key={addon.id} value={addon.id}>
+                                  <div className="flex justify-between items-center w-full gap-4">
+                                    <span>{addon.name}</span>
+                                    <span className="text-accent">+{addon.monthlyPrice.toFixed(2).replace('.', ',')} €/Monat</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        {/* Hardware selection - only if HD package selected */}
+                        {tvSelection.hdAddon && (
+                          <div>
+                            <Label className="text-sm text-muted-foreground">Hardware (erforderlich)</Label>
+                            <p className="text-xs text-muted-foreground mb-2">Smartcard Aktivierung: 29,90 € einmalig</p>
+                            <RadioGroup 
+                              value={tvSelection.hardware.find(h => h.id !== 'tv-smartcard')?.id || ''}
+                              onValueChange={handleHardwareChange}
+                              className="space-y-2 mt-2"
+                            >
+                              <div className="flex items-center space-x-3 p-2 rounded border border-border">
+                                <RadioGroupItem value="tv-receiver" id="tv-receiver" />
+                                <Label htmlFor="tv-receiver" className="flex-1 cursor-pointer text-sm">
+                                  <div className="flex justify-between">
+                                    <span>Technistar 4K ISIO (1TB) Miete</span>
+                                    <span className="text-accent">4,90 €/Monat</span>
+                                  </div>
+                                </Label>
+                              </div>
+                              <div className="flex items-center space-x-3 p-2 rounded border border-border">
+                                <RadioGroupItem value="tv-ci-module" id="tv-ci-module" />
+                                <Label htmlFor="tv-ci-module" className="flex-1 cursor-pointer text-sm">
+                                  <div className="flex justify-between">
+                                    <span>CI+ Modul (M7) Kauf</span>
+                                    <span className="text-accent">79,90 € einmalig</span>
+                                  </div>
+                                </Label>
+                              </div>
+                            </RadioGroup>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 <div className={cn(
                   "p-3 rounded-lg border transition-all",

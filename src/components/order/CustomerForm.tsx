@@ -7,13 +7,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { User, ArrowRight, ArrowLeft, CalendarIcon, CreditCard, Clock } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { User, ArrowRight, ArrowLeft, CalendarIcon, CreditCard, Clock, Building } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
 export function CustomerForm() {
-  const { setCustomerData, setBankData, setPreferredDate, setPreferredDateType, setStep } = useOrder();
+  const { 
+    setCustomerData, 
+    setBankData, 
+    setPreferredDate, 
+    setPreferredDateType, 
+    setApartmentData,
+    setCancelPreviousProvider,
+    cancelPreviousProvider,
+    isMFH,
+    setStep 
+  } = useOrder();
   
   const [formData, setFormData] = useState({
     salutation: '',
@@ -29,8 +40,15 @@ export function CustomerForm() {
     iban: '',
   });
 
+  const [apartmentLocal, setApartmentLocal] = useState({
+    floor: '',
+    apartment: '',
+  });
+
   const [dateType, setDateType] = useState<'asap' | 'specific' | ''>('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+
+  const isMFHBuilding = isMFH();
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -38,6 +56,10 @@ export function CustomerForm() {
 
   const handleBankChange = (field: string, value: string) => {
     setBankDataLocal(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleApartmentChange = (field: string, value: string) => {
+    setApartmentLocal(prev => ({ ...prev, [field]: value }));
   };
 
   // Format IBAN with spaces
@@ -55,6 +77,8 @@ export function CustomerForm() {
     return phone.replace(/\s/g, '').length >= 6;
   };
 
+  const isApartmentValid = !isMFHBuilding || (apartmentLocal.floor && apartmentLocal.apartment);
+
   const isValid = formData.salutation && 
                   formData.firstName && 
                   formData.lastName && 
@@ -66,7 +90,8 @@ export function CustomerForm() {
                   bankData.accountHolder &&
                   bankData.iban.replace(/\s/g, '').length >= 22 &&
                   dateType !== '' &&
-                  (dateType === 'asap' || (dateType === 'specific' && selectedDate));
+                  (dateType === 'asap' || (dateType === 'specific' && selectedDate)) &&
+                  isApartmentValid;
 
   const handleContinue = () => {
     if (isValid) {
@@ -78,12 +103,18 @@ export function CustomerForm() {
       } else {
         setPreferredDate(null);
       }
+      if (isMFHBuilding && apartmentLocal.floor && apartmentLocal.apartment) {
+        setApartmentData(apartmentLocal);
+      }
       setStep(4);
     }
   };
 
   // Minimum date is 14 days from now
   const minDate = addDays(new Date(), 14);
+
+  // Floor options (EG, 1-10)
+  const floorOptions = ['EG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
   return (
     <div className="max-w-xl mx-auto animate-slide-up">
@@ -98,8 +129,46 @@ export function CustomerForm() {
       </div>
 
       <div className="bg-card rounded-2xl shadow-card p-6 md:p-8 space-y-6">
+        {/* Wohnungslage - nur bei MFH */}
+        {isMFHBuilding && (
+          <div className="space-y-5">
+            <h3 className="font-semibold text-primary flex items-center gap-2">
+              <Building className="w-5 h-5" />
+              Wohnungslage (Mehrfamilienhaus) *
+            </h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="floor" className="text-foreground font-medium">Stockwerk *</Label>
+                <Select onValueChange={(value) => handleApartmentChange('floor', value)}>
+                  <SelectTrigger className="mt-1.5 h-12 rounded-xl">
+                    <SelectValue placeholder="Stockwerk wählen" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border border-border z-50">
+                    {floorOptions.map(floor => (
+                      <SelectItem key={floor} value={floor}>
+                        {floor === 'EG' ? 'Erdgeschoss' : `${floor}. OG`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="apartment" className="text-foreground font-medium">Wohnung *</Label>
+                <Input
+                  id="apartment"
+                  placeholder="z.B. links, 2a, 12"
+                  value={apartmentLocal.apartment}
+                  onChange={(e) => handleApartmentChange('apartment', e.target.value)}
+                  className="mt-1.5 h-12 rounded-xl"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Persönliche Daten */}
-        <div className="space-y-5">
+        <div className={cn("space-y-5", isMFHBuilding && "pt-4 border-t border-border")}>
           <h3 className="font-semibold text-primary flex items-center gap-2">
             <User className="w-5 h-5" />
             Persönliche Daten
@@ -111,7 +180,7 @@ export function CustomerForm() {
               <SelectTrigger className="mt-1.5 h-12 rounded-xl">
                 <SelectValue placeholder="Bitte wählen" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-card border border-border z-50">
                 <SelectItem value="herr">Herr</SelectItem>
                 <SelectItem value="frau">Frau</SelectItem>
                 <SelectItem value="divers">Divers</SelectItem>
@@ -273,7 +342,7 @@ export function CustomerForm() {
                         {selectedDate ? format(selectedDate, "PPP", { locale: de }) : "Datum wählen"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto p-0 bg-card border border-border z-50" align="start">
                       <Calendar
                         mode="single"
                         selected={selectedDate}
@@ -289,6 +358,21 @@ export function CustomerForm() {
               </div>
             </div>
           </RadioGroup>
+
+          {/* Bisherigen Anbieter kündigen */}
+          <div className="flex items-center space-x-3 p-4 bg-muted/50 rounded-xl">
+            <Checkbox 
+              id="cancel-provider" 
+              checked={cancelPreviousProvider}
+              onCheckedChange={(checked) => setCancelPreviousProvider(checked === true)}
+            />
+            <Label htmlFor="cancel-provider" className="cursor-pointer flex-1">
+              <span className="font-medium">Bisherigen Anbieter kündigen</span>
+              <span className="block text-sm text-muted-foreground">
+                COM-IN soll die Kündigung meines bisherigen Anbieters übernehmen
+              </span>
+            </Label>
+          </div>
         </div>
 
         {/* Pflichtfeld Hinweis */}
