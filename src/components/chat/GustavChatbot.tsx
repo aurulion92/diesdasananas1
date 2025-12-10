@@ -26,7 +26,7 @@ export const GustavChatbot = () => {
     {
       id: '1',
       role: 'assistant',
-      content: 'Hey! Ich bin Gustav – dein Glasfaserkabel auf Lichtgeschwindigkeit! ⚡🚀 Was kann ich für dich tun? Frag mich nach unseren Tarifen, Aktionen oder ob Glasfaser bei dir verfügbar ist!',
+      content: 'Hallo! Ich bin Gustav, dein Glasfaser-Assistent von COM-IN. Wie kann ich dir helfen? Frag mich gerne nach unseren Tarifen, Preisen oder ob Glasfaser bei dir verfügbar ist!',
     },
   ]);
   const [input, setInput] = useState('');
