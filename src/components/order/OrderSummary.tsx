@@ -84,6 +84,7 @@ export function OrderSummary() {
       expressActivation: expressActivation,
       promoCode: appliedPromoCode?.code,
       isFiberBasic: isFiberBasic,
+      referralBonus: getReferralBonus(),
     });
     
     setVzfDownloaded(true);
