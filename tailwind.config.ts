@@ -87,11 +87,26 @@ export default {
           "0%, 100%": { boxShadow: "0 0 15px hsl(var(--accent) / 0.4)" },
           "50%": { boxShadow: "0 0 30px hsl(var(--accent) / 0.6)" },
         },
+        "bounce-slow": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-8px)" },
+        },
+        "wiggle": {
+          "0%, 100%": { transform: "rotate(-3deg)" },
+          "50%": { transform: "rotate(3deg)" },
+        },
+        "fade-in": {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        "bounce-slow": "bounce-slow 2s ease-in-out infinite",
+        "wiggle": "wiggle 1s ease-in-out infinite",
+        "fade-in": "fade-in 0.3s ease-out forwards",
       },
     },
   },

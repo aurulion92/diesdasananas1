@@ -18,13 +18,15 @@ interface CallbackFormData {
   message: string;
 }
 
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gustav-chat`;
+
 export const GustavChatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
       role: 'assistant',
-      content: 'Hallo! Ich bin Gustav, dein freundlicher Glasfaser-Assistent! 🦔 Wie kann ich dir heute helfen? Du kannst mir Fragen zu unseren Tarifen, Verfügbarkeit oder Services stellen.',
+      content: 'Hallo! Ich bin Gustav, dein stachelig schneller Glasfaser-Assistent! 🦔 Wie kann ich dir heute helfen?',
     },
   ]);
   const [input, setInput] = useState('');
@@ -37,6 +39,7 @@ export const GustavChatbot = () => {
     message: '',
   });
   const [callbackSubmitted, setCallbackSubmitted] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -47,6 +50,84 @@ export const GustavChatbot = () => {
     scrollToBottom();
   }, [messages]);
 
+  const streamChat = async (userMessages: Message[]) => {
+    const resp = await fetch(CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({
+        messages: userMessages.map((m) => ({ role: m.role, content: m.content })),
+      }),
+    });
+
+    if (!resp.ok) {
+      const errorData = await resp.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Fehler bei der Anfrage');
+    }
+
+    if (!resp.body) throw new Error('Keine Antwort erhalten');
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let textBuffer = '';
+    let assistantContent = '';
+    let streamDone = false;
+
+    while (!streamDone) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      textBuffer += decoder.decode(value, { stream: true });
+
+      let newlineIndex: number;
+      while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+        let line = textBuffer.slice(0, newlineIndex);
+        textBuffer = textBuffer.slice(newlineIndex + 1);
+
+        if (line.endsWith('\r')) line = line.slice(0, -1);
+        if (line.startsWith(':') || line.trim() === '') continue;
+        if (!line.startsWith('data: ')) continue;
+
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === '[DONE]') {
+          streamDone = true;
+          break;
+        }
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+          if (content) {
+            assistantContent += content;
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last?.role === 'assistant' && last.id.startsWith('streaming-')) {
+                return prev.map((m, i) =>
+                  i === prev.length - 1 ? { ...m, content: assistantContent } : m
+                );
+              }
+              return [
+                ...prev,
+                { id: `streaming-${Date.now()}`, role: 'assistant', content: assistantContent },
+              ];
+            });
+          }
+        } catch {
+          textBuffer = line + '\n' + textBuffer;
+          break;
+        }
+      }
+    }
+
+    // Finalize message ID
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id.startsWith('streaming-') ? { ...m, id: Date.now().toString() } : m
+      )
+    );
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -56,26 +137,31 @@ export const GustavChatbot = () => {
       content: input.trim(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setInput('');
     setIsLoading(true);
 
-    // TODO: Integrate with AI backend
-    // For now, show a placeholder response
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Danke für deine Nachricht! Ich bin gerade noch in der Einrichtungsphase. Bald kann ich dir alle Fragen zu COM-IN Glasfaser beantworten. Möchtest du in der Zwischenzeit lieber mit einem echten Menschen sprechen? Klicke dazu auf "Rückruf anfordern".',
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+    try {
+      await streamChat(newMessages);
+    } catch (error) {
+      console.error('Chat error:', error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content:
+            'Oh nein, da ist etwas schiefgelaufen! 🦔 Bitte versuche es nochmal oder fordere einen Rückruf an.',
+        },
+      ]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleCallbackSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Send callback request to backend
     console.log('Callback request:', callbackData);
     setCallbackSubmitted(true);
   };
@@ -89,25 +175,48 @@ export const GustavChatbot = () => {
 
   return (
     <>
-      {/* Chat Bubble */}
+      {/* Animated Chat Bubble */}
       <button
         onClick={() => setIsOpen(true)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         className={`fixed bottom-6 right-6 z-50 transition-all duration-300 ${
           isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'
         }`}
         aria-label="Chat mit Gustav öffnen"
       >
         <div className="relative group">
-          <div className="absolute -inset-1 bg-accent/30 rounded-full blur-lg group-hover:bg-accent/50 transition-all" />
-          <div className="relative w-16 h-16 rounded-full bg-card shadow-card border-2 border-accent/20 overflow-hidden hover:scale-110 transition-transform">
+          {/* Glow effect */}
+          <div className="absolute -inset-2 bg-accent/20 rounded-full blur-xl animate-pulse" />
+          
+          {/* Gustav container with animations */}
+          <div 
+            className={`relative w-20 h-20 rounded-full bg-card shadow-card border-2 border-accent/30 overflow-hidden transition-all duration-300 ${
+              isHovered ? 'scale-110 border-accent' : 'animate-bounce-slow'
+            }`}
+          >
             <img
               src={gustavMascot}
               alt="Gustav - COM-IN Maskottchen"
-              className="w-full h-full object-cover"
+              className={`w-full h-full object-cover transition-transform duration-300 ${
+                isHovered ? 'scale-110' : ''
+              }`}
             />
           </div>
-          <div className="absolute -top-1 -right-1 w-5 h-5 bg-accent rounded-full flex items-center justify-center">
-            <MessageCircle className="w-3 h-3 text-accent-foreground" />
+          
+          {/* Speech bubble hint */}
+          <div 
+            className={`absolute -top-12 right-0 bg-card rounded-xl px-3 py-2 shadow-card border border-border transition-all duration-300 whitespace-nowrap ${
+              isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+            }`}
+          >
+            <p className="text-sm font-medium text-foreground">Hallo! Kann ich helfen? 🦔</p>
+            <div className="absolute bottom-0 right-6 translate-y-1/2 rotate-45 w-3 h-3 bg-card border-r border-b border-border" />
+          </div>
+          
+          {/* Notification dot */}
+          <div className="absolute -top-1 -right-1 w-6 h-6 bg-accent rounded-full flex items-center justify-center animate-pulse">
+            <MessageCircle className="w-3.5 h-3.5 text-accent-foreground" />
           </div>
         </div>
       </button>
@@ -121,19 +230,24 @@ export const GustavChatbot = () => {
         }`}
       >
         <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden flex flex-col max-h-[600px]">
-          {/* Header */}
+          {/* Header with animated Gustav */}
           <div className="bg-primary p-4 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-card overflow-hidden border-2 border-accent/30">
-              <img
-                src={gustavMascot}
-                alt="Gustav"
-                className="w-full h-full object-cover"
-              />
+            <div className="relative">
+              <div className="w-14 h-14 rounded-full bg-card overflow-hidden border-2 border-accent/50 animate-wiggle">
+                <img
+                  src={gustavMascot}
+                  alt="Gustav"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              {/* Online indicator */}
+              <div className="absolute bottom-0 right-0 w-4 h-4 bg-success rounded-full border-2 border-primary" />
             </div>
             <div className="flex-1">
               <h3 className="font-bold text-primary-foreground">Gustav</h3>
-              <p className="text-sm text-primary-foreground/70">
-                Dein Glasfaser-Assistent
+              <p className="text-sm text-primary-foreground/70 flex items-center gap-1">
+                <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
+                Online & bereit zu helfen
               </p>
             </div>
             <button
@@ -149,15 +263,21 @@ export const GustavChatbot = () => {
           {!showCallbackForm ? (
             <>
               <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px] max-h-[400px]">
-                {messages.map((message) => (
+                {messages.map((message, index) => (
                   <div
                     key={message.id}
                     className={`flex ${
                       message.role === 'user' ? 'justify-end' : 'justify-start'
-                    }`}
+                    } animate-fade-in`}
+                    style={{ animationDelay: `${index * 50}ms` }}
                   >
+                    {message.role === 'assistant' && (
+                      <div className="w-8 h-8 rounded-full bg-accent/10 overflow-hidden mr-2 flex-shrink-0">
+                        <img src={gustavMascot} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    )}
                     <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                      className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                         message.role === 'user'
                           ? 'bg-accent text-accent-foreground rounded-br-md'
                           : 'bg-secondary text-secondary-foreground rounded-bl-md'
@@ -178,9 +298,12 @@ export const GustavChatbot = () => {
                   </div>
                 ))}
                 {isLoading && (
-                  <div className="flex justify-start">
+                  <div className="flex justify-start animate-fade-in">
+                    <div className="w-8 h-8 rounded-full bg-accent/10 overflow-hidden mr-2 flex-shrink-0 animate-wiggle">
+                      <img src={gustavMascot} alt="" className="w-full h-full object-cover" />
+                    </div>
                     <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3">
-                      <div className="flex gap-1">
+                      <div className="flex gap-1.5">
                         <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                         <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                         <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -217,7 +340,7 @@ export const GustavChatbot = () => {
                   className="w-full gap-2"
                 >
                   <Phone className="w-4 h-4" />
-                  Rückruf anfordern
+                  Lieber mit einem Menschen sprechen?
                 </Button>
               </div>
             </>
@@ -231,7 +354,7 @@ export const GustavChatbot = () => {
                       Rückruf anfordern
                     </h4>
                     <p className="text-sm text-muted-foreground">
-                      Wir rufen dich so schnell wie möglich zurück!
+                      Wir melden uns so schnell wie möglich bei dir!
                     </p>
                   </div>
 
