@@ -144,38 +144,119 @@ Ein Unternehmen der Stadt Ingolstadt
 
   if (orderComplete) {
     return (
-      <div className="max-w-xl mx-auto text-center animate-scale-in">
-        <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-success/10 flex items-center justify-center">
-          <PartyPopper className="w-12 h-12 text-success" />
+      <div className="max-w-2xl mx-auto animate-scale-in">
+        <div className="text-center mb-8">
+          <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-success/10 flex items-center justify-center">
+            <PartyPopper className="w-12 h-12 text-success" />
+          </div>
+          <h2 className="text-2xl font-bold text-primary mb-2">Bestellung abgeschlossen!</h2>
+          <p className="text-muted-foreground">
+            Vielen Dank für Ihre Bestellung, {customerData?.firstName}! 
+            Sie erhalten in Kürze eine Bestätigungs-E-Mail an {customerData?.email}.
+          </p>
         </div>
-        <h2 className="text-2xl font-bold text-primary mb-2">Bestellung abgeschlossen!</h2>
-        <p className="text-muted-foreground mb-8">
-          Vielen Dank für Ihre Bestellung, {customerData?.firstName}! 
-          Sie erhalten in Kürze eine Bestätigungs-E-Mail an {customerData?.email}.
-        </p>
         
-        <div className="bg-card rounded-2xl shadow-card p-6 text-left space-y-4">
-          <h3 className="font-bold text-primary">Ihre Bestelldetails</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Bestellnummer:</span>
-              <span className="font-mono font-bold">COM-{Date.now().toString(36).toUpperCase()}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Produkt:</span>
-              <span className="font-medium">{selectedTariff?.name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Monatliche Kosten:</span>
-              <span className="font-bold text-accent">{getTotalMonthly().toFixed(2).replace('.', ',')} €</span>
+        <div className="space-y-4">
+          {/* Bestellnummer */}
+          <div className="bg-card rounded-xl shadow-soft p-5 text-center">
+            <p className="text-sm text-muted-foreground">Bestellnummer</p>
+            <p className="text-2xl font-mono font-bold text-primary">COM-{Date.now().toString(36).toUpperCase()}</p>
+          </div>
+
+          {/* Anschlussadresse */}
+          <div className="bg-card rounded-xl shadow-soft p-5">
+            <div className="flex items-start gap-4">
+              <MapPin className="w-5 h-5 text-accent mt-0.5" />
+              <div>
+                <h4 className="font-bold text-primary">Anschlussadresse</h4>
+                <p className="text-muted-foreground">{address?.street} {address?.houseNumber}, {address?.postalCode} {address?.city}</p>
+                {apartmentData && <p className="text-muted-foreground text-sm">{apartmentData.floor}. OG, Wohnung {apartmentData.apartment}</p>}
+              </div>
             </div>
           </div>
-          
-          <div className="pt-4 border-t border-border">
-            <p className="text-sm text-muted-foreground">
-              Wir werden uns in den nächsten Tagen bezüglich des Installationstermins bei Ihnen melden.
-            </p>
+
+          {/* Kundendaten */}
+          <div className="bg-card rounded-xl shadow-soft p-5">
+            <div className="flex items-start gap-4">
+              <User className="w-5 h-5 text-accent mt-0.5" />
+              <div>
+                <h4 className="font-bold text-primary">Kundendaten</h4>
+                <p className="text-muted-foreground">{customerData?.salutation === 'herr' ? 'Herr' : 'Frau'} {customerData?.firstName} {customerData?.lastName}</p>
+                <p className="text-muted-foreground">{customerData?.email} • {customerData?.phone}</p>
+              </div>
+            </div>
           </div>
+
+          {/* Wunschtermin */}
+          <div className="bg-card rounded-xl shadow-soft p-5">
+            <div className="flex items-start gap-4">
+              <Calendar className="w-5 h-5 text-accent mt-0.5" />
+              <div>
+                <h4 className="font-bold text-primary">Wunschtermin</h4>
+                <p className="text-muted-foreground">{preferredDateType === 'asap' ? 'Schnellstmöglich' : preferredDate}</p>
+                {expressActivation && <p className="text-accent font-medium">Express-Anschaltung (3 Werktage)</p>}
+              </div>
+            </div>
+          </div>
+
+          {/* Produkt */}
+          <div className="bg-card rounded-xl shadow-soft p-5">
+            <div className="flex items-start gap-4">
+              <Globe className="w-5 h-5 text-accent mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-bold text-primary">{selectedTariff?.name}</h4>
+                <p className="text-muted-foreground">{selectedTariff?.speed}</p>
+                {selectedRouter && selectedRouter.id !== 'router-none' && (
+                  <p className="text-muted-foreground text-sm">+ {selectedRouter.name}</p>
+                )}
+                {tvSelection.type !== 'none' && (
+                  <p className="text-muted-foreground text-sm">+ {tvSelection.type === 'comin' ? 'COM-IN TV' : tvSelection.package?.name}</p>
+                )}
+                {phoneSelection.enabled && !isFiberBasic && (
+                  <p className="text-muted-foreground text-sm">+ Telefon ({phoneSelection.lines} Leitung(en))</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Rabatte */}
+          {(appliedPromoCode || (referralData.type === 'referral' && referralData.referralValidated)) && (
+            <div className="bg-success/5 rounded-xl p-5 border border-success/20">
+              <div className="flex items-start gap-4">
+                <Gift className="w-5 h-5 text-success mt-0.5" />
+                <div>
+                  {appliedPromoCode && <p className="text-success font-medium">Aktionscode: {appliedPromoCode.code}</p>}
+                  {referralData.type === 'referral' && referralData.referralValidated && (
+                    <p className="text-success">Kunden werben Kunden: 50€ Prämie (Werber: {referralData.referrerCustomerId})</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Kosten */}
+          <div className="bg-accent/5 rounded-xl p-5 border border-accent/20">
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-primary">Monatliche Kosten</span>
+              <span className="text-2xl font-bold text-accent">{getTotalMonthly().toFixed(2).replace('.', ',')} €</span>
+            </div>
+            <div className="flex justify-between items-center mt-2">
+              <span className="text-muted-foreground">Einmalige Kosten</span>
+              <span className="text-muted-foreground">{getTotalOneTime().toFixed(2).replace('.', ',')} €</span>
+            </div>
+          </div>
+
+          {/* VZF Download */}
+          <div className="bg-card rounded-xl shadow-soft p-5">
+            <Button onClick={handleDownloadVZF} variant="outline" className="w-full">
+              <Download className="w-4 h-4" />
+              Vertragszusammenfassung erneut herunterladen
+            </Button>
+          </div>
+
+          <p className="text-sm text-muted-foreground text-center">
+            Wir werden uns in den nächsten Tagen bezüglich des Installationstermins bei Ihnen melden.
+          </p>
         </div>
       </div>
     );

@@ -82,23 +82,24 @@ export const ftthTariffs: TariffOption[] = [
   },
 ];
 
-// Limited connection tariff - nur FiberBasic 100 (nicht aktiv beworben)
-export const limitedTariffs: TariffOption[] = [
-  {
-    id: "fiber-basic-100",
-    name: "FiberBasic 100",
-    displayName: "100",
-    speed: "100 Mbit/s",
-    downloadSpeed: 100,
-    uploadSpeed: 50,
-    monthlyPrice: 34.90,
-    monthlyPrice12: 49.90, // 12 months only for FiberBasic
-    setupFee: 99,
-    description: "Internet + Telefon-Flatrate",
-    features: ["100 Mbit/s Download", "50 Mbit/s Upload", "Flatrate", "IPv4 & IPv6", "Telefon inklusive"],
-    includesPhone: true,
-  },
-];
+// FiberBasic 100 - für FTTB/Limited und als versteckte Option für FTTH
+export const fiberBasicTariff: TariffOption = {
+  id: "fiber-basic-100",
+  name: "FiberBasic 100",
+  displayName: "100",
+  speed: "100 Mbit/s",
+  downloadSpeed: 100,
+  uploadSpeed: 50,
+  monthlyPrice: 34.90,
+  monthlyPrice12: 49.90, // 12 months only for FiberBasic
+  setupFee: 99,
+  description: "Internet + Telefon-Flatrate",
+  features: ["100 Mbit/s Download", "50 Mbit/s Upload", "Flatrate", "IPv4 & IPv6", "Telefon inklusive"],
+  includesPhone: true,
+};
+
+// Limited connection tariff - nur FiberBasic 100
+export const limitedTariffs: TariffOption[] = [fiberBasicTariff];
 
 // Legacy FTTB tariffs (kept for compatibility but may not be used)
 export const fttbTariffs: TariffOption[] = limitedTariffs;
