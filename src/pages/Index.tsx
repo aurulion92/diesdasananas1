@@ -14,10 +14,10 @@ import { User, Rocket } from 'lucide-react';
 
 const steps = ['Adresse', 'Tarif', 'Daten', 'Abschluss'];
 
-const LandingChoice = ({ onNewCustomer, onExistingCustomer }: { onNewCustomer: () => void; onExistingCustomer: () => void }) => {
+const LandingChoice = ({ onNewCustomer, onExistingCustomer, onLogoClick }: { onNewCustomer: () => void; onExistingCustomer: () => void; onLogoClick: () => void }) => {
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Header onLogoClick={onLogoClick} />
       <main className="container mx-auto px-4 py-6 pb-28">
         <div className="max-w-2xl mx-auto text-center">
           <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 flex items-center justify-center">
@@ -108,7 +108,8 @@ const Index = () => {
       {!showNewCustomer && !showExistingCustomer && (
         <LandingChoice 
           onNewCustomer={() => setShowNewCustomer(true)} 
-          onExistingCustomer={() => setShowExistingCustomer(true)} 
+          onExistingCustomer={() => setShowExistingCustomer(true)}
+          onLogoClick={handleBackToStart}
         />
       )}
       {showExistingCustomer && (
