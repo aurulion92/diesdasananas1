@@ -179,7 +179,7 @@ export const GustavChatbot = () => {
         onClick={() => setIsOpen(true)}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className={`fixed bottom-6 right-6 z-50 transition-all duration-300 ${
+        className={`fixed bottom-4 right-4 md:bottom-6 md:right-6 z-40 transition-all duration-300 ${
           isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'
         }`}
         aria-label="Chat mit Gustav öffnen"
@@ -190,7 +190,7 @@ export const GustavChatbot = () => {
           
           {/* Gustav - ruhig, nur sanfter Hover-Effekt */}
           <div 
-            className={`relative w-20 h-20 rounded-full bg-card shadow-card border-2 overflow-hidden transition-all duration-300 ${
+            className={`relative w-14 h-14 md:w-20 md:h-20 rounded-full bg-card shadow-card border-2 overflow-hidden transition-all duration-300 ${
               isHovered ? 'scale-105 border-accent shadow-lg' : 'border-accent/30'
             }`}
           >
@@ -220,7 +220,7 @@ export const GustavChatbot = () => {
 
       {/* Chat Window */}
       <div
-        className={`fixed bottom-6 right-6 z-50 w-[380px] max-w-[calc(100vw-3rem)] transition-all duration-300 ${
+        className={`fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 w-[380px] max-w-[calc(100vw-2rem)] transition-all duration-300 ${
           isOpen
             ? 'scale-100 opacity-100 translate-y-0'
             : 'scale-95 opacity-0 translate-y-4 pointer-events-none'
