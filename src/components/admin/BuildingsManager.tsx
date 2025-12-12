@@ -449,7 +449,9 @@ export const BuildingsManager = () => {
                     <TableRow key={building.id}>
                       <TableCell>
                         {(building.is_manual_entry || building.has_manual_override) && (
-                          <Wrench className="w-4 h-4 text-accent" title="Manuell bearbeitet" />
+                          <span title="Manuell bearbeitet">
+                            <Wrench className="w-4 h-4 text-accent" />
+                          </span>
                         )}
                       </TableCell>
                       <TableCell>
