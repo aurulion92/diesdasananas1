@@ -8,13 +8,16 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
   Loader2,
   Settings,
   RefreshCw,
-  Pencil
+  Pencil,
+  Link,
+  AlertTriangle
 } from 'lucide-react';
 import {
   Table,
@@ -42,6 +45,19 @@ interface ProductOption {
   updated_at: string;
 }
 
+interface Product {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface ProductMapping {
+  product_id: string;
+  option_id_k7: string;
+  is_included: boolean;
+  discount_amount: number;
+}
+
 const CATEGORIES = [
   { value: 'router', label: 'Router' },
   { value: 'phone', label: 'Telefon' },
@@ -52,10 +68,15 @@ const CATEGORIES = [
 
 export const OptionsManager = () => {
   const [options, setOptions] = useState<ProductOption[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isMappingDialogOpen, setIsMappingDialogOpen] = useState(false);
   const [editingOption, setEditingOption] = useState<ProductOption | null>(null);
+  const [selectedOptionForMapping, setSelectedOptionForMapping] = useState<ProductOption | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [productMappings, setProductMappings] = useState<Record<string, ProductMapping>>({});
+  const [optionMappingsCount, setOptionMappingsCount] = useState<Record<string, number>>({});
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -74,6 +95,7 @@ export const OptionsManager = () => {
 
   useEffect(() => {
     fetchOptions();
+    fetchProducts();
   }, []);
 
   const fetchOptions = async () => {
@@ -87,6 +109,19 @@ export const OptionsManager = () => {
 
       if (error) throw error;
       setOptions((data as ProductOption[]) || []);
+      
+      // Fetch mapping counts for each option
+      const { data: mappings, error: mappingsError } = await supabase
+        .from('product_option_mappings')
+        .select('option_id');
+      
+      if (!mappingsError && mappings) {
+        const counts: Record<string, number> = {};
+        mappings.forEach((m: { option_id: string }) => {
+          counts[m.option_id] = (counts[m.option_id] || 0) + 1;
+        });
+        setOptionMappingsCount(counts);
+      }
     } catch (error) {
       console.error('Error fetching options:', error);
       toast({
@@ -96,6 +131,44 @@ export const OptionsManager = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, slug')
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      setProducts((data as Product[]) || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
+
+  const fetchOptionMappings = async (optionId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('product_option_mappings')
+        .select('*')
+        .eq('option_id', optionId);
+
+      if (error) throw error;
+      
+      const mappingsMap: Record<string, ProductMapping> = {};
+      (data || []).forEach((mapping: any) => {
+        mappingsMap[mapping.product_id] = {
+          product_id: mapping.product_id,
+          option_id_k7: mapping.option_id_k7 || '',
+          is_included: mapping.is_included || false,
+          discount_amount: mapping.discount_amount || 0,
+        };
+      });
+      setProductMappings(mappingsMap);
+    } catch (error) {
+      console.error('Error fetching mappings:', error);
     }
   };
 
@@ -138,6 +211,50 @@ export const OptionsManager = () => {
     }
   };
 
+  const handleSaveMappings = async () => {
+    if (!selectedOptionForMapping) return;
+
+    try {
+      // Delete existing mappings for this option
+      await supabase
+        .from('product_option_mappings')
+        .delete()
+        .eq('option_id', selectedOptionForMapping.id);
+
+      // Insert new mappings
+      const mappingsToInsert = Object.entries(productMappings)
+        .filter(([_, mapping]) => mapping.product_id)
+        .map(([productId, mapping]) => ({
+          product_id: productId,
+          option_id: selectedOptionForMapping.id,
+          option_id_k7: mapping.option_id_k7 || null,
+          is_included: mapping.is_included,
+          discount_amount: mapping.discount_amount,
+        }));
+
+      if (mappingsToInsert.length > 0) {
+        const { error } = await supabase
+          .from('product_option_mappings')
+          .insert(mappingsToInsert);
+
+        if (error) throw error;
+      }
+
+      toast({ title: 'Erfolg', description: 'Produkt-Zuordnungen wurden gespeichert.' });
+      setIsMappingDialogOpen(false);
+      setSelectedOptionForMapping(null);
+      setProductMappings({});
+      fetchOptions();
+    } catch (error: any) {
+      console.error('Error saving mappings:', error);
+      toast({
+        title: 'Fehler',
+        description: error.message || 'Zuordnungen konnten nicht gespeichert werden.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -173,6 +290,42 @@ export const OptionsManager = () => {
     setIsDialogOpen(true);
   };
 
+  const openMappingDialog = async (option: ProductOption) => {
+    setSelectedOptionForMapping(option);
+    await fetchOptionMappings(option.id);
+    setIsMappingDialogOpen(true);
+  };
+
+  const toggleProductMapping = (productId: string) => {
+    setProductMappings(prev => {
+      if (prev[productId]) {
+        const newMappings = { ...prev };
+        delete newMappings[productId];
+        return newMappings;
+      } else {
+        return {
+          ...prev,
+          [productId]: {
+            product_id: productId,
+            option_id_k7: '',
+            is_included: false,
+            discount_amount: 0,
+          }
+        };
+      }
+    });
+  };
+
+  const updateMappingField = (productId: string, field: keyof ProductMapping, value: any) => {
+    setProductMappings(prev => ({
+      ...prev,
+      [productId]: {
+        ...prev[productId],
+        [field]: value,
+      }
+    }));
+  };
+
   const toggleActive = async (option: ProductOption) => {
     try {
       const { error } = await supabase
@@ -202,6 +355,11 @@ export const OptionsManager = () => {
     ? options 
     : options.filter(o => o.category === filterCategory);
 
+  const hasMissingK7Ids = (optionId: string) => {
+    // Check if option has mappings but any of them are missing K7 IDs
+    return optionMappingsCount[optionId] === 0;
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -212,7 +370,7 @@ export const OptionsManager = () => {
               Optionen
             </CardTitle>
             <CardDescription>
-              Verwalten Sie Hardware, TV und Telefon-Optionen.
+              Verwalten Sie Hardware, TV und Telefon-Optionen und deren Produkt-Zuordnungen.
             </CardDescription>
           </div>
           <div className="flex gap-2">
@@ -404,7 +562,7 @@ export const OptionsManager = () => {
                   <TableHead>Option</TableHead>
                   <TableHead>Kategorie</TableHead>
                   <TableHead>Preis</TableHead>
-                  <TableHead>Verfügbarkeit</TableHead>
+                  <TableHead>Produkte</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Aktionen</TableHead>
                 </TableRow>
@@ -444,9 +602,17 @@ export const OptionsManager = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex gap-1">
-                          {option.is_ftth && <Badge variant="default">FTTH</Badge>}
-                          {option.is_fttb && <Badge variant="secondary">FTTB</Badge>}
+                        <div className="flex items-center gap-2">
+                          {optionMappingsCount[option.id] ? (
+                            <Badge variant="default">
+                              {optionMappingsCount[option.id]} Produkt{optionMappingsCount[option.id] > 1 ? 'e' : ''}
+                            </Badge>
+                          ) : (
+                            <div className="flex items-center gap-1 text-warning">
+                              <AlertTriangle className="w-3 h-3" />
+                              <span className="text-xs">Keine</span>
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -456,13 +622,23 @@ export const OptionsManager = () => {
                         />
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEditDialog(option)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openMappingDialog(option)}
+                            title="Produkt-Zuordnungen"
+                          >
+                            <Link className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditDialog(option)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -472,6 +648,105 @@ export const OptionsManager = () => {
           </div>
         )}
       </CardContent>
+
+      {/* Product Mapping Dialog */}
+      <Dialog open={isMappingDialogOpen} onOpenChange={(open) => {
+        setIsMappingDialogOpen(open);
+        if (!open) {
+          setSelectedOptionForMapping(null);
+          setProductMappings({});
+        }
+      }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Produkt-Zuordnungen: {selectedOptionForMapping?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Wählen Sie die Produkte aus, für die diese Option verfügbar sein soll, und geben Sie die jeweilige K7 ID ein.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {products.map(product => {
+              const isSelected = !!productMappings[product.id];
+              const mapping = productMappings[product.id];
+              
+              return (
+                <div 
+                  key={product.id} 
+                  className={`border rounded-lg p-4 ${isSelected ? 'border-primary bg-primary/5' : ''}`}
+                >
+                  <div className="flex items-start gap-4">
+                    <Checkbox
+                      id={`product-${product.id}`}
+                      checked={isSelected}
+                      onCheckedChange={() => toggleProductMapping(product.id)}
+                    />
+                    <div className="flex-1">
+                      <Label 
+                        htmlFor={`product-${product.id}`}
+                        className="font-medium cursor-pointer"
+                      >
+                        {product.name}
+                      </Label>
+                      
+                      {isSelected && (
+                        <div className="mt-3 grid grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor={`k7-${product.id}`} className="text-sm">
+                              Options ID K7
+                            </Label>
+                            <Input
+                              id={`k7-${product.id}`}
+                              value={mapping?.option_id_k7 || ''}
+                              onChange={(e) => updateMappingField(product.id, 'option_id_k7', e.target.value)}
+                              placeholder="z.B. OPT-001"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`discount-${product.id}`} className="text-sm">
+                              Rabatt (€)
+                            </Label>
+                            <Input
+                              id={`discount-${product.id}`}
+                              type="number"
+                              step="0.01"
+                              value={mapping?.discount_amount || 0}
+                              onChange={(e) => updateMappingField(product.id, 'discount_amount', parseFloat(e.target.value) || 0)}
+                            />
+                          </div>
+                          <div className="flex items-end pb-2">
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                id={`included-${product.id}`}
+                                checked={mapping?.is_included || false}
+                                onCheckedChange={(checked) => updateMappingField(product.id, 'is_included', checked)}
+                              />
+                              <Label htmlFor={`included-${product.id}`} className="text-sm">
+                                Inkludiert
+                              </Label>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setIsMappingDialogOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button onClick={handleSaveMappings}>
+              Zuordnungen speichern
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
