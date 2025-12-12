@@ -506,12 +506,35 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_address_availability: {
+        Args: { p_city?: string; p_house_number: string; p_street: string }
+        Returns: {
+          ausbau_art: Database["public"]["Enums"]["ausbau_art"]
+          ausbau_status: Database["public"]["Enums"]["ausbau_status"]
+          city: string
+          house_number: string
+          kabel_tv_available: boolean
+          street: string
+        }[]
+      }
+      get_house_numbers: {
+        Args: { p_city?: string; p_street: string }
+        Returns: {
+          house_number: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      search_streets: {
+        Args: { p_city?: string; p_query: string }
+        Returns: {
+          street: string
+        }[]
       }
     }
     Enums: {
