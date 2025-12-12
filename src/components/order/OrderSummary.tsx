@@ -21,11 +21,13 @@ import {
   Tag,
   Gift,
   Zap,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { downloadVZF } from '@/utils/generateVZF';
+import { supabase } from '@/integrations/supabase/client';
 
 export function OrderSummary() {
   const { 
@@ -61,6 +63,7 @@ export function OrderSummary() {
   } = useOrder();
 
   const [orderComplete, setOrderComplete] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const isFiberBasic = selectedTariff?.id === 'fiber-basic-100';
   const routerDiscount = getRouterDiscount();
 
@@ -94,12 +97,153 @@ export function OrderSummary() {
     });
   };
 
-  const handleOrder = () => {
-    setOrderComplete(true);
-    toast({
-      title: "Bestellung erfolgreich!",
-      description: "Vielen Dank für Ihre Bestellung bei COM-IN.",
-    });
+  const handleOrder = async () => {
+    if (!selectedTariff || !customerData || !address) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      // Build VZF data for reconstruction - convert to plain JSON
+      const vzfData = JSON.parse(JSON.stringify({
+        tariff: selectedTariff,
+        router: selectedRouter,
+        tvSelection,
+        phoneSelection,
+        routerDiscount,
+        setupFee: getSetupFee(),
+        setupFeeWaived: isSetupFeeWaived(),
+        contractDuration: isFiberBasic ? contractDuration : 24,
+        expressActivation,
+        promoCode: appliedPromoCode?.code,
+        isFiberBasic,
+        referralBonus: getReferralBonus(),
+      }));
+
+      // Build selected options array
+      const selectedOptions = [];
+      if (selectedRouter && selectedRouter.id !== 'router-none') {
+        selectedOptions.push({
+          type: 'router',
+          name: selectedRouter.name,
+          monthlyPrice: getRouterPrice(),
+          discount: routerDiscount
+        });
+      }
+      if (tvSelection.type !== 'none') {
+        selectedOptions.push({
+          type: 'tv',
+          tvType: tvSelection.type,
+          package: tvSelection.package,
+          hdAddon: tvSelection.hdAddon,
+          hardware: tvSelection.hardware,
+          waipuStick: tvSelection.waipuStick
+        });
+      }
+      if (phoneSelection.enabled && !isFiberBasic) {
+        selectedOptions.push({
+          type: 'phone',
+          lines: phoneSelection.lines,
+          portingRequired: phoneSelection.portingRequired,
+          portingData: phoneSelection.portingData
+        });
+      }
+
+      // Build applied promotions
+      const appliedPromotions = [];
+      if (appliedPromoCode) {
+        appliedPromotions.push({
+          code: appliedPromoCode.code,
+          description: appliedPromoCode.description,
+          routerDiscount: appliedPromoCode.routerDiscount,
+          setupFeeWaived: appliedPromoCode.setupFeeWaived
+        });
+      }
+
+      const orderData = {
+        // Customer data
+        customer_name: `${customerData.firstName} ${customerData.lastName}`,
+        customer_first_name: customerData.firstName,
+        customer_last_name: customerData.lastName,
+        customer_email: customerData.email,
+        customer_phone: customerData.phone,
+        
+        // Address
+        street: address.street,
+        house_number: address.houseNumber,
+        city: address.city || 'Falkensee',
+        floor: apartmentData?.floor || null,
+        apartment: apartmentData?.apartment || null,
+        connection_type: address.connectionType,
+        
+        // Product
+        product_name: selectedTariff.name,
+        product_monthly_price: isFiberBasic && contractDuration === 12 
+          ? selectedTariff.monthlyPrice12 || selectedTariff.monthlyPrice 
+          : selectedTariff.monthlyPrice,
+        contract_months: isFiberBasic ? contractDuration : 24,
+        
+        // Pricing
+        monthly_total: getTotalMonthly(),
+        one_time_total: getTotalOneTime(),
+        setup_fee: getSetupFee(),
+        
+        // Options & Promotions - convert to JSON compatible
+        selected_options: JSON.parse(JSON.stringify(selectedOptions)),
+        applied_promotions: JSON.parse(JSON.stringify(appliedPromotions)),
+        promo_code: appliedPromoCode?.code || null,
+        referral_customer_number: referralData.type === 'referral' && referralData.referralValidated 
+          ? referralData.referrerCustomerId 
+          : null,
+        
+        // Scheduling
+        desired_start_date: preferredDateType === 'asap' ? null : preferredDate,
+        express_activation: expressActivation,
+        
+        // Phone porting
+        phone_porting: phoneSelection.portingRequired || false,
+        phone_porting_numbers: phoneSelection.portingData?.phoneNumbers || [],
+        phone_porting_provider: phoneSelection.portingData?.previousProvider || null,
+        
+        // Previous provider cancellation
+        cancel_previous_provider: cancelPreviousProvider,
+        previous_provider_name: providerCancellationData?.providerName || null,
+        previous_provider_customer_number: providerCancellationData?.customerNumber || null,
+        
+        // Bank data
+        bank_account_holder: bankData?.accountHolder || null,
+        bank_iban: bankData?.iban || null,
+        
+        // VZF data for reconstruction
+        vzf_data: vzfData,
+      };
+
+      const { error } = await supabase.from('orders').insert([orderData]);
+
+      if (error) {
+        console.error('Order submission error:', error);
+        toast({
+          title: "Fehler bei der Bestellung",
+          description: "Bitte versuchen Sie es erneut oder kontaktieren Sie uns.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setOrderComplete(true);
+      toast({
+        title: "Bestellung erfolgreich!",
+        description: "Vielen Dank für Ihre Bestellung bei COM-IN.",
+      });
+    } catch (err) {
+      console.error('Order error:', err);
+      toast({
+        title: "Fehler bei der Bestellung",
+        description: "Bitte versuchen Sie es erneut.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (orderComplete) {
@@ -550,12 +694,21 @@ export function OrderSummary() {
           </Button>
           <Button 
             onClick={handleOrder}
-            disabled={!vzfConfirmed}
+            disabled={!vzfConfirmed || isSubmitting}
             className="flex-1 h-12"
             variant="orange"
           >
-            <Rocket className="w-4 h-4" />
-            Jetzt kostenpflichtig bestellen
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Bestellung wird gesendet...
+              </>
+            ) : (
+              <>
+                <Rocket className="w-4 h-4" />
+                Jetzt kostenpflichtig bestellen
+              </>
+            )}
           </Button>
         </div>
       </div>
