@@ -14,7 +14,9 @@ import {
   Sparkles,
   CheckCircle,
   AlertTriangle,
-  ArrowRight
+  ArrowRight,
+  Wrench,
+  RotateCcw
 } from 'lucide-react';
 import {
   Table,
@@ -82,7 +84,13 @@ const DB_FIELDS = [
   { key: 'gebaeude_id_k7', label: 'Gebäude ID K7', required: false },
 ];
 
-type ImportStep = 'upload' | 'mapping' | 'preview' | 'importing' | 'complete';
+type ImportStep = 'upload' | 'mapping' | 'preview' | 'sync-check' | 'importing' | 'complete';
+
+interface SyncConflict {
+  building: any;
+  existing: any;
+  changes: { field: string; oldValue: any; newValue: any }[];
+}
 
 export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImportDialogProps) => {
   const [step, setStep] = useState<ImportStep>('upload');
@@ -91,6 +99,8 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
   const [mappings, setMappings] = useState<Record<string, string>>({});
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ created: number; updated: number; skipped: number; errors: string[] } | null>(null);
+  const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
+  const [selectedConflicts, setSelectedConflicts] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -100,6 +110,8 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
     setHeaders([]);
     setMappings({});
     setImportResult(null);
+    setSyncConflicts([]);
+    setSelectedConflicts(new Set());
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -251,6 +263,91 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
     }
 
     return result;
+  };
+
+  // Check for sync conflicts with manually edited buildings
+  const checkSyncConflicts = async () => {
+    const conflicts: SyncConflict[] = [];
+    
+    for (const row of csvData) {
+      const building = transformRow(row);
+      if (!building) continue;
+
+      const { data: existing } = await supabase
+        .from('buildings')
+        .select('*')
+        .eq('street', building.street)
+        .eq('house_number', building.house_number)
+        .eq('city', building.city || 'Falkensee')
+        .maybeSingle();
+
+      if (existing && existing.manual_override_active) {
+        const changes: { field: string; oldValue: any; newValue: any }[] = [];
+        
+        // Compare fields
+        const fieldsToCompare = ['ausbau_art', 'ausbau_status', 'tiefbau_done', 'apl_set', 'kabel_tv_available', 'residential_units', 'gebaeude_id_v2', 'gebaeude_id_k7'];
+        
+        for (const field of fieldsToCompare) {
+          if (building[field] !== undefined && existing[field] !== building[field]) {
+            changes.push({
+              field,
+              oldValue: existing[field],
+              newValue: building[field]
+            });
+          }
+        }
+
+        if (changes.length > 0) {
+          conflicts.push({ building, existing, changes });
+        }
+      }
+    }
+
+    return conflicts;
+  };
+
+  const handlePreviewWithConflicts = async () => {
+    setStep('importing'); // Show loading
+    const conflicts = await checkSyncConflicts();
+    
+    if (conflicts.length > 0) {
+      setSyncConflicts(conflicts);
+      setStep('sync-check');
+    } else {
+      setStep('preview');
+    }
+  };
+
+  const toggleConflictSelection = (id: string) => {
+    setSelectedConflicts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const revertManualOverride = async (buildingId: string) => {
+    const { error } = await supabase
+      .from('buildings')
+      .update({ 
+        manual_override_active: false,
+        has_manual_override: false 
+      })
+      .eq('id', buildingId);
+
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Manuelle Änderungen zurückgesetzt' });
+      setSyncConflicts(prev => prev.filter(c => c.existing.id !== buildingId));
+      if (syncConflicts.length <= 1) {
+        setStep('preview');
+      }
+    }
   };
 
   const handleImport = async () => {
@@ -482,8 +579,78 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
                 <Button variant="outline" onClick={() => { onOpenChange(false); resetState(); }}>
                   Abbrechen
                 </Button>
-                <Button onClick={() => setStep('preview')} disabled={!canProceedToPreview()}>
+                <Button onClick={handlePreviewWithConflicts} disabled={!canProceedToPreview()}>
                   Vorschau
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step: Sync Check - Show conflicts with manually edited buildings */}
+        {step === 'sync-check' && (
+          <div className="space-y-4">
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-warning font-medium mb-2">
+                <AlertTriangle className="w-5 h-5" />
+                {syncConflicts.length} manuell bearbeitete Gebäude betroffen
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Die folgenden Gebäude wurden manuell bearbeitet. Sie können entscheiden, ob Sie die manuellen Änderungen beibehalten oder durch die CSV-Daten ersetzen möchten.
+              </p>
+            </div>
+
+            <div className="max-h-[400px] overflow-y-auto space-y-3">
+              {syncConflicts.map((conflict, idx) => (
+                <div key={idx} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="w-4 h-4 text-accent" />
+                      <span className="font-medium">
+                        {conflict.existing.street} {conflict.existing.house_number}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => revertManualOverride(conflict.existing.id)}
+                      >
+                        <RotateCcw className="w-3 h-3 mr-1" />
+                        Änderungen zurücksetzen
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="text-sm space-y-1">
+                    <div className="text-muted-foreground mb-2">Unterschiede:</div>
+                    {conflict.changes.map((change, cIdx) => {
+                      const fieldLabel = DB_FIELDS.find(f => f.key === change.field)?.label || change.field;
+                      return (
+                        <div key={cIdx} className="flex items-center gap-2 pl-2 border-l-2 border-muted">
+                          <span className="font-medium min-w-24">{fieldLabel}:</span>
+                          <span className="text-destructive line-through">
+                            {String(change.oldValue ?? '-')}
+                          </span>
+                          <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                          <span className="text-success">
+                            {String(change.newValue ?? '-')}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-between pt-4 border-t">
+              <Button variant="outline" onClick={() => setStep('mapping')}>
+                Zurück
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setStep('preview')}>
+                  Trotzdem fortfahren (Konflikte überspringen)
                 </Button>
               </div>
             </div>

@@ -188,6 +188,42 @@ export type Database = {
         }
         Relationships: []
       }
+      document_templates: {
+        Row: {
+          content: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          placeholders: Json | null
+          template_type: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          placeholders?: Json | null
+          template_type?: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          placeholders?: Json | null
+          template_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           apartment: string | null
