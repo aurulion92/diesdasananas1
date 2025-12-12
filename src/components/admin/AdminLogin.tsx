@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Shield, AlertCircle, CheckCircle } from 'lucide-react';
+import { Loader2, Shield, AlertCircle, CheckCircle, ShieldAlert } from 'lucide-react';
+import { useRateLimit } from '@/hooks/useRateLimit';
 
 interface AdminLoginProps {
   onLoginSuccess: () => void;
@@ -18,6 +19,7 @@ export const AdminLogin = ({ onLoginSuccess }: AdminLoginProps) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
+  const { checkRateLimit, isBlocked } = useRateLimit();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +27,12 @@ export const AdminLogin = ({ onLoginSuccess }: AdminLoginProps) => {
     setError(null);
     setSuccess(null);
 
+    // Check rate limit before attempting login
+    const allowed = await checkRateLimit('login');
+    if (!allowed) {
+      setLoading(false);
+      return;
+    }
     try {
       if (isSignUp) {
         // Sign up flow
@@ -144,12 +152,17 @@ export const AdminLogin = ({ onLoginSuccess }: AdminLoginProps) => {
             <Button 
               type="submit" 
               className="w-full"
-              disabled={loading}
+              disabled={loading || isBlocked}
             >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   {isSignUp ? 'Registrieren...' : 'Anmelden...'}
+                </>
+              ) : isBlocked ? (
+                <>
+                  <ShieldAlert className="w-4 h-4 mr-2" />
+                  Gesperrt
                 </>
               ) : (
                 isSignUp ? 'Registrieren' : 'Anmelden'

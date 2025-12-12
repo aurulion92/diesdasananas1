@@ -27,7 +27,8 @@ import {
   Tv,
   Image,
   X,
-  Calendar
+  Calendar,
+  ShieldAlert
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -35,6 +36,7 @@ import { findExistingCustomer, getContractStatus, ExistingCustomer } from '@/dat
 import { searchStreets, getHouseNumbers, checkAddress } from '@/data/addressDatabase';
 import { ftthTariffs } from '@/data/tariffs';
 import { toast } from '@/hooks/use-toast';
+import { useRateLimit } from '@/hooks/useRateLimit';
 
 interface ExistingCustomerPortalProps {
   onClose: () => void;
@@ -95,7 +97,7 @@ export function ExistingCustomerPortal({ onClose }: ExistingCustomerPortalProps)
   const [issueDescription, setIssueDescription] = useState('');
   const [issueImages, setIssueImages] = useState<File[]>([]);
   const issueImageInputRef = useRef<HTMLInputElement>(null);
-
+  const { checkRateLimit, isBlocked } = useRateLimit();
   // Street search
   useEffect(() => {
     const searchStreetsAsync = async () => {
@@ -155,6 +157,13 @@ export function ExistingCustomerPortal({ onClose }: ExistingCustomerPortalProps)
   const handleLogin = async () => {
     setIsLoading(true);
     setLoginError('');
+
+    // Check rate limit before login attempt
+    const allowed = await checkRateLimit('existing_customer');
+    if (!allowed) {
+      setIsLoading(false);
+      return;
+    }
 
     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -418,10 +427,19 @@ export function ExistingCustomerPortal({ onClose }: ExistingCustomerPortalProps)
               <Button 
                 variant="orange"
                 onClick={handleLogin}
-                disabled={!customerId || !street || !houseNumber || isLoading}
+                disabled={!customerId || !street || !houseNumber || isLoading || isBlocked}
                 className="flex-1 h-12"
               >
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Anmelden'}
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : isBlocked ? (
+                  <>
+                    <ShieldAlert className="w-4 h-4 mr-2" />
+                    Gesperrt
+                  </>
+                ) : (
+                  'Anmelden'
+                )}
               </Button>
             </div>
           </div>

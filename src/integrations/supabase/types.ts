@@ -683,6 +683,36 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          action_type: string
+          attempts: number
+          blocked_until: string | null
+          first_attempt_at: string
+          id: string
+          ip_address: string
+          last_attempt_at: string
+        }
+        Insert: {
+          action_type: string
+          attempts?: number
+          blocked_until?: string | null
+          first_attempt_at?: string
+          id?: string
+          ip_address: string
+          last_attempt_at?: string
+        }
+        Update: {
+          action_type?: string
+          attempts?: number
+          blocked_until?: string | null
+          first_attempt_at?: string
+          id?: string
+          ip_address?: string
+          last_attempt_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -720,6 +750,17 @@ export type Database = {
           street: string
         }[]
       }
+      check_rate_limit: {
+        Args: {
+          p_action_type: string
+          p_block_minutes?: number
+          p_ip_address: string
+          p_max_attempts?: number
+          p_window_minutes?: number
+        }
+        Returns: Json
+      }
+      cleanup_rate_limits: { Args: never; Returns: number }
       get_house_numbers: {
         Args: { p_city?: string; p_street: string }
         Returns: {
