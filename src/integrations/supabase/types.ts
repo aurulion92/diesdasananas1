@@ -188,6 +188,152 @@ export type Database = {
         }
         Relationships: []
       }
+      orders: {
+        Row: {
+          apartment: string | null
+          applied_promotions: Json | null
+          archived_at: string | null
+          archived_by: string | null
+          bank_account_holder: string | null
+          bank_iban: string | null
+          cancel_previous_provider: boolean | null
+          city: string
+          connection_type: string | null
+          contract_months: number
+          created_at: string
+          customer_email: string
+          customer_first_name: string | null
+          customer_last_name: string | null
+          customer_name: string
+          customer_phone: string | null
+          desired_start_date: string | null
+          express_activation: boolean | null
+          floor: string | null
+          house_number: string
+          id: string
+          is_archived: boolean
+          monthly_total: number
+          one_time_total: number
+          phone_porting: boolean | null
+          phone_porting_numbers: Json | null
+          phone_porting_provider: string | null
+          postal_code: string | null
+          previous_provider_customer_number: string | null
+          previous_provider_name: string | null
+          previous_provider_phone: string | null
+          product_id: string | null
+          product_monthly_price: number
+          product_name: string
+          promo_code: string | null
+          referral_customer_number: string | null
+          selected_options: Json | null
+          setup_fee: number
+          status: string
+          street: string
+          updated_at: string
+          vzf_data: Json
+          vzf_generated_at: string
+        }
+        Insert: {
+          apartment?: string | null
+          applied_promotions?: Json | null
+          archived_at?: string | null
+          archived_by?: string | null
+          bank_account_holder?: string | null
+          bank_iban?: string | null
+          cancel_previous_provider?: boolean | null
+          city?: string
+          connection_type?: string | null
+          contract_months?: number
+          created_at?: string
+          customer_email: string
+          customer_first_name?: string | null
+          customer_last_name?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          desired_start_date?: string | null
+          express_activation?: boolean | null
+          floor?: string | null
+          house_number: string
+          id?: string
+          is_archived?: boolean
+          monthly_total: number
+          one_time_total?: number
+          phone_porting?: boolean | null
+          phone_porting_numbers?: Json | null
+          phone_porting_provider?: string | null
+          postal_code?: string | null
+          previous_provider_customer_number?: string | null
+          previous_provider_name?: string | null
+          previous_provider_phone?: string | null
+          product_id?: string | null
+          product_monthly_price: number
+          product_name: string
+          promo_code?: string | null
+          referral_customer_number?: string | null
+          selected_options?: Json | null
+          setup_fee?: number
+          status?: string
+          street: string
+          updated_at?: string
+          vzf_data: Json
+          vzf_generated_at?: string
+        }
+        Update: {
+          apartment?: string | null
+          applied_promotions?: Json | null
+          archived_at?: string | null
+          archived_by?: string | null
+          bank_account_holder?: string | null
+          bank_iban?: string | null
+          cancel_previous_provider?: boolean | null
+          city?: string
+          connection_type?: string | null
+          contract_months?: number
+          created_at?: string
+          customer_email?: string
+          customer_first_name?: string | null
+          customer_last_name?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          desired_start_date?: string | null
+          express_activation?: boolean | null
+          floor?: string | null
+          house_number?: string
+          id?: string
+          is_archived?: boolean
+          monthly_total?: number
+          one_time_total?: number
+          phone_porting?: boolean | null
+          phone_porting_numbers?: Json | null
+          phone_porting_provider?: string | null
+          postal_code?: string | null
+          previous_provider_customer_number?: string | null
+          previous_provider_name?: string | null
+          previous_provider_phone?: string | null
+          product_id?: string | null
+          product_monthly_price?: number
+          product_name?: string
+          promo_code?: string | null
+          referral_customer_number?: string | null
+          selected_options?: Json | null
+          setup_fee?: number
+          status?: string
+          street?: string
+          updated_at?: string
+          vzf_data?: Json
+          vzf_generated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_option_mappings: {
         Row: {
           created_at: string
