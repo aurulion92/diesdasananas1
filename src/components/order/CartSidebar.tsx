@@ -46,7 +46,7 @@ export function CartSidebar() {
             <MapPin className="w-4 h-4 text-accent mt-0.5" />
             <div className="text-sm">
               <p className="font-medium">{address.street} {address.houseNumber}</p>
-              <p className="text-muted-foreground">{address.postalCode} {address.city}</p>
+              <p className="text-muted-foreground">{address.city}</p>
               <div className="flex gap-2 mt-2">
                 <span className={cn(
                   "inline-block px-2 py-0.5 text-xs font-semibold rounded-full",
@@ -57,9 +57,11 @@ export function CartSidebar() {
                   {address.connectionType === 'ftth' ? 'Glasfaser (FTTH)' : 
                    address.connectionType === 'limited' ? 'FTTB' : 'Nicht verbunden'}
                 </span>
-                <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-muted text-muted-foreground">
-                  {address.houseType}
-                </span>
+                {address.kabelTvAvailable && (
+                  <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-muted text-muted-foreground">
+                    Kabel TV
+                  </span>
+                )}
               </div>
             </div>
           </div>

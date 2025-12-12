@@ -129,7 +129,7 @@ export function OrderSummary() {
               <MapPin className="w-5 h-5 text-accent mt-0.5" />
               <div>
                 <h4 className="font-bold text-primary">Anschlussadresse</h4>
-                <p className="text-muted-foreground">{address?.street} {address?.houseNumber}, {address?.postalCode} {address?.city}</p>
+                <p className="text-muted-foreground">{address?.street} {address?.houseNumber}, {address?.city}</p>
                 {apartmentData && <p className="text-muted-foreground text-sm">{apartmentData.floor}. OG, Wohnung {apartmentData.apartment}</p>}
               </div>
             </div>
@@ -248,7 +248,7 @@ export function OrderSummary() {
             <div>
               <h4 className="font-bold text-primary">Anschlussadresse</h4>
               <p className="text-muted-foreground mt-1">
-                {address?.street} {address?.houseNumber}, {address?.postalCode} {address?.city}
+                {address?.street} {address?.houseNumber}, {address?.city}
               </p>
               {apartmentData && (
                 <p className="text-muted-foreground text-sm">

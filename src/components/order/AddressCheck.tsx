@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 
 export function AddressCheck() {
   const { setAddress, setStep, setConnectionType } = useOrder();
-  const [city, setCity] = useState('Ingolstadt');
+  const [city, setCity] = useState('Falkensee');
   const [street, setStreet] = useState('');
   const [houseNumber, setHouseNumber] = useState('');
   const [isChecking, setIsChecking] = useState(false);
@@ -391,10 +391,10 @@ export function AddressCheck() {
         )}
       </div>
 
-      {/* Demo Hinweis */}
+      {/* Hinweis */}
       <div className="mt-6 p-4 bg-primary/5 rounded-xl border border-primary/10">
         <p className="text-sm text-muted-foreground text-center">
-          <strong>Demo:</strong> Tippen Sie z.B. "Fon" um Straßenvorschläge zu erhalten
+          Tippen Sie z.B. "Fon" um Straßenvorschläge zu erhalten
         </p>
       </div>
     </div>

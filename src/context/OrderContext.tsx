@@ -328,7 +328,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     setState(prev => ({ ...prev, vzfConfirmed }));
 
   const isMFH = (): boolean => {
-    return state.address?.houseType?.toUpperCase() === 'MFH';
+    // MFH detection based on address data - can be extended later
+    return false; // Will be updated when we have building type info
   };
 
   // Check if einfach tariff discount applies (4€ on routers)
