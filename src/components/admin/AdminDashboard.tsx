@@ -9,13 +9,15 @@ import {
   Tag, 
   Users, 
   LogOut,
-  Shield
+  Shield,
+  ShoppingCart
 } from 'lucide-react';
 import { BuildingsManager } from './BuildingsManager';
 import { ProductsManager } from './ProductsManager';
 import { OptionsManager } from './OptionsManager';
 import { PromotionsManager } from './PromotionsManager';
 import { CustomersManager } from './CustomersManager';
+import { OrdersManager } from './OrdersManager';
 
 interface AdminDashboardProps {
   user: User;
@@ -23,7 +25,7 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
-  const [activeTab, setActiveTab] = useState('buildings');
+  const [activeTab, setActiveTab] = useState('orders');
 
   return (
     <div className="min-h-screen bg-background">
@@ -59,7 +61,11 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 lg:w-auto lg:inline-grid gap-1">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 lg:w-auto lg:inline-grid gap-1">
+            <TabsTrigger value="orders" className="flex items-center gap-2">
+              <ShoppingCart className="w-4 h-4" />
+              <span className="hidden sm:inline">Bestellungen</span>
+            </TabsTrigger>
             <TabsTrigger value="buildings" className="flex items-center gap-2">
               <Building2 className="w-4 h-4" />
               <span className="hidden sm:inline">Gebäude</span>
@@ -81,6 +87,10 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
               <span className="hidden sm:inline">Kunden</span>
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="orders">
+            <OrdersManager />
+          </TabsContent>
 
           <TabsContent value="buildings">
             <BuildingsManager />
