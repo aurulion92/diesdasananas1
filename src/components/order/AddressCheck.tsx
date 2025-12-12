@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 
 export function AddressCheck() {
   const { setAddress, setStep, setConnectionType } = useOrder();
-  const [city, setCity] = useState('Falkensee');
+  const [city, setCity] = useState('Ingolstadt');
   const [street, setStreet] = useState('');
   const [houseNumber, setHouseNumber] = useState('');
   const [isChecking, setIsChecking] = useState(false);
@@ -49,10 +49,10 @@ export function AddressCheck() {
     return () => clearTimeout(debounce);
   }, [street, city]);
 
-  // Load house numbers when street is selected
+  // Load house numbers when street has at least 3 characters
   useEffect(() => {
     const loadHouseNumbers = async () => {
-      if (street && streetSuggestions.includes(street)) {
+      if (street && street.length >= 3) {
         setIsLoadingHouseNumbers(true);
         const results = await getHouseNumbers(street, city);
         setHouseNumberSuggestions(results);
@@ -63,7 +63,7 @@ export function AddressCheck() {
     };
 
     loadHouseNumbers();
-  }, [street, city, streetSuggestions]);
+  }, [street, city]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -132,7 +132,8 @@ export function AddressCheck() {
   };
 
   // Check if house number exists in suggestions
-  const isValidHouseNumber = houseNumberSuggestions.includes(houseNumber);
+  const isValidHouseNumber = houseNumberSuggestions.length === 0 || houseNumberSuggestions.includes(houseNumber);
+  const isHouseNumberInDatabase = houseNumberSuggestions.includes(houseNumber);
   const isValidStreet = streetSuggestions.includes(street) || street.length < 3;
 
   return (
@@ -239,11 +240,7 @@ export function AddressCheck() {
                     setShowHouseNumberDropdown(true);
                   }
                 }}
-                disabled={!street || !streetSuggestions.includes(street)}
-                className={cn(
-                  "h-12 rounded-full bg-background border-border text-center pr-10",
-                  (!street || !streetSuggestions.includes(street)) && "opacity-50 cursor-not-allowed"
-                )}
+                className="h-12 rounded-full bg-background border-border text-center pr-10"
               />
               {houseNumberSuggestions.length > 0 && (
                 <ChevronDown 
@@ -272,12 +269,17 @@ export function AddressCheck() {
           </div>
         </div>
 
+        {/* Hinweis für Straßeneingabe */}
+        <p className="text-sm text-muted-foreground mb-4 text-center">
+          Tippen Sie mindestens drei Buchstaben, um Straßenvorschläge zu erhalten.
+        </p>
+
         <div className="flex justify-end">
           <Button 
             onClick={handleCheck} 
             variant="orange"
             size="lg"
-            disabled={!street || !houseNumber || !city || isChecking || !isValidHouseNumber}
+            disabled={!street || !houseNumber || !city || isChecking}
             className="px-10"
           >
             {isChecking ? (
@@ -291,11 +293,23 @@ export function AddressCheck() {
           </Button>
         </div>
 
-        {/* Hinweis wenn Hausnummer nicht in der Liste */}
-        {houseNumber && !isValidHouseNumber && houseNumberSuggestions.length > 0 && (
-          <p className="text-sm text-destructive mt-2 text-center">
-            Diese Hausnummer ist nicht in unserer Datenbank. Bitte wählen Sie eine aus der Liste.
-          </p>
+        {/* Hinweis wenn Hausnummer nicht in der Liste - zeigt Kontaktformular */}
+        {houseNumber && !isHouseNumberInDatabase && houseNumberSuggestions.length > 0 && (
+          <div className="animate-scale-in mt-6 space-y-4">
+            <div className="p-5 bg-muted border border-border rounded-xl">
+              <div className="flex items-start gap-4">
+                <AlertCircle className="w-6 h-6 text-muted-foreground flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-bold text-foreground text-lg">Hausnummer nicht in der Datenbank</h4>
+                  <p className="text-muted-foreground mt-1">
+                    Diese Hausnummer ist nicht in unserer Datenbank hinterlegt. 
+                    Bitte kontaktieren Sie uns, damit wir prüfen können, ob ein Anschluss möglich ist.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <ContactForm reason="not-connected" address={{ street, houseNumber, city }} />
+          </div>
         )}
 
         {/* FTTH - Alle Tarife verfügbar */}
@@ -391,12 +405,6 @@ export function AddressCheck() {
         )}
       </div>
 
-      {/* Hinweis */}
-      <div className="mt-6 p-4 bg-primary/5 rounded-xl border border-primary/10">
-        <p className="text-sm text-muted-foreground text-center">
-          Tippen Sie z.B. "Fon" um Straßenvorschläge zu erhalten
-        </p>
-      </div>
     </div>
   );
 }
