@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { CSVImportDialog } from './CSVImportDialog';
 
 interface Building {
   id: string;
@@ -66,6 +67,7 @@ export const BuildingsManager = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
   const { toast } = useToast();
 
@@ -242,10 +244,15 @@ export const BuildingsManager = () => {
               <RefreshCw className="w-4 h-4 mr-2" />
               Aktualisieren
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
               <Upload className="w-4 h-4 mr-2" />
               CSV Import
             </Button>
+            <CSVImportDialog 
+              open={isImportOpen} 
+              onOpenChange={setIsImportOpen} 
+              onImportComplete={fetchBuildings}
+            />
             <Dialog open={isDialogOpen} onOpenChange={(open) => {
               setIsDialogOpen(open);
               if (!open) resetForm();
