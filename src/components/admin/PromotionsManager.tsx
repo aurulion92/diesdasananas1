@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,7 +17,10 @@ import {
   RefreshCw,
   Pencil,
   Globe,
-  Building2
+  Building2,
+  Package,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import {
   Table,
@@ -50,21 +54,52 @@ interface Building {
   city: string;
 }
 
+interface Product {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface ProductOption {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+}
+
+interface DiscountEntry {
+  id?: string;
+  applies_to: 'product' | 'option' | 'setup_fee';
+  target_product_id: string | null;
+  target_option_id: string | null;
+  discount_type: 'fixed' | 'percentage' | 'waive';
+  discount_amount: number | null;
+  k7_product_id: string;
+  k7_template_id: string;
+  k7_template_type: string;
+}
+
+type PromotionScope = 'global' | 'building' | 'product';
+
 export const PromotionsManager = () => {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState<Promotion | null>(null);
   const [selectedBuildings, setSelectedBuildings] = useState<string[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [buildingSearch, setBuildingSearch] = useState('');
+  const [discountEntries, setDiscountEntries] = useState<DiscountEntry[]>([]);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
     name: '',
     code: '',
     description: '',
-    is_global: false,
+    scope: 'global' as PromotionScope,
     is_active: true,
     requires_customer_number: false,
     available_text: '',
@@ -76,6 +111,8 @@ export const PromotionsManager = () => {
   useEffect(() => {
     fetchPromotions();
     fetchBuildings();
+    fetchProducts();
+    fetchProductOptions();
   }, []);
 
   const fetchPromotions = async () => {
@@ -114,6 +151,36 @@ export const PromotionsManager = () => {
     }
   };
 
+  const fetchProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, slug')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      setProducts((data as Product[]) || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
+
+  const fetchProductOptions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('product_options')
+        .select('id, name, slug, category')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      setProductOptions((data as ProductOption[]) || []);
+    } catch (error) {
+      console.error('Error fetching product options:', error);
+    }
+  };
+
   const fetchPromotionBuildings = async (promotionId: string) => {
     try {
       const { data, error } = await supabase
@@ -128,6 +195,39 @@ export const PromotionsManager = () => {
     }
   };
 
+  const fetchPromotionDiscounts = async (promotionId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('promotion_discounts')
+        .select('*')
+        .eq('promotion_id', promotionId);
+
+      if (error) throw error;
+      
+      const entries: DiscountEntry[] = (data || []).map(d => ({
+        id: d.id,
+        applies_to: d.applies_to as 'product' | 'option' | 'setup_fee',
+        target_product_id: d.target_product_id,
+        target_option_id: d.target_option_id,
+        discount_type: d.discount_type as 'fixed' | 'percentage' | 'waive',
+        discount_amount: d.discount_amount,
+        k7_product_id: d.k7_product_id || '',
+        k7_template_id: d.k7_template_id || '',
+        k7_template_type: d.k7_template_type || '',
+      }));
+      
+      setDiscountEntries(entries);
+      
+      // Extract product IDs for product-scoped promotions
+      const productIds = entries
+        .filter(e => e.target_product_id)
+        .map(e => e.target_product_id as string);
+      setSelectedProducts([...new Set(productIds)]);
+    } catch (error) {
+      console.error('Error fetching promotion discounts:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -136,7 +236,7 @@ export const PromotionsManager = () => {
         name: formData.name,
         code: formData.code || null,
         description: formData.description || null,
-        is_global: formData.is_global,
+        is_global: formData.scope === 'global',
         is_active: formData.is_active,
         requires_customer_number: formData.requires_customer_number,
         available_text: formData.available_text || null,
@@ -168,27 +268,49 @@ export const PromotionsManager = () => {
         toast({ title: 'Erfolg', description: 'Aktion wurde erstellt.' });
       }
 
-      // Update building assignments if not global
-      if (!formData.is_global) {
-        // Delete existing
-        await supabase
+      // Update building assignments if building-scoped
+      await supabase
+        .from('promotion_buildings')
+        .delete()
+        .eq('promotion_id', promotionId);
+
+      if (formData.scope === 'building' && selectedBuildings.length > 0) {
+        const buildingAssignments = selectedBuildings.map(buildingId => ({
+          promotion_id: promotionId,
+          building_id: buildingId,
+        }));
+
+        const { error: assignError } = await supabase
           .from('promotion_buildings')
-          .delete()
-          .eq('promotion_id', promotionId);
+          .insert(buildingAssignments);
 
-        // Insert new
-        if (selectedBuildings.length > 0) {
-          const buildingAssignments = selectedBuildings.map(buildingId => ({
-            promotion_id: promotionId,
-            building_id: buildingId,
-          }));
+        if (assignError) throw assignError;
+      }
 
-          const { error: assignError } = await supabase
-            .from('promotion_buildings')
-            .insert(buildingAssignments);
+      // Update discount entries
+      await supabase
+        .from('promotion_discounts')
+        .delete()
+        .eq('promotion_id', promotionId);
 
-          if (assignError) throw assignError;
-        }
+      if (discountEntries.length > 0) {
+        const discountData = discountEntries.map(entry => ({
+          promotion_id: promotionId,
+          applies_to: entry.applies_to,
+          target_product_id: entry.target_product_id || null,
+          target_option_id: entry.target_option_id || null,
+          discount_type: entry.discount_type,
+          discount_amount: entry.discount_amount,
+          k7_product_id: entry.k7_product_id || null,
+          k7_template_id: entry.k7_template_id || null,
+          k7_template_type: entry.k7_template_type || null,
+        }));
+
+        const { error: discountError } = await supabase
+          .from('promotion_discounts')
+          .insert(discountData);
+
+        if (discountError) throw discountError;
       }
 
       setIsDialogOpen(false);
@@ -209,7 +331,7 @@ export const PromotionsManager = () => {
       name: '',
       code: '',
       description: '',
-      is_global: false,
+      scope: 'global',
       is_active: true,
       requires_customer_number: false,
       available_text: '',
@@ -219,15 +341,31 @@ export const PromotionsManager = () => {
     });
     setEditingPromotion(null);
     setSelectedBuildings([]);
+    setSelectedProducts([]);
+    setDiscountEntries([]);
   };
 
   const openEditDialog = async (promotion: Promotion) => {
     setEditingPromotion(promotion);
+    
+    // Determine scope
+    let scope: PromotionScope = 'global';
+    if (!promotion.is_global) {
+      // Check if it has building assignments
+      const { data: buildingData } = await supabase
+        .from('promotion_buildings')
+        .select('building_id')
+        .eq('promotion_id', promotion.id)
+        .limit(1);
+      
+      scope = buildingData && buildingData.length > 0 ? 'building' : 'product';
+    }
+    
     setFormData({
       name: promotion.name,
       code: promotion.code || '',
       description: promotion.description || '',
-      is_global: promotion.is_global,
+      scope,
       is_active: promotion.is_active,
       requires_customer_number: promotion.requires_customer_number,
       available_text: promotion.available_text || '',
@@ -236,9 +374,11 @@ export const PromotionsManager = () => {
       end_date: promotion.end_date || '',
     });
     
-    if (!promotion.is_global) {
+    if (scope === 'building') {
       await fetchPromotionBuildings(promotion.id);
     }
+    
+    await fetchPromotionDiscounts(promotion.id);
     
     setIsDialogOpen(true);
   };
@@ -265,9 +405,52 @@ export const PromotionsManager = () => {
     );
   };
 
+  const toggleProduct = (productId: string) => {
+    setSelectedProducts(prev => 
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  const addDiscountEntry = () => {
+    setDiscountEntries(prev => [...prev, {
+      applies_to: 'option',
+      target_product_id: null,
+      target_option_id: null,
+      discount_type: 'fixed',
+      discount_amount: 0,
+      k7_product_id: '',
+      k7_template_id: '',
+      k7_template_type: '',
+    }]);
+  };
+
+  const updateDiscountEntry = (index: number, field: keyof DiscountEntry, value: any) => {
+    setDiscountEntries(prev => prev.map((entry, i) => 
+      i === index ? { ...entry, [field]: value } : entry
+    ));
+  };
+
+  const removeDiscountEntry = (index: number) => {
+    setDiscountEntries(prev => prev.filter((_, i) => i !== index));
+  };
+
   const filteredBuildings = buildings.filter(b =>
     `${b.street} ${b.house_number} ${b.city}`.toLowerCase().includes(buildingSearch.toLowerCase())
   );
+
+  const getScopeIcon = (promotion: Promotion) => {
+    if (promotion.is_global) {
+      return <Globe className="w-4 h-4 text-success" />;
+    }
+    return <Building2 className="w-4 h-4 text-primary" />;
+  };
+
+  const getScopeLabel = (promotion: Promotion) => {
+    if (promotion.is_global) return 'Global';
+    return 'Objekt-/Produktbezogen';
+  };
 
   return (
     <Card>
@@ -279,7 +462,7 @@ export const PromotionsManager = () => {
               Aktionen / Promotions
             </CardTitle>
             <CardDescription>
-              Verwalten Sie Aktionscodes und Promotions.
+              Verwalten Sie Aktionscodes, Rabatte und Promotions.
             </CardDescription>
           </div>
           <div className="flex gap-2">
@@ -297,7 +480,7 @@ export const PromotionsManager = () => {
                   Neu
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>
                     {editingPromotion ? 'Aktion bearbeiten' : 'Neue Aktion'}
@@ -307,6 +490,7 @@ export const PromotionsManager = () => {
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Basic Info */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Name *</Label>
@@ -338,81 +522,44 @@ export const PromotionsManager = () => {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="available_text">Text wenn verfügbar</Label>
-                      <Textarea
-                        id="available_text"
-                        value={formData.available_text}
-                        onChange={(e) => setFormData({...formData, available_text: e.target.value})}
-                        rows={2}
-                        placeholder="Text der angezeigt wird, wenn die Aktion gilt"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="unavailable_text">Text wenn nicht verfügbar</Label>
-                      <Textarea
-                        id="unavailable_text"
-                        value={formData.unavailable_text}
-                        onChange={(e) => setFormData({...formData, unavailable_text: e.target.value})}
-                        rows={2}
-                        placeholder="Text der angezeigt wird, wenn die Aktion nicht gilt"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="start_date">Startdatum</Label>
-                      <Input
-                        id="start_date"
-                        type="date"
-                        value={formData.start_date}
-                        onChange={(e) => setFormData({...formData, start_date: e.target.value})}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="end_date">Enddatum</Label>
-                      <Input
-                        id="end_date"
-                        type="date"
-                        value={formData.end_date}
-                        onChange={(e) => setFormData({...formData, end_date: e.target.value})}
-                      />
-                    </div>
-                  </div>
-
+                  {/* Scope Selection */}
                   <div className="space-y-4 border-t pt-4">
-                    <h4 className="font-medium">Optionen</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="is_global">Global (alle Adressen)</Label>
-                        <Switch
-                          id="is_global"
-                          checked={formData.is_global}
-                          onCheckedChange={(checked) => setFormData({...formData, is_global: checked})}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="requires_customer_number">Kundennummer erforderlich</Label>
-                        <Switch
-                          id="requires_customer_number"
-                          checked={formData.requires_customer_number}
-                          onCheckedChange={(checked) => setFormData({...formData, requires_customer_number: checked})}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="is_active">Aktiv</Label>
-                        <Switch
-                          id="is_active"
-                          checked={formData.is_active}
-                          onCheckedChange={(checked) => setFormData({...formData, is_active: checked})}
-                        />
-                      </div>
+                    <h4 className="font-medium">Geltungsbereich</h4>
+                    <div className="space-y-2">
+                      <Label>Wann gilt diese Aktion?</Label>
+                      <Select
+                        value={formData.scope}
+                        onValueChange={(value: PromotionScope) => setFormData({...formData, scope: value})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="global">
+                            <div className="flex items-center gap-2">
+                              <Globe className="w-4 h-4" />
+                              Global (alle Adressen & Produkte)
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="building">
+                            <div className="flex items-center gap-2">
+                              <Building2 className="w-4 h-4" />
+                              Objektbezogen (bestimmte Adressen)
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="product">
+                            <div className="flex items-center gap-2">
+                              <Package className="w-4 h-4" />
+                              Produktbezogen (bestimmte Tarife)
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
-                  {!formData.is_global && (
+                  {/* Building Selection */}
+                  {formData.scope === 'building' && (
                     <div className="space-y-4 border-t pt-4">
                       <h4 className="font-medium">Gültige Objekte ({selectedBuildings.length} ausgewählt)</h4>
                       <Input
@@ -441,6 +588,246 @@ export const PromotionsManager = () => {
                     </div>
                   )}
 
+                  {/* Product Selection */}
+                  {formData.scope === 'product' && (
+                    <div className="space-y-4 border-t pt-4">
+                      <h4 className="font-medium">Gültige Produkte ({selectedProducts.length} ausgewählt)</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        {products.map(product => (
+                          <div
+                            key={product.id}
+                            className={`flex items-center justify-between p-3 rounded border cursor-pointer hover:bg-muted ${
+                              selectedProducts.includes(product.id) ? 'bg-primary/10 border-primary' : ''
+                            }`}
+                            onClick={() => toggleProduct(product.id)}
+                          >
+                            <span className="text-sm font-medium">{product.name}</span>
+                            {selectedProducts.includes(product.id) && (
+                              <Badge variant="default" className="text-xs">✓</Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Discount Entries */}
+                  <div className="space-y-4 border-t pt-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Subventionen / Rabatte</h4>
+                      <Button type="button" variant="outline" size="sm" onClick={addDiscountEntry}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Rabatt hinzufügen
+                      </Button>
+                    </div>
+                    
+                    {discountEntries.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-4 text-center border rounded-lg">
+                        Keine Rabatte konfiguriert. Klicken Sie auf "Rabatt hinzufügen".
+                      </p>
+                    ) : (
+                      <div className="space-y-4">
+                        {discountEntries.map((entry, index) => (
+                          <div key={index} className="border rounded-lg p-4 space-y-4 relative">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute top-2 right-2 text-destructive"
+                              onClick={() => removeDiscountEntry(index)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                            
+                            <div className="grid grid-cols-3 gap-4">
+                              <div className="space-y-2">
+                                <Label>Rabatt auf</Label>
+                                <Select
+                                  value={entry.applies_to}
+                                  onValueChange={(value) => updateDiscountEntry(index, 'applies_to', value)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="product">Produkt (Tarif)</SelectItem>
+                                    <SelectItem value="option">Option (Addon)</SelectItem>
+                                    <SelectItem value="setup_fee">Bereitstellungspreis</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {entry.applies_to === 'product' && (
+                                <div className="space-y-2">
+                                  <Label>Produkt</Label>
+                                  <Select
+                                    value={entry.target_product_id || ''}
+                                    onValueChange={(value) => updateDiscountEntry(index, 'target_product_id', value)}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Auswählen..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {products.map(p => (
+                                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+
+                              {entry.applies_to === 'option' && (
+                                <div className="space-y-2">
+                                  <Label>Option</Label>
+                                  <Select
+                                    value={entry.target_option_id || ''}
+                                    onValueChange={(value) => updateDiscountEntry(index, 'target_option_id', value)}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Auswählen..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {productOptions.map(o => (
+                                        <SelectItem key={o.id} value={o.id}>
+                                          {o.name} ({o.category})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+
+                              <div className="space-y-2">
+                                <Label>Rabattart</Label>
+                                <Select
+                                  value={entry.discount_type}
+                                  onValueChange={(value) => updateDiscountEntry(index, 'discount_type', value)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="fixed">Fester Betrag (€)</SelectItem>
+                                    <SelectItem value="percentage">Prozentual (%)</SelectItem>
+                                    <SelectItem value="waive">Komplett erlassen</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+
+                            {entry.discount_type !== 'waive' && (
+                              <div className="grid grid-cols-4 gap-4">
+                                <div className="space-y-2">
+                                  <Label>Rabatt {entry.discount_type === 'fixed' ? '(€)' : '(%)'}</Label>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={entry.discount_amount || ''}
+                                    onChange={(e) => updateDiscountEntry(index, 'discount_amount', parseFloat(e.target.value) || 0)}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>K7 Produkt ID</Label>
+                                  <Input
+                                    value={entry.k7_product_id}
+                                    onChange={(e) => updateDiscountEntry(index, 'k7_product_id', e.target.value)}
+                                    placeholder="optional"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>K7 Template ID</Label>
+                                  <Input
+                                    value={entry.k7_template_id}
+                                    onChange={(e) => updateDiscountEntry(index, 'k7_template_id', e.target.value)}
+                                    placeholder="optional"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>K7 Template Typ</Label>
+                                  <Input
+                                    value={entry.k7_template_type}
+                                    onChange={(e) => updateDiscountEntry(index, 'k7_template_type', e.target.value)}
+                                    placeholder="z.B. Kosten, Erlös"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Display Texts */}
+                  <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="available_text">Text wenn verfügbar</Label>
+                      <Textarea
+                        id="available_text"
+                        value={formData.available_text}
+                        onChange={(e) => setFormData({...formData, available_text: e.target.value})}
+                        rows={2}
+                        placeholder="Text der angezeigt wird, wenn die Aktion gilt"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="unavailable_text">Text wenn nicht verfügbar</Label>
+                      <Textarea
+                        id="unavailable_text"
+                        value={formData.unavailable_text}
+                        onChange={(e) => setFormData({...formData, unavailable_text: e.target.value})}
+                        rows={2}
+                        placeholder="Text der angezeigt wird, wenn die Aktion nicht gilt"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Date Range */}
+                  <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="start_date">Startdatum</Label>
+                      <Input
+                        id="start_date"
+                        type="date"
+                        value={formData.start_date}
+                        onChange={(e) => setFormData({...formData, start_date: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="end_date">Enddatum</Label>
+                      <Input
+                        id="end_date"
+                        type="date"
+                        value={formData.end_date}
+                        onChange={(e) => setFormData({...formData, end_date: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Options */}
+                  <div className="space-y-4 border-t pt-4">
+                    <h4 className="font-medium">Weitere Optionen</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="requires_customer_number">Kundennummer erforderlich</Label>
+                        <Switch
+                          id="requires_customer_number"
+                          checked={formData.requires_customer_number}
+                          onCheckedChange={(checked) => setFormData({...formData, requires_customer_number: checked})}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="is_active">Aktiv</Label>
+                        <Switch
+                          id="is_active"
+                          checked={formData.is_active}
+                          onCheckedChange={(checked) => setFormData({...formData, is_active: checked})}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex justify-end gap-2 pt-4">
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                       Abbrechen
@@ -467,7 +854,8 @@ export const PromotionsManager = () => {
                 <TableRow>
                   <TableHead>Aktion</TableHead>
                   <TableHead>Code</TableHead>
-                  <TableHead>Typ</TableHead>
+                  <TableHead>Geltungsbereich</TableHead>
+                  <TableHead>Rabatte</TableHead>
                   <TableHead>Zeitraum</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Aktionen</TableHead>
@@ -476,7 +864,7 @@ export const PromotionsManager = () => {
               <TableBody>
                 {promotions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Keine Aktionen gefunden.
                     </TableCell>
                   </TableRow>
@@ -503,18 +891,12 @@ export const PromotionsManager = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          {promotion.is_global ? (
-                            <>
-                              <Globe className="w-4 h-4 text-success" />
-                              <span className="text-sm">Global</span>
-                            </>
-                          ) : (
-                            <>
-                              <Building2 className="w-4 h-4 text-primary" />
-                              <span className="text-sm">Objektbezogen</span>
-                            </>
-                          )}
+                          {getScopeIcon(promotion)}
+                          <span className="text-sm">{getScopeLabel(promotion)}</span>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <DiscountPreview promotionId={promotion.id} />
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
@@ -551,5 +933,33 @@ export const PromotionsManager = () => {
         )}
       </CardContent>
     </Card>
+  );
+};
+
+// Helper component to show discount preview in table
+const DiscountPreview = ({ promotionId }: { promotionId: string }) => {
+  const [count, setCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchCount = async () => {
+      const { count, error } = await supabase
+        .from('promotion_discounts')
+        .select('*', { count: 'exact', head: true })
+        .eq('promotion_id', promotionId);
+      
+      if (!error) {
+        setCount(count || 0);
+      }
+    };
+    fetchCount();
+  }, [promotionId]);
+
+  if (count === null) return <span className="text-muted-foreground">...</span>;
+  if (count === 0) return <span className="text-muted-foreground">-</span>;
+  
+  return (
+    <Badge variant="outline">
+      {count} Rabatt{count !== 1 ? 'e' : ''}
+    </Badge>
   );
 };
