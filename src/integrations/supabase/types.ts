@@ -43,6 +43,10 @@ export type Database = {
           apl_set: boolean | null
           ausbau_art: Database["public"]["Enums"]["ausbau_art"] | null
           ausbau_status: Database["public"]["Enums"]["ausbau_status"] | null
+          building_type: Database["public"]["Enums"]["building_type"] | null
+          building_type_manual:
+            | Database["public"]["Enums"]["building_type"]
+            | null
           city: string
           created_at: string
           gebaeude_id_k7: string | null
@@ -64,6 +68,10 @@ export type Database = {
           apl_set?: boolean | null
           ausbau_art?: Database["public"]["Enums"]["ausbau_art"] | null
           ausbau_status?: Database["public"]["Enums"]["ausbau_status"] | null
+          building_type?: Database["public"]["Enums"]["building_type"] | null
+          building_type_manual?:
+            | Database["public"]["Enums"]["building_type"]
+            | null
           city?: string
           created_at?: string
           gebaeude_id_k7?: string | null
@@ -85,6 +93,10 @@ export type Database = {
           apl_set?: boolean | null
           ausbau_art?: Database["public"]["Enums"]["ausbau_art"] | null
           ausbau_status?: Database["public"]["Enums"]["ausbau_status"] | null
+          building_type?: Database["public"]["Enums"]["building_type"] | null
+          building_type_manual?:
+            | Database["public"]["Enums"]["building_type"]
+            | null
           city?: string
           created_at?: string
           gebaeude_id_k7?: string | null
@@ -550,6 +562,7 @@ export type Database = {
       app_role: "admin" | "user"
       ausbau_art: "ftth" | "fttb"
       ausbau_status: "abgeschlossen" | "im_ausbau" | "geplant"
+      building_type: "efh" | "mfh" | "wowi"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -680,6 +693,7 @@ export const Constants = {
       app_role: ["admin", "user"],
       ausbau_art: ["ftth", "fttb"],
       ausbau_status: ["abgeschlossen", "im_ausbau", "geplant"],
+      building_type: ["efh", "mfh", "wowi"],
     },
   },
 } as const
