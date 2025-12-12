@@ -41,6 +41,9 @@ interface ProductOption {
   is_active: boolean;
   display_order: number;
   requires_kabel_tv: boolean;
+  parent_option_slug: string | null;
+  auto_include_option_slug: string | null;
+  exclusive_group: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -91,6 +94,9 @@ export const OptionsManager = () => {
     is_active: true,
     display_order: 0,
     requires_kabel_tv: false,
+    parent_option_slug: '',
+    auto_include_option_slug: '',
+    exclusive_group: '',
   });
 
   useEffect(() => {
@@ -179,6 +185,9 @@ export const OptionsManager = () => {
       const optionData = {
         ...formData,
         description: formData.description || null,
+        parent_option_slug: formData.parent_option_slug || null,
+        auto_include_option_slug: formData.auto_include_option_slug || null,
+        exclusive_group: formData.exclusive_group || null,
       };
 
       if (editingOption) {
@@ -268,6 +277,9 @@ export const OptionsManager = () => {
       is_active: true,
       display_order: 0,
       requires_kabel_tv: false,
+      parent_option_slug: '',
+      auto_include_option_slug: '',
+      exclusive_group: '',
     });
     setEditingOption(null);
   };
@@ -286,6 +298,9 @@ export const OptionsManager = () => {
       is_active: option.is_active,
       display_order: option.display_order,
       requires_kabel_tv: option.requires_kabel_tv,
+      parent_option_slug: option.parent_option_slug || '',
+      auto_include_option_slug: option.auto_include_option_slug || '',
+      exclusive_group: option.exclusive_group || '',
     });
     setIsDialogOpen(true);
   };
@@ -535,6 +550,76 @@ export const OptionsManager = () => {
                     </div>
                   </div>
 
+                  <div className="space-y-4 border-t pt-4">
+                    <h4 className="font-medium">Abhängigkeiten & Verknüpfungen</h4>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="parent_option_slug">Benötigt Option (Parent)</Label>
+                        <Select
+                          value={formData.parent_option_slug || 'none'}
+                          onValueChange={(value) => setFormData({...formData, parent_option_slug: value === 'none' ? '' : value})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Keine Parent-Option" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Keine (unabhängig)</SelectItem>
+                            {options
+                              .filter(o => o.slug !== formData.slug)
+                              .map(o => (
+                                <SelectItem key={o.slug} value={o.slug}>
+                                  {o.name} ({o.slug})
+                                </SelectItem>
+                              ))
+                            }
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Diese Option kann nur gewählt werden, wenn die Parent-Option bereits gewählt ist.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="auto_include_option_slug">Auto-Inkludiert Option</Label>
+                        <Select
+                          value={formData.auto_include_option_slug || 'none'}
+                          onValueChange={(value) => setFormData({...formData, auto_include_option_slug: value === 'none' ? '' : value})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Keine Auto-Option" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Keine</SelectItem>
+                            {options
+                              .filter(o => o.slug !== formData.slug)
+                              .map(o => (
+                                <SelectItem key={o.slug} value={o.slug}>
+                                  {o.name} ({o.slug})
+                                </SelectItem>
+                              ))
+                            }
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Diese Option wird automatisch hinzugefügt, wenn die aktuelle Option gewählt wird.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="exclusive_group">Exklusiv-Gruppe</Label>
+                        <Input
+                          id="exclusive_group"
+                          value={formData.exclusive_group}
+                          onChange={(e) => setFormData({...formData, exclusive_group: e.target.value})}
+                          placeholder="z.B. tv-hardware"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Optionen mit der gleichen Gruppe sind gegenseitig ausschließend (entweder/oder).
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex justify-end gap-2 pt-4">
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                       Abbrechen
@@ -561,6 +646,7 @@ export const OptionsManager = () => {
                 <TableRow>
                   <TableHead>Option</TableHead>
                   <TableHead>Kategorie</TableHead>
+                  <TableHead>Abhängigkeiten</TableHead>
                   <TableHead>Preis</TableHead>
                   <TableHead>Produkte</TableHead>
                   <TableHead>Status</TableHead>
@@ -570,7 +656,7 @@ export const OptionsManager = () => {
               <TableBody>
                 {filteredOptions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Keine Optionen gefunden.
                     </TableCell>
                   </TableRow>
@@ -589,6 +675,28 @@ export const OptionsManager = () => {
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary">{getCategoryLabel(option.category)}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          {option.parent_option_slug && (
+                            <Badge variant="outline" className="text-xs w-fit">
+                              ← {option.parent_option_slug}
+                            </Badge>
+                          )}
+                          {option.auto_include_option_slug && (
+                            <Badge variant="outline" className="text-xs w-fit bg-green-500/10 text-green-700 border-green-200">
+                              + {option.auto_include_option_slug}
+                            </Badge>
+                          )}
+                          {option.exclusive_group && (
+                            <Badge variant="outline" className="text-xs w-fit bg-orange-500/10 text-orange-700 border-orange-200">
+                              ⊕ {option.exclusive_group}
+                            </Badge>
+                          )}
+                          {!option.parent_option_slug && !option.auto_include_option_slug && !option.exclusive_group && (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
