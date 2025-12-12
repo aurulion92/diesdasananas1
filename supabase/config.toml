@@ -2,3 +2,6 @@ project_id = "rgehktwlrbytyvtfrhms"
 
 [functions.gustav-chat]
 verify_jwt = false
+
+[functions.rate-limit]
+verify_jwt = false
