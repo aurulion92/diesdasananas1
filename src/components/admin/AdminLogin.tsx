@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Shield, AlertCircle } from 'lucide-react';
+import { Loader2, Shield, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface AdminLoginProps {
   onLoginSuccess: () => void;
@@ -16,39 +16,64 @@ export const AdminLogin = ({ onLoginSuccess }: AdminLoginProps) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [isSignUp, setIsSignUp] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      if (isSignUp) {
+        // Sign up flow
+        const { data, error: authError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/devconfig`
+          }
+        });
 
-      if (authError) {
-        setError(authError.message);
-        return;
-      }
-
-      if (data.user) {
-        // Check if user has admin role
-        const { data: roleData, error: roleError } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', data.user.id)
-          .eq('role', 'admin')
-          .maybeSingle();
-
-        if (roleError || !roleData) {
-          await supabase.auth.signOut();
-          setError('Kein Administratorzugang für diesen Benutzer.');
+        if (authError) {
+          setError(authError.message);
           return;
         }
 
-        onLoginSuccess();
+        if (data.user) {
+          setSuccess('Registrierung erfolgreich! Bitte warten Sie auf die Admin-Freischaltung und melden Sie sich dann an.');
+          setIsSignUp(false);
+        }
+      } else {
+        // Login flow
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (authError) {
+          setError(authError.message);
+          return;
+        }
+
+        if (data.user) {
+          // Check if user has admin role
+          const { data: roleData, error: roleError } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', data.user.id)
+            .eq('role', 'admin')
+            .maybeSingle();
+
+          if (roleError || !roleData) {
+            await supabase.auth.signOut();
+            setError('Kein Administratorzugang für diesen Benutzer. Bitte warten Sie auf die Freischaltung.');
+            return;
+          }
+
+          onLoginSuccess();
+        }
       }
     } catch (err) {
       setError('Ein unerwarteter Fehler ist aufgetreten.');
@@ -68,15 +93,24 @@ export const AdminLogin = ({ onLoginSuccess }: AdminLoginProps) => {
             Admin-Bereich
           </CardTitle>
           <CardDescription>
-            Melden Sie sich an, um auf die Konfiguration zuzugreifen.
+            {isSignUp 
+              ? 'Erstellen Sie ein neues Admin-Konto.' 
+              : 'Melden Sie sich an, um auf die Konfiguration zuzugreifen.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            {success && (
+              <Alert className="border-success bg-success/10">
+                <CheckCircle className="h-4 w-4 text-success" />
+                <AlertDescription className="text-success">{success}</AlertDescription>
               </Alert>
             )}
             
@@ -103,6 +137,7 @@ export const AdminLogin = ({ onLoginSuccess }: AdminLoginProps) => {
                 placeholder="••••••••"
                 required
                 disabled={loading}
+                minLength={6}
               />
             </div>
             
@@ -114,12 +149,29 @@ export const AdminLogin = ({ onLoginSuccess }: AdminLoginProps) => {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Anmelden...
+                  {isSignUp ? 'Registrieren...' : 'Anmelden...'}
                 </>
               ) : (
-                'Anmelden'
+                isSignUp ? 'Registrieren' : 'Anmelden'
               )}
             </Button>
+
+            <div className="text-center pt-2">
+              <Button
+                type="button"
+                variant="link"
+                className="text-sm text-muted-foreground"
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setError(null);
+                  setSuccess(null);
+                }}
+              >
+                {isSignUp 
+                  ? 'Bereits registriert? Anmelden' 
+                  : 'Noch kein Konto? Registrieren'}
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
