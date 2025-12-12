@@ -36,6 +36,8 @@ interface Building {
   postal_code: string | null;
   city: string;
   residential_units: number;
+  building_type: 'efh' | 'mfh' | 'wowi' | null;
+  building_type_manual: 'efh' | 'mfh' | 'wowi' | null;
   tiefbau_done: boolean;
   apl_set: boolean;
   ausbau_art: 'ftth' | 'fttb' | null;
@@ -49,6 +51,15 @@ interface Building {
   created_at: string;
   updated_at: string;
 }
+
+const getBuildingTypeLabel = (type: 'efh' | 'mfh' | 'wowi' | null) => {
+  switch (type) {
+    case 'efh': return 'EFH';
+    case 'mfh': return 'MFH';
+    case 'wowi': return 'WoWi';
+    default: return '-';
+  }
+};
 
 export const BuildingsManager = () => {
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -431,6 +442,7 @@ export const BuildingsManager = () => {
                   <TableHead className="w-12"></TableHead>
                   <TableHead>Adresse</TableHead>
                   <TableHead>WE</TableHead>
+                  <TableHead>Typ</TableHead>
                   <TableHead>Ausbau</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>IDs</TableHead>
@@ -440,7 +452,7 @@ export const BuildingsManager = () => {
               <TableBody>
                 {filteredBuildings.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       Keine Gebäude gefunden.
                     </TableCell>
                   </TableRow>
@@ -464,6 +476,14 @@ export const BuildingsManager = () => {
                         </div>
                       </TableCell>
                       <TableCell>{building.residential_units}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-mono">
+                          {getBuildingTypeLabel(building.building_type_manual || building.building_type)}
+                          {building.building_type_manual && (
+                            <Wrench className="w-3 h-3 ml-1 inline" />
+                          )}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         <div className="space-y-1">
                           {building.ausbau_art && (
