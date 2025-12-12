@@ -20,7 +20,7 @@ import {
   Building2,
   Package,
   Trash2,
-  AlertTriangle
+  Combine
 } from 'lucide-react';
 import {
   Table,
@@ -79,7 +79,7 @@ interface DiscountEntry {
   k7_template_type: string;
 }
 
-type PromotionScope = 'global' | 'building' | 'product';
+type PromotionScope = 'global' | 'building' | 'product' | 'building_and_product';
 
 export const PromotionsManager = () => {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -274,7 +274,7 @@ export const PromotionsManager = () => {
         .delete()
         .eq('promotion_id', promotionId);
 
-      if (formData.scope === 'building' && selectedBuildings.length > 0) {
+      if ((formData.scope === 'building' || formData.scope === 'building_and_product') && selectedBuildings.length > 0) {
         const buildingAssignments = selectedBuildings.map(buildingId => ({
           promotion_id: promotionId,
           building_id: buildingId,
@@ -348,17 +348,33 @@ export const PromotionsManager = () => {
   const openEditDialog = async (promotion: Promotion) => {
     setEditingPromotion(promotion);
     
-    // Determine scope
+    // Determine scope by checking building and product assignments
     let scope: PromotionScope = 'global';
+    
     if (!promotion.is_global) {
-      // Check if it has building assignments
       const { data: buildingData } = await supabase
         .from('promotion_buildings')
         .select('building_id')
         .eq('promotion_id', promotion.id)
         .limit(1);
       
-      scope = buildingData && buildingData.length > 0 ? 'building' : 'product';
+      const { data: discountData } = await supabase
+        .from('promotion_discounts')
+        .select('target_product_id')
+        .eq('promotion_id', promotion.id)
+        .not('target_product_id', 'is', null)
+        .limit(1);
+      
+      const hasBuildings = buildingData && buildingData.length > 0;
+      const hasProducts = discountData && discountData.length > 0;
+      
+      if (hasBuildings && hasProducts) {
+        scope = 'building_and_product';
+      } else if (hasBuildings) {
+        scope = 'building';
+      } else {
+        scope = 'product';
+      }
     }
     
     setFormData({
@@ -374,7 +390,7 @@ export const PromotionsManager = () => {
       end_date: promotion.end_date || '',
     });
     
-    if (scope === 'building') {
+    if (scope === 'building' || scope === 'building_and_product') {
       await fetchPromotionBuildings(promotion.id);
     }
     
@@ -440,16 +456,17 @@ export const PromotionsManager = () => {
     `${b.street} ${b.house_number} ${b.city}`.toLowerCase().includes(buildingSearch.toLowerCase())
   );
 
-  const getScopeIcon = (promotion: Promotion) => {
-    if (promotion.is_global) {
-      return <Globe className="w-4 h-4 text-success" />;
+  const getScopeInfo = (scope: PromotionScope) => {
+    switch (scope) {
+      case 'global':
+        return { icon: Globe, label: 'Global', color: 'text-success' };
+      case 'building':
+        return { icon: Building2, label: 'Objektbezogen', color: 'text-primary' };
+      case 'product':
+        return { icon: Package, label: 'Produktbezogen', color: 'text-accent' };
+      case 'building_and_product':
+        return { icon: Combine, label: 'Objekt & Produkt', color: 'text-warning' };
     }
-    return <Building2 className="w-4 h-4 text-primary" />;
-  };
-
-  const getScopeLabel = (promotion: Promotion) => {
-    if (promotion.is_global) return 'Global';
-    return 'Objekt-/Produktbezogen';
   };
 
   return (
@@ -537,20 +554,26 @@ export const PromotionsManager = () => {
                         <SelectContent>
                           <SelectItem value="global">
                             <div className="flex items-center gap-2">
-                              <Globe className="w-4 h-4" />
+                              <Globe className="w-4 h-4 text-success" />
                               Global (alle Adressen & Produkte)
                             </div>
                           </SelectItem>
                           <SelectItem value="building">
                             <div className="flex items-center gap-2">
-                              <Building2 className="w-4 h-4" />
+                              <Building2 className="w-4 h-4 text-primary" />
                               Objektbezogen (bestimmte Adressen)
                             </div>
                           </SelectItem>
                           <SelectItem value="product">
                             <div className="flex items-center gap-2">
-                              <Package className="w-4 h-4" />
+                              <Package className="w-4 h-4 text-accent" />
                               Produktbezogen (bestimmte Tarife)
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="building_and_product">
+                            <div className="flex items-center gap-2">
+                              <Combine className="w-4 h-4 text-warning" />
+                              Objekt- & Produktbezogen
                             </div>
                           </SelectItem>
                         </SelectContent>
@@ -559,9 +582,12 @@ export const PromotionsManager = () => {
                   </div>
 
                   {/* Building Selection */}
-                  {formData.scope === 'building' && (
+                  {(formData.scope === 'building' || formData.scope === 'building_and_product') && (
                     <div className="space-y-4 border-t pt-4">
-                      <h4 className="font-medium">Gültige Objekte ({selectedBuildings.length} ausgewählt)</h4>
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Building2 className="w-4 h-4" />
+                        Gültige Objekte ({selectedBuildings.length} ausgewählt)
+                      </h4>
                       <Input
                         placeholder="Objekte suchen..."
                         value={buildingSearch}
@@ -589,9 +615,12 @@ export const PromotionsManager = () => {
                   )}
 
                   {/* Product Selection */}
-                  {formData.scope === 'product' && (
+                  {(formData.scope === 'product' || formData.scope === 'building_and_product') && (
                     <div className="space-y-4 border-t pt-4">
-                      <h4 className="font-medium">Gültige Produkte ({selectedProducts.length} ausgewählt)</h4>
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Package className="w-4 h-4" />
+                        Gültige Produkte ({selectedProducts.length} ausgewählt)
+                      </h4>
                       <div className="grid grid-cols-2 gap-2">
                         {products.map(product => (
                           <div
@@ -890,10 +919,7 @@ export const PromotionsManager = () => {
                         ) : '-'}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          {getScopeIcon(promotion)}
-                          <span className="text-sm">{getScopeLabel(promotion)}</span>
-                        </div>
+                        <PromotionScopeDisplay promotionId={promotion.id} isGlobal={promotion.is_global} />
                       </TableCell>
                       <TableCell>
                         <DiscountPreview promotionId={promotion.id} />
@@ -961,5 +987,54 @@ const DiscountPreview = ({ promotionId }: { promotionId: string }) => {
     <Badge variant="outline">
       {count} Rabatt{count !== 1 ? 'e' : ''}
     </Badge>
+  );
+};
+
+// Helper component to display promotion scope with icon
+const PromotionScopeDisplay = ({ promotionId, isGlobal }: { promotionId: string; isGlobal: boolean }) => {
+  const [scope, setScope] = useState<'global' | 'building' | 'product' | 'building_and_product'>('global');
+
+  useEffect(() => {
+    if (isGlobal) {
+      setScope('global');
+      return;
+    }
+
+    const determineScope = async () => {
+      const [buildingsRes, discountsRes] = await Promise.all([
+        supabase.from('promotion_buildings').select('building_id').eq('promotion_id', promotionId).limit(1),
+        supabase.from('promotion_discounts').select('target_product_id').eq('promotion_id', promotionId).not('target_product_id', 'is', null).limit(1)
+      ]);
+      
+      const hasBuildings = buildingsRes.data && buildingsRes.data.length > 0;
+      const hasProducts = discountsRes.data && discountsRes.data.length > 0;
+      
+      if (hasBuildings && hasProducts) {
+        setScope('building_and_product');
+      } else if (hasBuildings) {
+        setScope('building');
+      } else {
+        setScope('product');
+      }
+    };
+    
+    determineScope();
+  }, [promotionId, isGlobal]);
+
+  const scopeConfig = {
+    global: { icon: Globe, label: 'Global', color: 'text-success' },
+    building: { icon: Building2, label: 'Objektbezogen', color: 'text-primary' },
+    product: { icon: Package, label: 'Produktbezogen', color: 'text-accent' },
+    building_and_product: { icon: Combine, label: 'Objekt & Produkt', color: 'text-warning' },
+  };
+
+  const config = scopeConfig[scope];
+  const IconComponent = config.icon;
+
+  return (
+    <div className="flex items-center gap-1">
+      <IconComponent className={`w-4 h-4 ${config.color}`} />
+      <span className="text-sm">{config.label}</span>
+    </div>
   );
 };
