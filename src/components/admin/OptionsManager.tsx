@@ -41,8 +41,8 @@ interface ProductOption {
   is_active: boolean;
   display_order: number;
   requires_kabel_tv: boolean;
-  parent_option_slug: string | null;
-  auto_include_option_slug: string | null;
+  parent_option_slug: string[] | null;
+  auto_include_option_slug: string[] | null;
   exclusive_group: string | null;
   created_at: string;
   updated_at: string;
@@ -94,8 +94,8 @@ export const OptionsManager = () => {
     is_active: true,
     display_order: 0,
     requires_kabel_tv: false,
-    parent_option_slug: '',
-    auto_include_option_slug: '',
+    parent_option_slugs: [] as string[],
+    auto_include_option_slugs: [] as string[],
     exclusive_group: '',
   });
 
@@ -183,10 +183,19 @@ export const OptionsManager = () => {
     
     try {
       const optionData = {
-        ...formData,
+        name: formData.name,
+        slug: formData.slug,
         description: formData.description || null,
-        parent_option_slug: formData.parent_option_slug || null,
-        auto_include_option_slug: formData.auto_include_option_slug || null,
+        category: formData.category,
+        monthly_price: formData.monthly_price,
+        one_time_price: formData.one_time_price,
+        is_ftth: formData.is_ftth,
+        is_fttb: formData.is_fttb,
+        is_active: formData.is_active,
+        display_order: formData.display_order,
+        requires_kabel_tv: formData.requires_kabel_tv,
+        parent_option_slug: formData.parent_option_slugs.length > 0 ? formData.parent_option_slugs : null,
+        auto_include_option_slug: formData.auto_include_option_slugs.length > 0 ? formData.auto_include_option_slugs : null,
         exclusive_group: formData.exclusive_group || null,
       };
 
@@ -277,8 +286,8 @@ export const OptionsManager = () => {
       is_active: true,
       display_order: 0,
       requires_kabel_tv: false,
-      parent_option_slug: '',
-      auto_include_option_slug: '',
+      parent_option_slugs: [],
+      auto_include_option_slugs: [],
       exclusive_group: '',
     });
     setEditingOption(null);
@@ -298,8 +307,8 @@ export const OptionsManager = () => {
       is_active: option.is_active,
       display_order: option.display_order,
       requires_kabel_tv: option.requires_kabel_tv,
-      parent_option_slug: option.parent_option_slug || '',
-      auto_include_option_slug: option.auto_include_option_slug || '',
+      parent_option_slugs: option.parent_option_slug || [],
+      auto_include_option_slugs: option.auto_include_option_slug || [],
       exclusive_group: option.exclusive_group || '',
     });
     setIsDialogOpen(true);
@@ -554,18 +563,47 @@ export const OptionsManager = () => {
                     <h4 className="font-medium">Abhängigkeiten & Verknüpfungen</h4>
                     <div className="grid grid-cols-1 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="parent_option_slug">Benötigt Option (Parent)</Label>
+                        <Label>Benötigt Optionen (Parents) - Mindestens eine muss gewählt sein</Label>
+                        <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg min-h-[40px]">
+                          {formData.parent_option_slugs.map(slug => {
+                            const opt = options.find(o => o.slug === slug);
+                            return (
+                              <Badge key={slug} variant="secondary" className="flex items-center gap-1">
+                                {opt?.name || slug}
+                                <button
+                                  type="button"
+                                  className="ml-1 hover:text-destructive"
+                                  onClick={() => setFormData({
+                                    ...formData,
+                                    parent_option_slugs: formData.parent_option_slugs.filter(s => s !== slug)
+                                  })}
+                                >
+                                  ×
+                                </button>
+                              </Badge>
+                            );
+                          })}
+                          {formData.parent_option_slugs.length === 0 && (
+                            <span className="text-sm text-muted-foreground">Keine (unabhängig)</span>
+                          )}
+                        </div>
                         <Select
-                          value={formData.parent_option_slug || 'none'}
-                          onValueChange={(value) => setFormData({...formData, parent_option_slug: value === 'none' ? '' : value})}
+                          value=""
+                          onValueChange={(value) => {
+                            if (value && !formData.parent_option_slugs.includes(value)) {
+                              setFormData({
+                                ...formData,
+                                parent_option_slugs: [...formData.parent_option_slugs, value]
+                              });
+                            }
+                          }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Keine Parent-Option" />
+                            <SelectValue placeholder="Parent hinzufügen..." />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">Keine (unabhängig)</SelectItem>
                             {options
-                              .filter(o => o.slug !== formData.slug)
+                              .filter(o => o.slug !== formData.slug && !formData.parent_option_slugs.includes(o.slug))
                               .map(o => (
                                 <SelectItem key={o.slug} value={o.slug}>
                                   {o.name} ({o.slug})
@@ -575,23 +613,52 @@ export const OptionsManager = () => {
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">
-                          Diese Option kann nur gewählt werden, wenn die Parent-Option bereits gewählt ist.
+                          Diese Option kann nur gewählt werden, wenn MINDESTENS eine der Parent-Optionen gewählt ist.
                         </p>
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="auto_include_option_slug">Auto-Inkludiert Option</Label>
+                        <Label>Auto-Inkludiert Optionen</Label>
+                        <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg min-h-[40px]">
+                          {formData.auto_include_option_slugs.map(slug => {
+                            const opt = options.find(o => o.slug === slug);
+                            return (
+                              <Badge key={slug} variant="secondary" className="flex items-center gap-1 bg-green-500/10 text-green-700">
+                                {opt?.name || slug}
+                                <button
+                                  type="button"
+                                  className="ml-1 hover:text-destructive"
+                                  onClick={() => setFormData({
+                                    ...formData,
+                                    auto_include_option_slugs: formData.auto_include_option_slugs.filter(s => s !== slug)
+                                  })}
+                                >
+                                  ×
+                                </button>
+                              </Badge>
+                            );
+                          })}
+                          {formData.auto_include_option_slugs.length === 0 && (
+                            <span className="text-sm text-muted-foreground">Keine</span>
+                          )}
+                        </div>
                         <Select
-                          value={formData.auto_include_option_slug || 'none'}
-                          onValueChange={(value) => setFormData({...formData, auto_include_option_slug: value === 'none' ? '' : value})}
+                          value=""
+                          onValueChange={(value) => {
+                            if (value && !formData.auto_include_option_slugs.includes(value)) {
+                              setFormData({
+                                ...formData,
+                                auto_include_option_slugs: [...formData.auto_include_option_slugs, value]
+                              });
+                            }
+                          }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Keine Auto-Option" />
+                            <SelectValue placeholder="Auto-Option hinzufügen..." />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">Keine</SelectItem>
                             {options
-                              .filter(o => o.slug !== formData.slug)
+                              .filter(o => o.slug !== formData.slug && !formData.auto_include_option_slugs.includes(o.slug))
                               .map(o => (
                                 <SelectItem key={o.slug} value={o.slug}>
                                   {o.name} ({o.slug})
@@ -601,7 +668,7 @@ export const OptionsManager = () => {
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">
-                          Diese Option wird automatisch hinzugefügt, wenn die aktuelle Option gewählt wird.
+                          Diese Optionen werden automatisch hinzugefügt, wenn die aktuelle Option gewählt wird.
                         </p>
                       </div>
 
@@ -678,14 +745,14 @@ export const OptionsManager = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          {option.parent_option_slug && (
+                          {option.parent_option_slug && option.parent_option_slug.length > 0 && (
                             <Badge variant="outline" className="text-xs w-fit">
-                              ← {option.parent_option_slug}
+                              ← {option.parent_option_slug.join(', ')}
                             </Badge>
                           )}
-                          {option.auto_include_option_slug && (
+                          {option.auto_include_option_slug && option.auto_include_option_slug.length > 0 && (
                             <Badge variant="outline" className="text-xs w-fit bg-green-500/10 text-green-700 border-green-200">
-                              + {option.auto_include_option_slug}
+                              + {option.auto_include_option_slug.join(', ')}
                             </Badge>
                           )}
                           {option.exclusive_group && (
@@ -693,7 +760,9 @@ export const OptionsManager = () => {
                               ⊕ {option.exclusive_group}
                             </Badge>
                           )}
-                          {!option.parent_option_slug && !option.auto_include_option_slug && !option.exclusive_group && (
+                          {(!option.parent_option_slug || option.parent_option_slug.length === 0) && 
+                           (!option.auto_include_option_slug || option.auto_include_option_slug.length === 0) && 
+                           !option.exclusive_group && (
                             <span className="text-xs text-muted-foreground">-</span>
                           )}
                         </div>
