@@ -223,7 +223,7 @@ export type Database = {
       }
       product_options: {
         Row: {
-          auto_include_option_slug: string | null
+          auto_include_option_slug: string[] | null
           category: string
           created_at: string
           description: string | null
@@ -236,13 +236,13 @@ export type Database = {
           monthly_price: number | null
           name: string
           one_time_price: number | null
-          parent_option_slug: string | null
+          parent_option_slug: string[] | null
           requires_kabel_tv: boolean | null
           slug: string
           updated_at: string
         }
         Insert: {
-          auto_include_option_slug?: string | null
+          auto_include_option_slug?: string[] | null
           category: string
           created_at?: string
           description?: string | null
@@ -255,13 +255,13 @@ export type Database = {
           monthly_price?: number | null
           name: string
           one_time_price?: number | null
-          parent_option_slug?: string | null
+          parent_option_slug?: string[] | null
           requires_kabel_tv?: boolean | null
           slug: string
           updated_at?: string
         }
         Update: {
-          auto_include_option_slug?: string | null
+          auto_include_option_slug?: string[] | null
           category?: string
           created_at?: string
           description?: string | null
@@ -274,7 +274,7 @@ export type Database = {
           monthly_price?: number | null
           name?: string
           one_time_price?: number | null
-          parent_option_slug?: string | null
+          parent_option_slug?: string[] | null
           requires_kabel_tv?: boolean | null
           slug?: string
           updated_at?: string
