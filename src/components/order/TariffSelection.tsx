@@ -391,8 +391,8 @@ export function TariffSelection() {
         </div>
       )}
 
-      {/* "Weitere Optionen" Button - only show if there are hidden products and not manual assignment */}
-      {!productsLoading && !hasManualAssignment && hiddenTariffs.length > 0 && !showFiberBasic && (
+      {/* "Weitere Produkte" Button - nur wenn es versteckte Produkte bei FTTH gibt */}
+      {!productsLoading && hiddenTariffs.length > 0 && !showFiberBasic && isFtth && (
         <div className="text-center">
           <button
             onClick={() => setShowFiberBasic(true)}
