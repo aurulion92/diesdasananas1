@@ -22,7 +22,8 @@ import {
   Gift,
   Zap,
   ArrowRightLeft,
-  Loader2
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -816,7 +817,10 @@ export function OrderSummary() {
         </div>
 
         {/* VZF Download */}
-        <div className="bg-card rounded-xl shadow-card p-6 border-2 border-dashed border-accent/30">
+        <div className={cn(
+          "bg-card rounded-xl shadow-card p-6 border-2 border-dashed",
+          !vzfDownloaded ? "border-accent/30" : vzfConfirmed ? "border-success/30" : "border-warning/30"
+        )}>
           <div className="flex items-start gap-4">
             <div className={cn(
               "w-10 h-10 rounded-full flex items-center justify-center",
@@ -833,6 +837,16 @@ export function OrderSummary() {
               <p className="text-muted-foreground text-sm mt-1">
                 Bitte laden Sie die Vertragszusammenfassung herunter und lesen Sie diese sorgfältig durch.
               </p>
+              
+              {/* Warning if VZF needs to be re-downloaded after changes */}
+              {!vzfDownloaded && (
+                <div className="flex items-center gap-2 mt-3 p-3 bg-warning/10 border border-warning/20 rounded-lg">
+                  <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
+                  <p className="text-sm text-warning">
+                    Sie müssen die VZF herunterladen, bevor Sie die Bestellung abschließen können.
+                  </p>
+                </div>
+              )}
               
               <Button 
                 onClick={handleDownloadVZF}
