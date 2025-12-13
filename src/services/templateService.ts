@@ -74,3 +74,67 @@ export const TEMPLATE_USE_CASES = [
 ] as const;
 
 export type TemplateUseCase = typeof TEMPLATE_USE_CASES[number]['value'];
+
+/**
+ * Get the default email template HTML for order confirmations
+ */
+export const DEFAULT_ORDER_CONFIRMATION_EMAIL = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: 'Open Sans', Arial, sans-serif; line-height: 1.6; color: #1a2b52; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 0 auto; }
+    .header { background: linear-gradient(180deg, #1a2b52 0%, #152244 100%); color: white; padding: 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .content { padding: 30px; background: #f5f6f8; }
+    .card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .highlight { background: #fff4e6; border-left: 4px solid #ff8c00; padding: 15px; margin: 20px 0; }
+    .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; background: #1a2b52; color: #ccc; }
+    .footer a { color: #ff8c00; }
+    .order-number { font-size: 28px; font-weight: bold; color: #1a2b52; text-align: center; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>COM-IN Glasfaser</h1>
+      <p style="margin: 5px 0 0 0; opacity: 0.8;">Bestellbestätigung</p>
+    </div>
+    <div class="content">
+      <div class="card">
+        <h2 style="margin-top: 0;">Vielen Dank für Ihre Bestellung, {{customer_name}}!</h2>
+        <p>Ihre Bestellung ist bei uns eingegangen und befindet sich nun in Bearbeitung.</p>
+        <div class="order-number">{{order_id}}</div>
+      </div>
+      
+      <div class="highlight">
+        <strong>Wichtiger Hinweis:</strong><br>
+        Im Anhang finden Sie Ihre Vertragszusammenfassung (VZF) mit allen Details zu Ihrer Bestellung. Bitte bewahren Sie diese Unterlagen sorgfältig auf.
+      </div>
+      
+      <div class="card">
+        <h3 style="margin-top: 0;">Wie geht es weiter?</h3>
+        <ol style="padding-left: 20px;">
+          <li>Wir prüfen Ihre Bestellung</li>
+          <li>Sie erhalten eine Terminbestätigung</li>
+          <li>Unser Techniker aktiviert Ihren Anschluss</li>
+        </ol>
+        <p>Die aktuelle Bearbeitungszeit beträgt ca. 2-3 Wochen.</p>
+      </div>
+      
+      <div class="card">
+        <h3 style="margin-top: 0;">Fragen?</h3>
+        <p>Bei Fragen stehen wir Ihnen gerne zur Verfügung:</p>
+        <p>📧 <a href="mailto:kontakt@comin-glasfaser.de">kontakt@comin-glasfaser.de</a></p>
+      </div>
+      
+      <p style="text-align: center; color: #666;">Mit freundlichen Grüßen,<br><strong>Ihr COM-IN Team</strong></p>
+    </div>
+    <div class="footer">
+      <p>COM-IN Glasfaser | <a href="mailto:kontakt@comin-glasfaser.de">kontakt@comin-glasfaser.de</a></p>
+      <p style="font-size: 10px; margin-top: 10px;">Diese E-Mail wurde automatisch generiert.</p>
+    </div>
+  </div>
+</body>
+</html>`;

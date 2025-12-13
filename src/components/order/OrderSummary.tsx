@@ -257,7 +257,7 @@ export function OrderSummary() {
         vzf_data: vzfData,
       };
 
-      const { error } = await supabase.from('orders').insert([orderData]);
+      const { data: insertedOrder, error } = await supabase.from('orders').insert([orderData]).select('id').single();
 
       if (error) {
         console.error('Order submission error:', error);
@@ -267,6 +267,53 @@ export function OrderSummary() {
           variant: "destructive"
         });
         return;
+      }
+
+      // Send confirmation email with VZF attachment
+      try {
+        const renderData: VZFRenderData = {
+          customerName: `${customerData.firstName} ${customerData.lastName}`,
+          customerFirstName: customerData.firstName,
+          customerLastName: customerData.lastName,
+          customerEmail: customerData.email,
+          customerPhone: customerData.phone,
+          street: address.street,
+          houseNumber: address.houseNumber,
+          city: address.city || 'Ingolstadt',
+          tariffName: selectedTariff.name,
+          tariffPrice: `${(isFiberBasic && contractDuration === 12 ? selectedTariff.monthlyPrice12 : selectedTariff.monthlyPrice).toFixed(2).replace('.', ',')} €`,
+          tariffDownload: `${selectedTariff.downloadSpeed} Mbit/s`,
+          tariffUpload: `${selectedTariff.uploadSpeed} Mbit/s`,
+          contractDuration: `${isFiberBasic ? contractDuration : 24} Monate`,
+          routerName: selectedRouter?.name || 'Kein Router',
+          routerPrice: `${getRouterPrice().toFixed(2).replace('.', ',')} €`,
+          tvName: tvSelection.type === 'comin' ? 'COM-IN TV' : tvSelection.package?.name || 'Kein TV',
+          tvPrice: '0,00 €',
+          monthlyTotal: `${getTotalMonthly().toFixed(2).replace('.', ',')} €`,
+          oneTimeTotal: `${getTotalOneTime().toFixed(2).replace('.', ',')} €`,
+          setupFee: `${getSetupFee().toFixed(2).replace('.', ',')} €`,
+          orderNumber: insertedOrder.id.substring(0, 8).toUpperCase(),
+          vzfTimestamp: format(new Date(), 'dd.MM.yyyy HH:mm', { locale: de }),
+        };
+
+        // Generate VZF HTML for email attachment
+        const { renderVZFFromTemplate } = await import('@/utils/renderVZFTemplate');
+        const vzfHtmlForEmail = await renderVZFFromTemplate(vzfData, renderData);
+
+        // Call edge function to send email
+        await supabase.functions.invoke('send-order-email', {
+          body: {
+            orderId: insertedOrder.id,
+            customerEmail: customerData.email,
+            customerName: `${customerData.firstName} ${customerData.lastName}`,
+            vzfHtml: vzfHtmlForEmail
+          }
+        });
+        
+        console.log('Confirmation email sent successfully');
+      } catch (emailError) {
+        console.error('Email sending failed (order still successful):', emailError);
+        // Don't fail the order if email fails
       }
 
       setOrderComplete(true);
