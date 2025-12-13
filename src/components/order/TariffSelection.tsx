@@ -1,7 +1,7 @@
 import { useOrder } from '@/context/OrderContext';
 import { useOrderPromotions } from '@/hooks/useOrderPromotions';
 import { useBuildingProducts, DatabaseProduct } from '@/hooks/useBuildingProducts';
-import { useProductOptions } from '@/hooks/useProductOptions';
+import { useProductOptions, type ProductOptionMapping } from '@/hooks/useProductOptions';
 import { 
   ftthTariffs, 
   limitedTariffs,
@@ -83,6 +83,38 @@ function dbProductToTariffOption(product: DatabaseProduct): TariffOption {
   };
 }
 
+// Map database router options to TariffAddon format
+const NO_ROUTER_ADDON: TariffAddon = {
+  id: 'router-none',
+  name: 'Kein Router',
+  description: 'Ich habe bereits einen eigenen Router',
+  monthlyPrice: 0,
+  discountedPrice: 0,
+  oneTimePrice: 0,
+  category: 'router',
+};
+
+function dbRouterOptionToAddon(mapping: ProductOptionMapping): TariffAddon {
+  const { option } = mapping;
+  const slug = option.slug;
+
+  // Keep existing IDs for known routers so promotion mapping continues to work
+  let id: string;
+  if (slug === 'fritzbox-5690-pro') id = 'router-fritzbox-5690-pro';
+  else if (slug === 'fritzbox-5690') id = 'router-fritzbox-5690';
+  else if (slug === 'fritzbox-7690') id = 'router-fritzbox-7690';
+  else id = `router-${slug}`;
+
+  return {
+    id,
+    name: option.name,
+    description: option.description || '',
+    monthlyPrice: option.monthly_price ?? 0,
+    oneTimePrice: option.one_time_price ?? 0,
+    category: 'router',
+  };
+}
+
 export function TariffSelection() {
   const { 
     connectionType, 
@@ -122,7 +154,6 @@ export function TariffSelection() {
   // Fetch options assigned to the selected product
   const { 
     hasOptionsAssigned,
-    hasCategory,
     routerOptions,
     phoneOptions: dbPhoneOptions,
     tvCominOptions,
@@ -162,15 +193,38 @@ export function TariffSelection() {
   const isEinfachTariff = selectedTariff?.id?.startsWith('einfach-');
   const hasKabelTv = address?.kabelTvAvailable === true;
 
-  // Determine if options should be shown based on product_option_mappings
-  // If product has assigned options, only show those categories
-  // If no options assigned, show all options (legacy behavior for standard products)
-  const showRouterOptions = !hasOptionsAssigned || hasCategory('router');
-  const showTvOptions = !hasOptionsAssigned || hasCategory('tv_comin') || hasCategory('tv_waipu');
-  const showPhoneOptions = !hasOptionsAssigned || hasCategory('phone');
+  // Determine option availability based on product_option_mappings
+  const hasRouterDbOptions = routerOptions.length > 0;
+  const hasTvDbOptions = tvCominOptions.length > 0 || tvWaipuOptions.length > 0;
+  const hasPhoneDbOptions = dbPhoneOptions.length > 0;
 
-  // Get available routers for this connection type
-  const availableRouters = getRoutersForConnectionType(connectionType);
+  // Build available routers list: if product has DB options, use only those;
+  // otherwise fall back to legacy router list by connection type.
+  let availableRouters: TariffAddon[] = [];
+
+  if (hasOptionsAssigned) {
+    if (hasRouterDbOptions && connectionType && connectionType !== 'not-connected') {
+      const isFtthConnection = connectionType === 'ftth' || connectionType === 'limited';
+
+      const dbRouters = routerOptions
+        .filter(({ option }) => {
+          // Filter routers by infrastructure flags when present
+          if (isFtthConnection) return option.is_ftth !== false;
+          return option.is_fttb !== false;
+        })
+        .map(dbRouterOptionToAddon);
+
+      if (dbRouters.length > 0) {
+        availableRouters = [NO_ROUTER_ADDON, ...dbRouters];
+      }
+    }
+  } else {
+    availableRouters = getRoutersForConnectionType(connectionType);
+  }
+
+  const showRouterOptions = availableRouters.length > 0;
+  const showTvOptions = hasOptionsAssigned ? hasTvDbOptions : true;
+  const showPhoneOptions = hasOptionsAssigned ? hasPhoneDbOptions : true;
 
   // Reset router when connection type changes
   useEffect(() => {
