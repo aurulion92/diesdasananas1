@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// @ts-ignore - jspdf works in Deno
+import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +13,161 @@ interface OrderEmailRequest {
   customerEmail: string;
   customerName: string;
   vzfHtml: string;
+  vzfData?: {
+    tariffName?: string;
+    tariffPrice?: number;
+    monthlyTotal?: number;
+    oneTimeTotal?: number;
+    setupFee?: number;
+    contractDuration?: number;
+    street?: string;
+    houseNumber?: string;
+    city?: string;
+    selectedOptions?: Array<{ name: string; monthlyPrice?: number; oneTimePrice?: number }>;
+  };
+}
+
+// Convert HTML to plain text for PDF (simplified - extracts text content)
+function htmlToText(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, '\n')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&euro;/g, '€')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)))
+    .replace(/\n\s*\n/g, '\n\n')
+    .trim();
+}
+
+// Generate a PDF from VZF data
+function generateVZFPdf(vzfData: OrderEmailRequest['vzfData'], customerName: string, orderId: string): Uint8Array {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  let y = 20;
+  const lineHeight = 7;
+  const margin = 20;
+  
+  // Helper to add text with word wrap
+  const addText = (text: string, fontSize = 10, isBold = false) => {
+    doc.setFontSize(fontSize);
+    if (isBold) {
+      doc.setFont("helvetica", "bold");
+    } else {
+      doc.setFont("helvetica", "normal");
+    }
+    
+    const lines = doc.splitTextToSize(text, pageWidth - 2 * margin);
+    for (const line of lines) {
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(line, margin, y);
+      y += lineHeight;
+    }
+  };
+  
+  const addLine = () => {
+    y += 3;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 6;
+  };
+  
+  // Header
+  doc.setFillColor(26, 43, 82); // COM-IN blue
+  doc.rect(0, 0, pageWidth, 35, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.setFont("helvetica", "bold");
+  doc.text("Vertragszusammenfassung (VZF)", margin, 22);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Bestellnummer: ${orderId.substring(0, 8).toUpperCase()}`, margin, 30);
+  
+  // Reset for body
+  doc.setTextColor(0, 0, 0);
+  y = 50;
+  
+  // Customer info
+  addText("Kundendaten", 12, true);
+  y += 2;
+  addText(`Name: ${customerName}`);
+  if (vzfData?.street) {
+    addText(`Adresse: ${vzfData.street} ${vzfData.houseNumber || ''}, ${vzfData.city || ''}`);
+  }
+  
+  addLine();
+  
+  // Tariff info
+  addText("Gewählter Tarif", 12, true);
+  y += 2;
+  if (vzfData?.tariffName) {
+    addText(`Tarif: ${vzfData.tariffName}`);
+    addText(`Monatlicher Preis: ${vzfData.tariffPrice?.toFixed(2) || '0,00'} EUR`);
+  }
+  if (vzfData?.contractDuration) {
+    addText(`Vertragslaufzeit: ${vzfData.contractDuration} Monate`);
+  }
+  
+  // Options
+  if (vzfData?.selectedOptions && vzfData.selectedOptions.length > 0) {
+    addLine();
+    addText("Zusatzoptionen", 12, true);
+    y += 2;
+    for (const opt of vzfData.selectedOptions) {
+      let optText = `• ${opt.name}`;
+      if (opt.monthlyPrice && opt.monthlyPrice > 0) {
+        optText += ` (${opt.monthlyPrice.toFixed(2)} EUR/Monat)`;
+      } else if (opt.oneTimePrice && opt.oneTimePrice > 0) {
+        optText += ` (${opt.oneTimePrice.toFixed(2)} EUR einmalig)`;
+      }
+      addText(optText);
+    }
+  }
+  
+  addLine();
+  
+  // Pricing summary
+  addText("Kostenübersicht", 12, true);
+  y += 2;
+  
+  doc.setFillColor(245, 246, 248);
+  doc.rect(margin, y - 4, pageWidth - 2 * margin, 28, 'F');
+  
+  addText(`Monatliche Kosten gesamt: ${vzfData?.monthlyTotal?.toFixed(2) || '0,00'} EUR`);
+  addText(`Einmalige Kosten gesamt: ${vzfData?.oneTimeTotal?.toFixed(2) || '0,00'} EUR`);
+  if (vzfData?.setupFee) {
+    addText(`(inkl. Bereitstellungspreis: ${vzfData.setupFee.toFixed(2)} EUR)`);
+  }
+  
+  y += 10;
+  addLine();
+  
+  // Legal info
+  addText("Wichtige Hinweise", 12, true);
+  y += 2;
+  addText("• Der Vertrag beginnt mit der Aktivierung des Anschlusses.", 9);
+  addText("• Die Mindestvertragslaufzeit beginnt ab dem Aktivierungsdatum.", 9);
+  addText("• Eine Kündigung ist zum Ende der Vertragslaufzeit mit einer Frist von 1 Monat möglich.", 9);
+  addText("• Nach Ablauf der Mindestvertragslaufzeit verlängert sich der Vertrag auf unbestimmte Zeit", 9);
+  addText("  und kann mit einer Frist von 1 Monat gekündigt werden.", 9);
+  
+  y += 10;
+  
+  // Footer
+  doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
+  const date = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  doc.text(`Erstellt am: ${date}`, margin, 280);
+  doc.text("Dies ist eine automatisch generierte Vertragszusammenfassung.", margin, 285);
+  
+  // Return as Uint8Array
+  return doc.output('arraybuffer') as unknown as Uint8Array;
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -24,7 +181,7 @@ serve(async (req: Request): Promise<Response> => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { orderId, customerEmail, customerName, vzfHtml }: OrderEmailRequest = await req.json();
+    const { orderId, customerEmail, customerName, vzfHtml, vzfData }: OrderEmailRequest = await req.json();
 
     console.log(`Processing order email for order ${orderId} to ${customerEmail}`);
 
@@ -52,6 +209,16 @@ serve(async (req: Request): Promise<Response> => {
       sender_name: string;
     };
 
+    // Fetch branding settings
+    const { data: brandingData } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "branding_settings")
+      .maybeSingle();
+
+    const branding = brandingData?.value as { company_name?: string } || { company_name: 'COM-IN' };
+    const companyName = branding.company_name || 'COM-IN';
+
     // Validate settings
     if (!emailSettings.smtp_host || !emailSettings.smtp_user || !emailSettings.smtp_password || !emailSettings.sender_email) {
       console.error("Incomplete email settings");
@@ -64,7 +231,7 @@ serve(async (req: Request): Promise<Response> => {
     // Fetch email template
     const { data: templateData } = await supabase
       .from("document_templates")
-      .select("content, name")
+      .select("content, name, use_case")
       .eq("is_active", true)
       .returns<any[]>();
 
@@ -75,9 +242,10 @@ serve(async (req: Request): Promise<Response> => {
     if (emailTemplate?.content) {
       emailHtml = emailTemplate.content
         .replace(/\{\{customer_name\}\}/g, customerName)
-        .replace(/\{\{order_id\}\}/g, orderId.substring(0, 8).toUpperCase());
+        .replace(/\{\{order_id\}\}/g, orderId.substring(0, 8).toUpperCase())
+        .replace(/\{\{company_name\}\}/g, companyName);
     } else {
-      // Default email template
+      // Default email template using branding
       emailHtml = `
         <!DOCTYPE html>
         <html>
@@ -94,18 +262,18 @@ serve(async (req: Request): Promise<Response> => {
         <body>
           <div class="container">
             <div class="header">
-              <h1>COM-IN Glasfaser</h1>
+              <h1>${companyName} Glasfaser</h1>
             </div>
             <div class="content">
               <h2>Vielen Dank für Ihre Bestellung, ${customerName}!</h2>
               <p>Ihre Bestellung ist bei uns eingegangen und befindet sich nun in Bearbeitung.</p>
               <p><strong>Bestellnummer:</strong> ${orderId.substring(0, 8).toUpperCase()}</p>
-              <p>Im Anhang finden Sie Ihre Vertragsübersicht (VZF) mit allen Details zu Ihrer Bestellung.</p>
+              <p>Im Anhang finden Sie Ihre Vertragszusammenfassung (VZF) als PDF mit allen Details zu Ihrer Bestellung.</p>
               <p>Bei Fragen stehen wir Ihnen gerne zur Verfügung.</p>
-              <p>Mit freundlichen Grüßen,<br>Ihr COM-IN Team</p>
+              <p>Mit freundlichen Grüßen,<br>Ihr ${companyName} Team</p>
             </div>
             <div class="footer">
-              <p>COM-IN Glasfaser | kontakt@comin-glasfaser.de</p>
+              <p>${companyName} Glasfaser | ${emailSettings.sender_email}</p>
             </div>
           </div>
         </body>
@@ -115,12 +283,26 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log(`Sending email via ${emailSettings.smtp_host}:${emailSettings.smtp_port}`);
 
-    // Use fetch to send via an SMTP relay API approach
-    // Since Deno SMTP libraries have issues, we'll use a raw SMTP connection via Deno.connect
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
+    // Generate PDF from VZF data
+    console.log("Generating PDF attachment...");
+    let pdfBytes: Uint8Array;
+    try {
+      pdfBytes = generateVZFPdf(vzfData, customerName, orderId);
+      console.log("PDF generated successfully, size:", pdfBytes.length);
+    } catch (pdfError) {
+      console.error("PDF generation failed:", pdfError);
+      // Fall back to HTML attachment if PDF fails
+      const encoder = new TextEncoder();
+      pdfBytes = encoder.encode(vzfHtml);
+    }
+
+    // Base64 encode PDF
+    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
 
     // Connect to SMTP server with STARTTLS
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    
     const conn = await Deno.connect({
       hostname: emailSettings.smtp_host,
       port: parseInt(emailSettings.smtp_port) || 587,
@@ -145,7 +327,7 @@ serve(async (req: Request): Promise<Response> => {
 
       // EHLO
       response = await sendCommand(`EHLO localhost`);
-      console.log("EHLO response:", response.substring(0, 100));
+      console.log("EHLO response received");
 
       // STARTTLS
       response = await sendCommand("STARTTLS");
@@ -213,14 +395,14 @@ serve(async (req: Request): Promise<Response> => {
         throw new Error("DATA command failed: " + response);
       }
 
-      // Build email with attachment
+      // Build email with PDF attachment
       const boundary = "----=_Part_" + Date.now().toString(36);
-      const vzfBase64 = btoa(unescape(encodeURIComponent(vzfHtml)));
+      const subjectEncoded = btoa(unescape(encodeURIComponent(`Bestellbestätigung - ${companyName} (${orderId.substring(0, 8).toUpperCase()})`)));
 
       const emailContent = [
         `From: ${emailSettings.sender_name} <${emailSettings.sender_email}>`,
         `To: ${customerEmail}`,
-        `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(`Bestellbestätigung - COM-IN Glasfaser (${orderId.substring(0, 8).toUpperCase()})`)))}?=`,
+        `Subject: =?UTF-8?B?${subjectEncoded}?=`,
         `MIME-Version: 1.0`,
         `Content-Type: multipart/mixed; boundary="${boundary}"`,
         ``,
@@ -231,11 +413,12 @@ serve(async (req: Request): Promise<Response> => {
         btoa(unescape(encodeURIComponent(emailHtml))),
         ``,
         `--${boundary}`,
-        `Content-Type: text/html; charset=UTF-8; name="VZF_${orderId.substring(0, 8).toUpperCase()}.html"`,
-        `Content-Disposition: attachment; filename="VZF_${orderId.substring(0, 8).toUpperCase()}.html"`,
+        `Content-Type: application/pdf; name="VZF_${orderId.substring(0, 8).toUpperCase()}.pdf"`,
+        `Content-Disposition: attachment; filename="VZF_${orderId.substring(0, 8).toUpperCase()}.pdf"`,
         `Content-Transfer-Encoding: base64`,
         ``,
-        vzfBase64,
+        // Split base64 into 76-char lines for email compliance
+        ...pdfBase64.match(/.{1,76}/g) || [pdfBase64],
         ``,
         `--${boundary}--`,
         `.`,

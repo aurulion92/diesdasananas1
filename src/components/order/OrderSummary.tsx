@@ -296,17 +296,51 @@ export function OrderSummary() {
           vzfTimestamp: format(new Date(), 'dd.MM.yyyy HH:mm', { locale: de }),
         };
 
-        // Generate VZF HTML for email attachment
+        // Generate VZF HTML for email attachment (fallback)
         const { renderVZFFromTemplate } = await import('@/utils/renderVZFTemplate');
         const vzfHtmlForEmail = await renderVZFFromTemplate(vzfData, renderData);
 
-        // Call edge function to send email
+        // Build vzfData for PDF generation in edge function
+        const vzfDataForPdf = {
+          tariffName: selectedTariff.name,
+          tariffPrice: isFiberBasic && contractDuration === 12 
+            ? selectedTariff.monthlyPrice12 || selectedTariff.monthlyPrice 
+            : selectedTariff.monthlyPrice,
+          monthlyTotal: getTotalMonthly(),
+          oneTimeTotal: getTotalOneTime(),
+          setupFee: getSetupFee(),
+          contractDuration: isFiberBasic ? contractDuration : 24,
+          street: address.street,
+          houseNumber: address.houseNumber,
+          city: address.city || 'Ingolstadt',
+          selectedOptions: [
+            ...(selectedRouter && selectedRouter.id !== 'router-none' ? [{
+              name: selectedRouter.name,
+              monthlyPrice: getRouterPrice()
+            }] : []),
+            ...(tvSelection.type !== 'none' ? [{
+              name: tvSelection.type === 'comin' ? 'COM-IN TV' : (tvSelection.package?.name || 'TV'),
+              monthlyPrice: tvSelection.package?.monthlyPrice || 0
+            }] : []),
+            ...(phoneSelection.enabled && !isFiberBasic ? [{
+              name: `Telefon (${phoneSelection.lines} Leitung${phoneSelection.lines > 1 ? 'en' : ''})`,
+              monthlyPrice: phoneSelection.lines * 2.95
+            }] : []),
+            ...(expressActivation ? [{
+              name: 'Express-Anschaltung',
+              oneTimePrice: 200
+            }] : [])
+          ]
+        };
+
+        // Call edge function to send email with PDF
         await supabase.functions.invoke('send-order-email', {
           body: {
             orderId: insertedOrder.id,
             customerEmail: customerData.email,
             customerName: `${customerData.firstName} ${customerData.lastName}`,
-            vzfHtml: vzfHtmlForEmail
+            vzfHtml: vzfHtmlForEmail,
+            vzfData: vzfDataForPdf
           }
         });
         
