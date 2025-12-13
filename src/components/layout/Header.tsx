@@ -1,4 +1,5 @@
 import { useBranding } from '@/hooks/useBranding';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface HeaderProps {
   onLogoClick?: () => void;
@@ -38,11 +39,14 @@ export function Header({ onLogoClick }: HeaderProps) {
           )}
         </button>
 
-        <div className="hidden md:flex items-center gap-6 text-sm text-primary-foreground/90">
-          <a href={`tel:${branding.hotline_number.replace(/\s/g, '')}`} className="hover:text-primary-foreground transition-colors">
-            Hotline: {branding.hotline_number}
-          </a>
-          <span>{branding.hotline_hours}</span>
+        <div className="flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-6 text-sm text-primary-foreground/90">
+            <a href={`tel:${branding.hotline_number.replace(/\s/g, '')}`} className="hover:text-primary-foreground transition-colors">
+              Hotline: {branding.hotline_number}
+            </a>
+            <span>{branding.hotline_hours}</span>
+          </div>
+          <ThemeToggle />
         </div>
       </div>
     </header>

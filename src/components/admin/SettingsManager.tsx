@@ -35,6 +35,13 @@ interface DesignSettings {
   accent_lightness: string;
   border_radius: string;
   preset: string;
+  // Dark mode
+  dark_primary_hue: string;
+  dark_primary_saturation: string;
+  dark_primary_lightness: string;
+  dark_accent_hue: string;
+  dark_accent_saturation: string;
+  dark_accent_lightness: string;
 }
 
 interface RateLimitSettings {
@@ -69,6 +76,13 @@ const DEFAULT_DESIGN: DesignSettings = {
   accent_lightness: '50',
   border_radius: '0.75',
   preset: 'comin-default',
+  // Dark mode defaults
+  dark_primary_hue: '28',
+  dark_primary_saturation: '100',
+  dark_primary_lightness: '55',
+  dark_accent_hue: '28',
+  dark_accent_saturation: '100',
+  dark_accent_lightness: '55',
 };
 
 const DESIGN_PRESETS = [
@@ -339,6 +353,7 @@ export const SettingsManager = () => {
     const preset = DESIGN_PRESETS.find(p => p.id === presetId);
     if (preset) {
       const newSettings: DesignSettings = {
+        ...designSettings,
         primary_hue: preset.primary.h,
         primary_saturation: preset.primary.s,
         primary_lightness: preset.primary.l,
@@ -853,6 +868,122 @@ export const SettingsManager = () => {
                   }}
                   className="w-full"
                 />
+              </div>
+
+              {/* Dark Mode Settings */}
+              <div className="border-t pt-6 mt-6">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  🌙 Dark Mode Farben
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Diese Farben werden im dunklen Modus verwendet. User können zwischen Hell und Dunkel wechseln.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <div 
+                        className="w-4 h-4 rounded-full border"
+                        style={{ backgroundColor: `hsl(${designSettings.dark_primary_hue}, ${designSettings.dark_primary_saturation}%, ${designSettings.dark_primary_lightness}%)` }}
+                      />
+                      Dark Primärfarbe
+                    </h4>
+                    <div className="space-y-2">
+                      <Label>Farbton (Hue): {designSettings.dark_primary_hue}°</Label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="360"
+                        value={designSettings.dark_primary_hue}
+                        onChange={(e) => {
+                          const newSettings = { ...designSettings, dark_primary_hue: e.target.value, preset: 'custom' };
+                          setDesignSettings(newSettings);
+                        }}
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Sättigung: {designSettings.dark_primary_saturation}%</Label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={designSettings.dark_primary_saturation}
+                        onChange={(e) => {
+                          const newSettings = { ...designSettings, dark_primary_saturation: e.target.value, preset: 'custom' };
+                          setDesignSettings(newSettings);
+                        }}
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Helligkeit: {designSettings.dark_primary_lightness}%</Label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={designSettings.dark_primary_lightness}
+                        onChange={(e) => {
+                          const newSettings = { ...designSettings, dark_primary_lightness: e.target.value, preset: 'custom' };
+                          setDesignSettings(newSettings);
+                        }}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <div 
+                        className="w-4 h-4 rounded-full border"
+                        style={{ backgroundColor: `hsl(${designSettings.dark_accent_hue}, ${designSettings.dark_accent_saturation}%, ${designSettings.dark_accent_lightness}%)` }}
+                      />
+                      Dark Akzentfarbe
+                    </h4>
+                    <div className="space-y-2">
+                      <Label>Farbton (Hue): {designSettings.dark_accent_hue}°</Label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="360"
+                        value={designSettings.dark_accent_hue}
+                        onChange={(e) => {
+                          const newSettings = { ...designSettings, dark_accent_hue: e.target.value, preset: 'custom' };
+                          setDesignSettings(newSettings);
+                        }}
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Sättigung: {designSettings.dark_accent_saturation}%</Label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={designSettings.dark_accent_saturation}
+                        onChange={(e) => {
+                          const newSettings = { ...designSettings, dark_accent_saturation: e.target.value, preset: 'custom' };
+                          setDesignSettings(newSettings);
+                        }}
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Helligkeit: {designSettings.dark_accent_lightness}%</Label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={designSettings.dark_accent_lightness}
+                        onChange={(e) => {
+                          const newSettings = { ...designSettings, dark_accent_lightness: e.target.value, preset: 'custom' };
+                          setDesignSettings(newSettings);
+                        }}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="pt-4 flex justify-between">
