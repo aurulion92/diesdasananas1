@@ -16,6 +16,7 @@ interface BuildingData {
   tiefbau_done?: boolean
   apl_set?: boolean
   kabel_tv_available?: boolean
+  gnv_vorhanden?: boolean
   gebaeude_id_v2?: string
   gebaeude_id_k7?: string
 }
@@ -80,6 +81,7 @@ Deno.serve(async (req) => {
       tiefbau_done: building.tiefbau_done || false,
       apl_set: building.apl_set || false,
       kabel_tv_available: building.kabel_tv_available || false,
+      gnv_vorhanden: building.gnv_vorhanden || false,
       gebaeude_id_v2: building.gebaeude_id_v2 || null,
       gebaeude_id_k7: building.gebaeude_id_k7 || null,
       is_manual_entry: false,
