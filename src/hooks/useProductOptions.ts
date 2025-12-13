@@ -30,6 +30,10 @@ export interface ProductOptionMapping {
  * Hook to fetch product options assigned to a specific product
  * Returns only the options that are mapped to the product via product_option_mappings
  */
+/**
+ * Hook to fetch product options assigned to a specific product
+ * @param productId - The UUID of the product (not the slug!)
+ */
 export function useProductOptions(productId: string | null) {
   const [options, setOptions] = useState<ProductOptionMapping[]>([]);
   const [loading, setLoading] = useState(false);
@@ -45,20 +49,8 @@ export function useProductOptions(productId: string | null) {
     const fetchOptions = async () => {
       setLoading(true);
       try {
-        // First, get the product's database ID from slug
-        const { data: productData, error: productError } = await supabase
-          .from('products')
-          .select('id')
-          .eq('slug', productId)
-          .maybeSingle();
-
-        if (productError || !productData) {
-          console.log('Product not found:', productId);
-          setOptions([]);
-          setHasOptionsAssigned(false);
-          setLoading(false);
-          return;
-        }
+        // productId is now the UUID directly, no need to look it up
+        const productUuid = productId;
 
         // Fetch options mapped to this product
         const { data, error } = await supabase
@@ -85,7 +77,7 @@ export function useProductOptions(productId: string | null) {
               display_order
             )
           `)
-          .eq('product_id', productData.id);
+          .eq('product_id', productUuid);
 
         if (error) {
           console.error('Error fetching product options:', error);
