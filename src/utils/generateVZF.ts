@@ -1,6 +1,6 @@
 import { TariffOption, TariffAddon } from '@/data/tariffs';
 
-interface VZFData {
+export interface VZFData {
   tariff: TariffOption;
   router: TariffAddon | null;
   tvType: 'none' | 'comin' | 'waipu';

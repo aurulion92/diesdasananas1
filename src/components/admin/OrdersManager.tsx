@@ -31,6 +31,8 @@ import {
 } from '@/components/ui/table';
 import { format, subHours, startOfDay, endOfDay } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { renderVZFFromTemplate, VZFRenderData } from '@/utils/renderVZFTemplate';
+import { generateVZFContent, VZFData } from '@/utils/generateVZF';
 
 interface Order {
   id: string;
@@ -194,84 +196,123 @@ export const OrdersManager = () => {
     setIsDetailOpen(true);
   };
 
-  const reconstructVZF = (order: Order) => {
-    // Open VZF in new window/tab - can be enhanced with actual PDF generation
+  const reconstructVZF = async (order: Order) => {
     const vzfWindow = window.open('', '_blank');
-    if (vzfWindow) {
-      vzfWindow.document.write(`
-        <html>
-          <head>
-            <title>VZF - ${order.customer_name} - ${format(new Date(order.vzf_generated_at), 'dd.MM.yyyy HH:mm', { locale: de })}</title>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
-              h1 { color: #003366; border-bottom: 2px solid #003366; padding-bottom: 10px; }
-              h2 { color: #003366; margin-top: 30px; }
-              table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-              th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-              th { background: #f5f5f5; }
-              .highlight { background: #fff3cd; }
-              .total { font-weight: bold; font-size: 1.1em; }
-              .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 0.9em; color: #666; }
-              @media print { body { padding: 20px; } }
-            </style>
-          </head>
-          <body>
-            <h1>Vertragszusammenfassung (VZF)</h1>
-            <p><strong>Erstellt am:</strong> ${format(new Date(order.vzf_generated_at), 'dd.MM.yyyy HH:mm', { locale: de })} Uhr</p>
-            
-            <h2>Kundendaten</h2>
-            <table>
-              <tr><th>Name</th><td>${order.customer_name}</td></tr>
-              <tr><th>E-Mail</th><td>${order.customer_email}</td></tr>
-              <tr><th>Telefon</th><td>${order.customer_phone || '-'}</td></tr>
-              <tr><th>Adresse</th><td>${order.street} ${order.house_number}, ${order.city}</td></tr>
-            </table>
-            
-            <h2>Gewählter Tarif</h2>
-            <table>
-              <tr><th>Produkt</th><td>${order.product_name}</td></tr>
-              <tr><th>Monatspreis</th><td>${order.product_monthly_price.toFixed(2)} €</td></tr>
-              <tr><th>Vertragslaufzeit</th><td>${order.contract_months} Monate</td></tr>
-              <tr><th>Anschlussart</th><td>${order.connection_type?.toUpperCase() || '-'}</td></tr>
-            </table>
-            
-            ${order.selected_options && order.selected_options.length > 0 ? `
-              <h2>Gewählte Optionen</h2>
+    if (!vzfWindow) return;
+
+    // Show loading state
+    vzfWindow.document.write('<html><body style="font-family: sans-serif; padding: 40px;"><p>Lade VZF...</p></body></html>');
+
+    try {
+      // Build render data from order
+      const renderData: VZFRenderData = {
+        customerName: order.customer_name,
+        customerFirstName: order.customer_first_name || '',
+        customerLastName: order.customer_last_name || '',
+        customerEmail: order.customer_email,
+        customerPhone: order.customer_phone || '',
+        street: order.street,
+        houseNumber: order.house_number,
+        city: order.city,
+        tariffName: order.product_name,
+        tariffPrice: `${order.product_monthly_price.toFixed(2).replace('.', ',')} €`,
+        tariffDownload: order.vzf_data?.tariff?.downloadSpeed ? `${order.vzf_data.tariff.downloadSpeed} Mbit/s` : '-',
+        tariffUpload: order.vzf_data?.tariff?.uploadSpeed ? `${order.vzf_data.tariff.uploadSpeed} Mbit/s` : '-',
+        contractDuration: `${order.contract_months} Monate`,
+        routerName: order.vzf_data?.router?.name || 'Kein Router',
+        routerPrice: order.vzf_data?.router?.monthlyPrice ? `${order.vzf_data.router.monthlyPrice.toFixed(2).replace('.', ',')} €` : '0,00 €',
+        tvName: order.vzf_data?.tvSelection?.type === 'comin' ? 'COM-IN TV' : 
+                order.vzf_data?.tvSelection?.package?.name || 'Kein TV',
+        tvPrice: '0,00 €',
+        monthlyTotal: `${order.monthly_total.toFixed(2).replace('.', ',')} €`,
+        oneTimeTotal: `${(order.setup_fee + order.one_time_total).toFixed(2).replace('.', ',')} €`,
+        setupFee: `${order.setup_fee.toFixed(2).replace('.', ',')} €`,
+        orderNumber: `COM-${order.id.slice(0, 8).toUpperCase()}`,
+        vzfTimestamp: format(new Date(order.vzf_generated_at), 'dd.MM.yyyy HH:mm', { locale: de }),
+      };
+
+      // Try to use database template, fall back to hardcoded if vzf_data contains original VZF data
+      let content: string;
+      
+      if (order.vzf_data?.tariff) {
+        // We have full VZF data, can use template
+        const vzfData: VZFData = {
+          tariff: order.vzf_data.tariff,
+          router: order.vzf_data.router || null,
+          tvType: order.vzf_data.tvSelection?.type || 'none',
+          tvPackage: order.vzf_data.tvSelection?.package || null,
+          tvHdAddon: order.vzf_data.tvSelection?.hdAddon || null,
+          tvHardware: order.vzf_data.tvSelection?.hardware || [],
+          waipuStick: order.vzf_data.tvSelection?.waipuStick || false,
+          phoneEnabled: order.vzf_data.phoneSelection?.enabled || false,
+          phoneLines: order.vzf_data.phoneSelection?.lines || 0,
+          routerDiscount: order.vzf_data.routerDiscount || 0,
+          setupFee: order.vzf_data.setupFee || order.setup_fee,
+          setupFeeWaived: order.vzf_data.setupFeeWaived || false,
+          contractDuration: order.vzf_data.contractDuration || order.contract_months,
+          expressActivation: order.vzf_data.expressActivation || false,
+          promoCode: order.vzf_data.promoCode || order.promo_code,
+          isFiberBasic: order.vzf_data.isFiberBasic || false,
+          referralBonus: order.vzf_data.referralBonus || 0,
+        };
+        
+        content = await renderVZFFromTemplate(vzfData, renderData);
+      } else {
+        // Fallback to simple HTML for old orders without full vzf_data
+        content = `
+          <html>
+            <head>
+              <title>VZF - ${order.customer_name} - ${format(new Date(order.vzf_generated_at), 'dd.MM.yyyy HH:mm', { locale: de })}</title>
+              <style>
+                body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+                h1 { color: #003366; border-bottom: 2px solid #003366; padding-bottom: 10px; }
+                h2 { color: #003366; margin-top: 30px; }
+                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+                th { background: #f5f5f5; }
+                .total { font-weight: bold; font-size: 1.1em; }
+                .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 0.9em; color: #666; }
+              </style>
+            </head>
+            <body>
+              <h1>Vertragszusammenfassung (VZF)</h1>
+              <p><strong>Erstellt am:</strong> ${format(new Date(order.vzf_generated_at), 'dd.MM.yyyy HH:mm', { locale: de })} Uhr</p>
+              <h2>Kundendaten</h2>
               <table>
-                <tr><th>Option</th><th>Monatlich</th><th>Einmalig</th></tr>
-                ${(order.selected_options as any[]).map(opt => `
-                  <tr>
-                    <td>${opt.name || opt}</td>
-                    <td>${opt.monthly_price ? opt.monthly_price.toFixed(2) + ' €' : '-'}</td>
-                    <td>${opt.one_time_price ? opt.one_time_price.toFixed(2) + ' €' : '-'}</td>
-                  </tr>
-                `).join('')}
+                <tr><th>Name</th><td>${order.customer_name}</td></tr>
+                <tr><th>E-Mail</th><td>${order.customer_email}</td></tr>
+                <tr><th>Telefon</th><td>${order.customer_phone || '-'}</td></tr>
+                <tr><th>Adresse</th><td>${order.street} ${order.house_number}, ${order.city}</td></tr>
               </table>
-            ` : ''}
-            
-            ${order.promo_code ? `
-              <h2>Aktionscode</h2>
-              <p class="highlight" style="padding: 10px;">${order.promo_code}</p>
-            ` : ''}
-            
-            <h2>Preisübersicht</h2>
-            <table>
-              <tr><th>Position</th><th>Betrag</th></tr>
-              <tr><td>Monatliche Kosten</td><td>${order.monthly_total.toFixed(2)} €</td></tr>
-              <tr><td>Bereitstellungspreis</td><td>${order.setup_fee.toFixed(2)} €</td></tr>
-              <tr><td>Sonstige Einmalkosten</td><td>${order.one_time_total.toFixed(2)} €</td></tr>
-              <tr class="total"><td>Einmalig gesamt</td><td>${(order.setup_fee + order.one_time_total).toFixed(2)} €</td></tr>
-            </table>
-            
-            <div class="footer">
-              <p>Diese Vertragszusammenfassung wurde automatisch generiert.</p>
-              <p>COM-IN Glasfaser GmbH | kontakt@comin-glasfaser.de</p>
-            </div>
-            
-            <script>window.print();</script>
-          </body>
-        </html>
-      `);
+              <h2>Gewählter Tarif</h2>
+              <table>
+                <tr><th>Produkt</th><td>${order.product_name}</td></tr>
+                <tr><th>Monatspreis</th><td>${order.product_monthly_price.toFixed(2)} €</td></tr>
+                <tr><th>Vertragslaufzeit</th><td>${order.contract_months} Monate</td></tr>
+              </table>
+              <h2>Preisübersicht</h2>
+              <table>
+                <tr><th>Position</th><th>Betrag</th></tr>
+                <tr><td>Monatliche Kosten</td><td>${order.monthly_total.toFixed(2)} €</td></tr>
+                <tr><td>Bereitstellungspreis</td><td>${order.setup_fee.toFixed(2)} €</td></tr>
+                <tr class="total"><td>Einmalig gesamt</td><td>${(order.setup_fee + order.one_time_total).toFixed(2)} €</td></tr>
+              </table>
+              <div class="footer">
+                <p>Diese Vertragszusammenfassung wurde automatisch generiert.</p>
+                <p>COM-IN Telekommunikations GmbH | kontakt@comin-glasfaser.de</p>
+              </div>
+            </body>
+          </html>
+        `;
+      }
+
+      vzfWindow.document.open();
+      vzfWindow.document.write(content);
+      vzfWindow.document.close();
+    } catch (error) {
+      console.error('Error reconstructing VZF:', error);
+      vzfWindow.document.open();
+      vzfWindow.document.write('<html><body style="font-family: sans-serif; padding: 40px;"><p style="color: red;">Fehler beim Laden der VZF</p></body></html>');
       vzfWindow.document.close();
     }
   };

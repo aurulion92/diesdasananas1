@@ -27,7 +27,10 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { downloadVZF } from '@/utils/generateVZF';
+import { downloadVZFWithTemplate, VZFRenderData } from '@/utils/renderVZFTemplate';
 import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
+import { de } from 'date-fns/locale';
 
 export function OrderSummary() {
   const { 
@@ -67,10 +70,10 @@ export function OrderSummary() {
   const isFiberBasic = selectedTariff?.id === 'fiber-basic-100';
   const routerDiscount = getRouterDiscount();
 
-  const handleDownloadVZF = () => {
-    if (!selectedTariff) return;
+  const handleDownloadVZF = async () => {
+    if (!selectedTariff || !customerData) return;
 
-    downloadVZF({
+    const vzfData = {
       tariff: selectedTariff,
       router: selectedRouter,
       tvType: tvSelection.type,
@@ -88,13 +91,50 @@ export function OrderSummary() {
       promoCode: appliedPromoCode?.code,
       isFiberBasic: isFiberBasic,
       referralBonus: getReferralBonus(),
-    });
-    
-    setVzfDownloaded(true);
-    toast({
-      title: "VZF heruntergeladen",
-      description: "Bitte lesen Sie das Dokument sorgfältig durch.",
-    });
+    };
+
+    const renderData: VZFRenderData = {
+      customerName: `${customerData.firstName} ${customerData.lastName}`,
+      customerFirstName: customerData.firstName,
+      customerLastName: customerData.lastName,
+      customerEmail: customerData.email,
+      customerPhone: customerData.phone,
+      street: address?.street || '',
+      houseNumber: address?.houseNumber || '',
+      city: address?.city || 'Ingolstadt',
+      tariffName: selectedTariff.name,
+      tariffPrice: `${(isFiberBasic && contractDuration === 12 ? selectedTariff.monthlyPrice12 : selectedTariff.monthlyPrice).toFixed(2).replace('.', ',')} €`,
+      tariffDownload: `${selectedTariff.downloadSpeed} Mbit/s`,
+      tariffUpload: `${selectedTariff.uploadSpeed} Mbit/s`,
+      contractDuration: `${isFiberBasic ? contractDuration : 24} Monate`,
+      routerName: selectedRouter?.name || 'Kein Router',
+      routerPrice: `${getRouterPrice().toFixed(2).replace('.', ',')} €`,
+      tvName: tvSelection.type === 'comin' ? 'COM-IN TV' : tvSelection.package?.name || 'Kein TV',
+      tvPrice: '0,00 €',
+      monthlyTotal: `${getTotalMonthly().toFixed(2).replace('.', ',')} €`,
+      oneTimeTotal: `${getTotalOneTime().toFixed(2).replace('.', ',')} €`,
+      setupFee: `${getSetupFee().toFixed(2).replace('.', ',')} €`,
+      orderNumber: `COM-${Date.now().toString(36).toUpperCase()}`,
+      vzfTimestamp: format(new Date(), 'dd.MM.yyyy HH:mm', { locale: de }),
+    };
+
+    try {
+      await downloadVZFWithTemplate(vzfData, renderData);
+      setVzfDownloaded(true);
+      toast({
+        title: "VZF heruntergeladen",
+        description: "Bitte lesen Sie das Dokument sorgfältig durch.",
+      });
+    } catch (error) {
+      console.error('VZF download error:', error);
+      // Fallback to old method
+      downloadVZF(vzfData);
+      setVzfDownloaded(true);
+      toast({
+        title: "VZF heruntergeladen",
+        description: "Bitte lesen Sie das Dokument sorgfältig durch.",
+      });
+    }
   };
 
   const handleOrder = async () => {
