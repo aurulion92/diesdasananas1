@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface DatabaseProduct {
-  id: string;
+  id: string;  // This is now the UUID from the database
   name: string;
   slug: string;
   description: string | null;

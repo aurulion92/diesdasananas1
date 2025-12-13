@@ -57,12 +57,13 @@ interface ReferralData {
 }
 
 // Convert database product to TariffOption format
+// IMPORTANT: id is now the product UUID from the database, not the slug
 function dbProductToTariffOption(product: DatabaseProduct): TariffOption {
   const speedNum = product.download_speed || 0;
   // Use product name as displayName, only fall back to speed if it's an "einfach" product
   const isEinfachProduct = product.name.toLowerCase().startsWith('einfach');
   return {
-    id: product.slug,
+    id: product.id, // Use UUID instead of slug for reliable option lookups
     name: product.name,
     displayName: isEinfachProduct ? speedNum.toString() : product.name,
     speed: speedNum > 0 ? `${speedNum} Mbit/s` : '',
