@@ -55,17 +55,21 @@ export function ProductBuildingAssignment({
   useEffect(() => {
     if (open && entityId) {
       fetchAssignedItems();
+      // For building mode, load all products immediately (there aren't many)
+      if (mode === 'building') {
+        loadAllProducts();
+      }
     }
   }, [open, entityId]);
 
-  // Search when search term changes
+  // Search when search term changes (only for product mode searching buildings)
   useEffect(() => {
-    if (searchTerm.length >= 3) {
+    if (mode === 'product' && searchTerm.length >= 3) {
       searchItems();
-    } else {
+    } else if (mode === 'product') {
       setSearchResults([]);
     }
-  }, [searchTerm]);
+  }, [searchTerm, assignedItems]);
 
   const fetchAssignedItems = async () => {
     setLoading(true);
@@ -103,6 +107,39 @@ export function ProductBuildingAssignment({
       setLoading(false);
     }
   };
+
+  const loadAllProducts = async () => {
+    setSearching(true);
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+
+      setSearchResults((data || []).map(p => ({
+        id: p.id,
+        name: p.name,
+        isAssigned: assignedItems.some(a => a.id === p.id)
+      })));
+    } catch (error) {
+      console.error('Error loading products:', error);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // Update product list when assignedItems changes
+  useEffect(() => {
+    if (mode === 'building' && searchResults.length > 0) {
+      setSearchResults(prev => prev.map(r => ({
+        ...r,
+        isAssigned: assignedItems.some(a => a.id === r.id)
+      })));
+    }
+  }, [assignedItems]);
 
   const searchItems = async () => {
     if (searchTerm.length < 3) return;
@@ -257,31 +294,32 @@ export function ProductBuildingAssignment({
             )}
           </div>
 
-          {/* Search */}
-          <div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input
-                placeholder={mode === 'product' 
-                  ? 'Gebäude suchen (mind. 3 Zeichen)...'
-                  : 'Produkte suchen (mind. 3 Zeichen)...'}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+          {/* Search - only for product mode (searching buildings) */}
+          {mode === 'product' && (
+            <div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="Gebäude suchen (mind. 3 Zeichen)..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Search results */}
-          {searchTerm.length >= 3 && (
-            <ScrollArea className="h-[200px] border rounded-md">
+          {/* Results list */}
+          {mode === 'building' ? (
+            // Building mode: show all products directly
+            <ScrollArea className="h-[250px] border rounded-md">
               {searching ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                 </div>
               ) : searchResults.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">
-                  Keine Ergebnisse gefunden.
+                  Keine Produkte verfügbar.
                 </p>
               ) : (
                 <div className="p-2 space-y-1">
@@ -298,6 +336,34 @@ export function ProductBuildingAssignment({
                 </div>
               )}
             </ScrollArea>
+          ) : (
+            // Product mode: search for buildings
+            searchTerm.length >= 3 && (
+              <ScrollArea className="h-[200px] border rounded-md">
+                {searching ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Keine Ergebnisse gefunden.
+                  </p>
+                ) : (
+                  <div className="p-2 space-y-1">
+                    {searchResults.map(result => (
+                      <div
+                        key={result.id}
+                        className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer"
+                        onClick={() => toggleAssignment(result.id, result.name, result.isAssigned)}
+                      >
+                        <Checkbox checked={result.isAssigned} />
+                        <span className="text-sm">{result.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            )
           )}
         </div>
       </DialogContent>
