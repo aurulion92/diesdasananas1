@@ -176,29 +176,26 @@ Deno.serve(async (req) => {
 
     console.log(`Inserts complete: ${result.created}`)
 
-    // Batch update all existing buildings using parallel promises
+    // Batch update all existing buildings using bulk upserts by ID
     for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
       const batch = toUpdate.slice(i, i + BATCH_SIZE)
-      
-      // Execute updates in parallel within batch
-      const updatePromises = batch.map(item =>
-        supabase
-          .from('buildings')
-          .update(item.data)
-          .eq('id', item.id)
-      )
 
-      const results = await Promise.all(updatePromises)
-      
-      for (let j = 0; j < results.length; j++) {
-        const res = results[j]
-        if (res.error) {
-          if (result.errors.length < 10) {
-            result.errors.push(`Update ${batch[j].data.street} ${batch[j].data.house_number}: ${res.error?.message || 'Unknown'}`)
-          }
-        } else {
-          result.updated++
+      const payload = batch.map(item => ({
+        id: item.id,
+        ...item.data,
+      }))
+
+      const { error: updateError } = await supabase
+        .from('buildings')
+        .upsert(payload)
+
+      if (updateError) {
+        console.error('Update batch error:', updateError)
+        if (result.errors.length < 10) {
+          result.errors.push(`Update batch ${i}-${i + batch.length}: ${updateError.message}`)
         }
+      } else {
+        result.updated += batch.length
       }
     }
 
