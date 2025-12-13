@@ -219,10 +219,13 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
   };
 
   const shouldIgnoreRow = (row: string[]): boolean => {
-    const rowText = row.join(' ').toLowerCase();
-    return settings.ignore_patterns.some(pattern => rowText.includes(pattern.toLowerCase()));
+    // Check ignore patterns against FULL cell values (not substrings)
+    const normalizedCells = row.map((cell) => cell.toLowerCase().trim());
+    return settings.ignore_patterns.some((pattern) => {
+      const p = pattern.toLowerCase().trim();
+      return normalizedCells.includes(p);
+    });
   };
-
   const resetState = () => {
     setStep('upload');
     setCsvData([]);
