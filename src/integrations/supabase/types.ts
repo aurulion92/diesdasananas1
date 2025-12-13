@@ -851,7 +851,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
-      ausbau_art: "ftth" | "fttb"
+      ausbau_art: "ftth" | "fttb" | "ftth_limited"
       ausbau_status: "abgeschlossen" | "im_ausbau" | "geplant"
       building_type: "efh" | "mfh" | "wowi"
     }
@@ -982,7 +982,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
-      ausbau_art: ["ftth", "fttb"],
+      ausbau_art: ["ftth", "fttb", "ftth_limited"],
       ausbau_status: ["abgeschlossen", "im_ausbau", "geplant"],
       building_type: ["efh", "mfh", "wowi"],
     },

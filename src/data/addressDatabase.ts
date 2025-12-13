@@ -22,6 +22,11 @@ export function getConnectionType(ausbauart: string | null): ConnectionType {
     return 'ftth';
   }
   
+  // FTTH Limited (Aktivtechnik) = FTTH but max 500 Mbit/s (einfach 600/1000 not available)
+  if (normalized === 'ftth_limited') {
+    return 'ftth'; // Still FTTH, speed limit handled elsewhere
+  }
+  
   // FTTB = Limited (only FiberBasic 100)
   if (normalized === 'fttb') {
     return 'limited';

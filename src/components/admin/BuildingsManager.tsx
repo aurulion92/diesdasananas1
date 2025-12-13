@@ -20,7 +20,8 @@ import {
   Building2,
   Undo2,
   RefreshCw,
-  Package
+  Package,
+  Trash2
 } from 'lucide-react';
 import {
   Table,
@@ -45,7 +46,7 @@ interface Building {
   building_type_manual: 'efh' | 'mfh' | 'wowi' | null;
   tiefbau_done: boolean;
   apl_set: boolean;
-  ausbau_art: 'ftth' | 'fttb' | null;
+  ausbau_art: 'ftth' | 'fttb' | 'ftth_limited' | null;
   ausbau_status: 'abgeschlossen' | 'im_ausbau' | 'geplant';
   kabel_tv_available: boolean;
   gebaeude_id_v2: string | null;
@@ -85,7 +86,7 @@ export const BuildingsManager = () => {
     residential_units: 1,
     tiefbau_done: false,
     apl_set: false,
-    ausbau_art: '' as 'ftth' | 'fttb' | '',
+    ausbau_art: '' as 'ftth' | 'fttb' | 'ftth_limited' | '',
     ausbau_status: 'geplant' as 'abgeschlossen' | 'im_ausbau' | 'geplant',
     kabel_tv_available: false,
     gebaeude_id_v2: '',
@@ -232,6 +233,38 @@ export const BuildingsManager = () => {
     }
   };
 
+  const deleteBuilding = async (building: Building) => {
+    if (!confirm(`Möchten Sie das Gebäude "${building.street} ${building.house_number}, ${building.city}" wirklich löschen?`)) {
+      return;
+    }
+    
+    try {
+      // First delete any product_buildings associations
+      await supabase
+        .from('product_buildings')
+        .delete()
+        .eq('building_id', building.id);
+
+      // Then delete the building
+      const { error } = await supabase
+        .from('buildings')
+        .delete()
+        .eq('id', building.id);
+      
+      if (error) throw error;
+      
+      toast({ title: 'Erfolg', description: 'Gebäude wurde gelöscht.' });
+      fetchBuildings(searchTerm);
+    } catch (error: any) {
+      console.error('Error deleting building:', error);
+      toast({
+        title: 'Fehler',
+        description: error.message || 'Gebäude konnte nicht gelöscht werden.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // No client-side filtering needed - search is done server-side
   const filteredBuildings = buildings;
 
@@ -346,13 +379,14 @@ export const BuildingsManager = () => {
                       <Label htmlFor="ausbau_art">Ausbauart</Label>
                       <Select
                         value={formData.ausbau_art}
-                        onValueChange={(value) => setFormData({...formData, ausbau_art: value as 'ftth' | 'fttb' | ''})}
+                        onValueChange={(value) => setFormData({...formData, ausbau_art: value as 'ftth' | 'fttb' | 'ftth_limited' | ''})}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Auswählen..." />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="ftth">FTTH</SelectItem>
+                          <SelectItem value="ftth_limited">FTTH Limited (bis 500 Mbit/s)</SelectItem>
                           <SelectItem value="fttb">FTTB</SelectItem>
                         </SelectContent>
                       </Select>
@@ -518,8 +552,8 @@ export const BuildingsManager = () => {
                       <TableCell>
                         <div className="space-y-1">
                           {building.ausbau_art && (
-                            <Badge variant={building.ausbau_art === 'ftth' ? 'default' : 'secondary'}>
-                              {building.ausbau_art.toUpperCase()}
+                            <Badge variant={building.ausbau_art === 'ftth' ? 'default' : building.ausbau_art === 'ftth_limited' ? 'outline' : 'secondary'}>
+                              {building.ausbau_art === 'ftth_limited' ? 'FTTH ≤500' : building.ausbau_art.toUpperCase()}
                             </Badge>
                           )}
                           <div className="text-xs text-muted-foreground capitalize">
@@ -583,6 +617,15 @@ export const BuildingsManager = () => {
                             onClick={() => openEditDialog(building)}
                           >
                             Bearbeiten
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteBuilding(building)}
+                            className="text-destructive hover:text-destructive"
+                            title="Löschen"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </TableCell>
