@@ -98,6 +98,7 @@ export function TariffSelection() {
   const isFtth = connectionType === 'ftth';
   const isFiberBasic = selectedTariff?.id === 'fiber-basic-100';
   const isEinfachTariff = selectedTariff?.id?.startsWith('einfach-');
+  const hasKabelTv = address?.kabelTvAvailable === true;
 
   // Get available routers for this connection type
   const availableRouters = getRoutersForConnectionType(connectionType);
@@ -406,8 +407,8 @@ export function TariffSelection() {
                   <Label htmlFor="tv-none" className="flex-1 cursor-pointer">Kein TV</Label>
                 </div>
                 
-                {/* COM-IN TV - nur bei FTTH verfügbar */}
-                {isFtth && (
+                {/* COM-IN TV - nur bei FTTH UND Kabel TV verfügbar */}
+                {isFtth && hasKabelTv && (
                   <div className={cn(
                     "p-3 rounded-lg border transition-all",
                     tvSelection.type === 'comin' ? "border-accent bg-accent/5" : "border-border"

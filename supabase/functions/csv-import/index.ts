@@ -101,18 +101,23 @@ Deno.serve(async (req) => {
       const key = `${building.street.trim().toLowerCase()}|${building.house_number.trim().toLowerCase()}|${(building.city || 'Falkensee').trim().toLowerCase()}`
       const existing = existingBuildingsMap.get(key)
       
+      // For NEW buildings: EFH with 1 WE automatically gets kabel_tv = true
+      const residentialUnits = building.residential_units || 1
+      const isEFH = residentialUnits === 1
+      const defaultKabelTv = isEFH ? true : (building.kabel_tv_available || false)
+      
       return {
         street: building.street,
         house_number: building.house_number,
         city: building.city || 'Falkensee',
         postal_code: building.postal_code || null,
-        residential_units: building.residential_units || 1,
+        residential_units: residentialUnits,
         ausbau_art: building.ausbau_art || null,
         ausbau_status: building.ausbau_status || 'geplant',
         tiefbau_done: building.tiefbau_done || false,
         apl_set: building.apl_set || false,
-        // PROTECTED: Keep existing kabel_tv_available if building exists, otherwise use CSV value (usually false)
-        kabel_tv_available: existing ? existing.kabel_tv_available : (building.kabel_tv_available || false),
+        // PROTECTED: Keep existing kabel_tv_available if building exists
+        kabel_tv_available: existing ? existing.kabel_tv_available : defaultKabelTv,
         gnv_vorhanden: building.gnv_vorhanden || false,
         gebaeude_id_v2: building.gebaeude_id_v2 || null,
         gebaeude_id_k7: building.gebaeude_id_k7 || null,
