@@ -193,6 +193,12 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
   const setApartmentData = (apartmentData: ApartmentData | null) =>
     setState(prev => ({ ...prev, apartmentData }));
   
+  // Helper function to reset VZF status when order changes
+  const resetVzfStatus = (prevState: OrderState): Partial<OrderState> => ({
+    vzfDownloaded: false,
+    vzfConfirmed: false,
+  });
+
   const setSelectedTariff = (selectedTariff: TariffOption) => {
     setState(prev => {
       // Reset phone selection if tariff includes phone (FiberBasic)
@@ -203,18 +209,19 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
       // Reset contract duration if not FiberBasic (only FiberBasic supports 12 months)
       const contractDuration = selectedTariff.id !== 'fiber-basic-100' ? 24 : prev.contractDuration;
       
-      return { ...prev, selectedTariff, phoneSelection, contractDuration };
+      // Reset VZF if tariff changes
+      return { ...prev, selectedTariff, phoneSelection, contractDuration, ...resetVzfStatus(prev) };
     });
   };
 
   const setSelectedRouter = (selectedRouter: TariffAddon | null) =>
-    setState(prev => ({ ...prev, selectedRouter }));
+    setState(prev => ({ ...prev, selectedRouter, ...resetVzfStatus(prev) }));
 
   const setTvSelection = (tvSelection: TvSelection) =>
-    setState(prev => ({ ...prev, tvSelection }));
+    setState(prev => ({ ...prev, tvSelection, ...resetVzfStatus(prev) }));
 
   const setPhoneSelection = (phoneSelection: PhoneSelection) =>
-    setState(prev => ({ ...prev, phoneSelection }));
+    setState(prev => ({ ...prev, phoneSelection, ...resetVzfStatus(prev) }));
   
   const toggleAddon = (addon: TariffAddon) => {
     setState(prev => {
@@ -227,7 +234,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
   };
   
   const setContractDuration = (contractDuration: 12 | 24) => 
-    setState(prev => ({ ...prev, contractDuration }));
+    setState(prev => ({ ...prev, contractDuration, ...resetVzfStatus(prev) }));
   
   const setCustomerData = (customerData: CustomerData) => 
     setState(prev => ({ ...prev, customerData }));
@@ -258,7 +265,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     setState(prev => ({ ...prev, providerCancellationData }));
 
   const setExpressActivation = (expressActivation: boolean) =>
-    setState(prev => ({ ...prev, expressActivation }));
+    setState(prev => ({ ...prev, expressActivation, ...resetVzfStatus(prev) }));
 
   const setReferralData = (referralData: ReferralData) =>
     setState(prev => ({ ...prev, referralData }));
