@@ -89,17 +89,31 @@ export const BuildingsManager = () => {
     gebaeude_id_k7: '',
   });
 
+  // Only fetch when search term has 3+ characters
   useEffect(() => {
-    fetchBuildings();
-  }, []);
+    if (searchTerm.length >= 3) {
+      fetchBuildings(searchTerm);
+    } else {
+      setBuildings([]);
+      setLoading(false);
+    }
+  }, [searchTerm]);
 
-  const fetchBuildings = async () => {
+  const fetchBuildings = async (search?: string) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('buildings')
         .select('*')
-        .order('street', { ascending: true });
+        .order('street', { ascending: true })
+        .limit(100); // Limit results for performance
+
+      if (search && search.length >= 3) {
+        // Search by street, house_number or city
+        query = query.or(`street.ilike.%${search}%,house_number.ilike.%${search}%,city.ilike.%${search}%`);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setBuildings((data as Building[]) || []);
@@ -149,7 +163,7 @@ export const BuildingsManager = () => {
 
       setIsDialogOpen(false);
       resetForm();
-      fetchBuildings();
+      fetchBuildings(searchTerm);
     } catch (error: any) {
       console.error('Error saving building:', error);
       toast({
@@ -205,7 +219,7 @@ export const BuildingsManager = () => {
         .eq('id', building.id);
       
       if (error) throw error;
-      fetchBuildings();
+      fetchBuildings(searchTerm);
       toast({
         title: 'Erfolg',
         description: `Manuelle Änderungen ${!building.manual_override_active ? 'aktiviert' : 'deaktiviert'}.`,
@@ -215,11 +229,8 @@ export const BuildingsManager = () => {
     }
   };
 
-  const filteredBuildings = buildings.filter(b => 
-    b.street.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    b.house_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    b.city.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // No client-side filtering needed - search is done server-side
+  const filteredBuildings = buildings;
 
   const StatusIndicator = ({ active, label }: { active: boolean; label: string }) => (
     <div className="flex items-center gap-1">
@@ -242,11 +253,11 @@ export const BuildingsManager = () => {
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={fetchBuildings}>
+            <Button variant="outline" size="sm" onClick={() => fetchBuildings(searchTerm)}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Aktualisieren
             </Button>
-            <CSVImportUndoButton onUndoComplete={fetchBuildings} />
+            <CSVImportUndoButton onUndoComplete={() => fetchBuildings(searchTerm)} />
             <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
               <Upload className="w-4 h-4 mr-2" />
               CSV Import
@@ -254,7 +265,7 @@ export const BuildingsManager = () => {
             <CSVImportDialog 
               open={isImportOpen} 
               onOpenChange={setIsImportOpen} 
-              onImportComplete={fetchBuildings}
+              onImportComplete={() => fetchBuildings(searchTerm)}
             />
             <Dialog open={isDialogOpen} onOpenChange={(open) => {
               setIsDialogOpen(open);
@@ -432,12 +443,17 @@ export const BuildingsManager = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
-              placeholder="Suchen nach Straße, Hausnummer, Stadt..."
+              placeholder="Mindestens 3 Buchstaben eingeben um zu suchen..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
+          {searchTerm.length > 0 && searchTerm.length < 3 && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Bitte geben Sie mindestens 3 Zeichen ein, um die Suche zu starten.
+            </p>
+          )}
         </div>
 
         {loading ? (
@@ -463,7 +479,9 @@ export const BuildingsManager = () => {
                 {filteredBuildings.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      Keine Gebäude gefunden.
+                      {searchTerm.length < 3 
+                        ? 'Geben Sie mindestens 3 Zeichen ein, um Gebäude zu suchen.'
+                        : 'Keine Gebäude gefunden.'}
                     </TableCell>
                   </TableRow>
                 ) : (
