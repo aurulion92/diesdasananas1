@@ -44,6 +44,8 @@ interface Product {
   product_id_k7: string | null;
   contract_months: number;
   includes_phone: boolean;
+  hide_for_ftth: boolean;
+  is_building_restricted: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -72,6 +74,7 @@ export const ProductsManager = () => {
     product_id_k7: '',
     contract_months: 24,
     includes_phone: false,
+    hide_for_ftth: false,
   });
 
   useEffect(() => {
@@ -157,6 +160,7 @@ export const ProductsManager = () => {
       product_id_k7: '',
       contract_months: 24,
       includes_phone: false,
+      hide_for_ftth: false,
     });
     setEditingProduct(null);
   };
@@ -179,6 +183,7 @@ export const ProductsManager = () => {
       product_id_k7: product.product_id_k7 || '',
       contract_months: product.contract_months,
       includes_phone: product.includes_phone,
+      hide_for_ftth: product.hide_for_ftth || false,
     });
     setIsDialogOpen(true);
   };
@@ -394,6 +399,19 @@ export const ProductsManager = () => {
                           id="is_active"
                           checked={formData.is_active}
                           onCheckedChange={(checked) => setFormData({...formData, is_active: checked})}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between col-span-2 bg-muted/50 p-3 rounded-lg">
+                        <div>
+                          <Label htmlFor="hide_for_ftth">Bei FTTH verstecken</Label>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Zeigt dieses Produkt bei FTTH nur unter "Weitere Optionen"
+                          </p>
+                        </div>
+                        <Switch
+                          id="hide_for_ftth"
+                          checked={formData.hide_for_ftth}
+                          onCheckedChange={(checked) => setFormData({...formData, hide_for_ftth: checked})}
                         />
                       </div>
                     </div>

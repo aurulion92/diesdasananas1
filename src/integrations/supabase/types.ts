@@ -550,6 +550,7 @@ export type Database = {
           description: string | null
           display_order: number | null
           download_speed: number | null
+          hide_for_ftth: boolean | null
           id: string
           includes_phone: boolean | null
           is_active: boolean | null
@@ -571,6 +572,7 @@ export type Database = {
           description?: string | null
           display_order?: number | null
           download_speed?: number | null
+          hide_for_ftth?: boolean | null
           id?: string
           includes_phone?: boolean | null
           is_active?: boolean | null
@@ -592,6 +594,7 @@ export type Database = {
           description?: string | null
           display_order?: number | null
           download_speed?: number | null
+          hide_for_ftth?: boolean | null
           id?: string
           includes_phone?: boolean | null
           is_active?: boolean | null

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -76,6 +77,7 @@ export const BuildingsManager = () => {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
   const [assignmentBuilding, setAssignmentBuilding] = useState<{ id: string; name: string } | null>(null);
+  const [buildingsWithProducts, setBuildingsWithProducts] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   // Form state
@@ -101,6 +103,7 @@ export const BuildingsManager = () => {
       fetchBuildings(searchTerm);
     } else {
       setBuildings([]);
+      setBuildingsWithProducts(new Set());
       setLoading(false);
     }
   }, [searchTerm]);
@@ -122,7 +125,22 @@ export const BuildingsManager = () => {
       const { data, error } = await query;
 
       if (error) throw error;
-      setBuildings((data as Building[]) || []);
+      const buildingsList = (data as Building[]) || [];
+      setBuildings(buildingsList);
+
+      // Fetch which buildings have manual product assignments
+      if (buildingsList.length > 0) {
+        const buildingIds = buildingsList.map(b => b.id);
+        const { data: productBuildings, error: pbError } = await supabase
+          .from('product_buildings')
+          .select('building_id')
+          .in('building_id', buildingIds);
+
+        if (!pbError && productBuildings) {
+          const uniqueBuildingIds = new Set(productBuildings.map((pb: any) => pb.building_id));
+          setBuildingsWithProducts(uniqueBuildingIds);
+        }
+      }
     } catch (error) {
       console.error('Error fetching buildings:', error);
       toast({
@@ -682,9 +700,17 @@ export const BuildingsManager = () => {
                               id: building.id, 
                               name: `${building.street} ${building.house_number}, ${building.city}` 
                             })}
-                            title="Produkte zuweisen"
+                            title={buildingsWithProducts.has(building.id) 
+                              ? "Produkte zugewiesen - Klicken zum Bearbeiten" 
+                              : "Produkte zuweisen"}
+                            className={buildingsWithProducts.has(building.id) 
+                              ? "text-accent" 
+                              : ""}
                           >
-                            <Package className="w-4 h-4" />
+                            <Package className={cn(
+                              "w-4 h-4",
+                              buildingsWithProducts.has(building.id) && "text-accent animate-pulse"
+                            )} />
                           </Button>
                           {building.has_manual_override && (
                             <Button

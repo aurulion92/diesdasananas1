@@ -1,5 +1,6 @@
 import { useOrder } from '@/context/OrderContext';
 import { useOrderPromotions } from '@/hooks/useOrderPromotions';
+import { useBuildingProducts, DatabaseProduct } from '@/hooks/useBuildingProducts';
 import { 
   ftthTariffs, 
   limitedTariffs,
@@ -40,7 +41,8 @@ import {
   AlertCircle,
   CheckCircle2,
   XCircle,
-  ChevronDown
+  ChevronDown,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
@@ -51,6 +53,31 @@ interface ReferralData {
   referralValidated?: boolean;
   referralError?: string;
   promoCode?: string;
+}
+
+// Convert database product to TariffOption format
+function dbProductToTariffOption(product: DatabaseProduct): TariffOption {
+  const speedNum = product.download_speed || 0;
+  return {
+    id: product.slug,
+    name: product.name,
+    displayName: speedNum.toString(),
+    speed: `${speedNum} Mbit/s`,
+    downloadSpeed: product.download_speed || 0,
+    uploadSpeed: product.upload_speed || 0,
+    monthlyPrice: product.monthly_price,
+    monthlyPrice12: product.monthly_price * 1.4, // Approximate 12-month pricing
+    setupFee: product.setup_fee,
+    description: product.includes_phone ? 'Internet + Telefon-Flatrate' : 'Internet-Flatrate',
+    features: [
+      `${product.download_speed} Mbit/s Download`,
+      `${product.upload_speed} Mbit/s Upload`,
+      'Flatrate',
+      'IPv4 & IPv6',
+      ...(product.includes_phone ? ['Telefon inklusive'] : [])
+    ],
+    includesPhone: product.includes_phone
+  };
 }
 
 export function TariffSelection() {
@@ -84,16 +111,37 @@ export function TariffSelection() {
     getPromotedRouterPrice 
   } = useOrderPromotions();
 
+  // Fetch products from database based on building
+  const buildingId = (address as any)?.buildingId;
+  const ausbauart = (address as any)?.ausbauart;
+  const { products: dbProducts, loading: productsLoading, hasManualAssignment } = useBuildingProducts(buildingId, ausbauart);
+
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [referralInput, setReferralInput] = useState('');
-
   const [showFiberBasic, setShowFiberBasic] = useState(false);
 
-  // Determine which tariffs to show based on connection type
-  const baseTariffs = connectionType === 'ftth' ? ftthTariffs : limitedTariffs;
-  const tariffs = connectionType === 'ftth' && showFiberBasic 
-    ? [...baseTariffs, fiberBasicTariff] 
-    : baseTariffs;
+  // Convert database products to TariffOption format
+  const databaseTariffs = dbProducts.map(dbProductToTariffOption);
+
+  // Determine which tariffs to show
+  // If we have manual assignments, use only those
+  // Otherwise, use database products filtered by hide_for_ftth
+  const baseTariffs = hasManualAssignment 
+    ? databaseTariffs
+    : databaseTariffs.filter(t => {
+        const dbProduct = dbProducts.find(p => p.slug === t.id);
+        return !dbProduct?.hide_for_ftth;
+      });
+  
+  const hiddenTariffs = hasManualAssignment
+    ? []
+    : databaseTariffs.filter(t => {
+        const dbProduct = dbProducts.find(p => p.slug === t.id);
+        return dbProduct?.hide_for_ftth;
+      });
+
+  const tariffs = showFiberBasic ? [...baseTariffs, ...hiddenTariffs] : baseTariffs;
+  
   const isLimited = connectionType === 'limited';
   const isFtth = connectionType === 'ftth';
   const isFiberBasic = selectedTariff?.id === 'fiber-basic-100';
@@ -217,32 +265,58 @@ export function TariffSelection() {
       {/* Header */}
       <div className="text-center">
         <h2 className="text-2xl md:text-3xl font-bold text-primary mb-2">
-          {isLimited ? 'Verfügbarer Tarif' : 'einfach Internet - unsere neuen Internet Produkte'}
+          {hasManualAssignment 
+            ? 'Verfügbare Produkte an Ihrer Adresse'
+            : isLimited 
+              ? 'Verfügbarer Tarif' 
+              : 'einfach Internet - unsere neuen Internet Produkte'}
         </h2>
         <p className="text-muted-foreground">
-          {isLimited 
-            ? 'An Ihrer Adresse ist folgender Tarif verfügbar' 
-            : 'Wählen Sie das passende Produkt für Ihre Bedürfnisse'}
+          {hasManualAssignment
+            ? 'Folgende Produkte sind speziell für Ihre Adresse verfügbar'
+            : isLimited 
+              ? 'An Ihrer Adresse ist folgender Tarif verfügbar' 
+              : 'Wählen Sie das passende Produkt für Ihre Bedürfnisse'}
         </p>
       </div>
 
-      {/* Tarif-Karten */}
-      <div className={cn(
-        "grid gap-5",
-        isLimited ? "max-w-md mx-auto" : "md:grid-cols-2 lg:grid-cols-4"
-      )}>
-        {tariffs.map((tariff) => (
-          <TariffCard
-            key={tariff.id}
-            tariff={tariff}
-            isSelected={selectedTariff?.id === tariff.id}
-            onSelect={() => setSelectedTariff(tariff)}
-          />
-        ))}
-      </div>
+      {/* Loading State */}
+      {productsLoading && (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      )}
 
-      {/* FiberBasic versteckte Option für FTTH */}
-      {isFtth && !showFiberBasic && (
+      {/* Tarif-Karten */}
+      {!productsLoading && tariffs.length > 0 && (
+        <div className={cn(
+          "grid gap-5",
+          tariffs.length === 1 ? "max-w-md mx-auto" : "md:grid-cols-2 lg:grid-cols-4"
+        )}>
+          {tariffs.map((tariff) => (
+            <TariffCard
+              key={tariff.id}
+              tariff={tariff}
+              isSelected={selectedTariff?.id === tariff.id}
+              onSelect={() => setSelectedTariff(tariff)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* No products available */}
+      {!productsLoading && tariffs.length === 0 && (
+        <div className="bg-muted border border-border rounded-2xl p-6 text-center">
+          <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="font-bold text-lg mb-2">Keine Produkte verfügbar</h3>
+          <p className="text-muted-foreground">
+            An Ihrer Adresse sind derzeit keine Produkte verfügbar. Bitte kontaktieren Sie uns.
+          </p>
+        </div>
+      )}
+
+      {/* "Weitere Optionen" Button - only show if there are hidden products and not manual assignment */}
+      {!productsLoading && !hasManualAssignment && hiddenTariffs.length > 0 && !showFiberBasic && (
         <div className="text-center">
           <button
             onClick={() => setShowFiberBasic(true)}
