@@ -137,13 +137,22 @@ export const PromotionsManager = () => {
     }
   };
 
-  const fetchBuildings = async () => {
+  const fetchBuildings = async (search?: string) => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('buildings')
         .select('id, street, house_number, city')
         .order('street', { ascending: true });
+      
+      // If search is provided, filter server-side
+      if (search && search.length >= 2) {
+        query = query.or(`street.ilike.%${search}%,house_number.ilike.%${search}%,city.ilike.%${search}%`);
+      }
+      
+      // Limit to 200 results for performance
+      query = query.limit(200);
 
+      const { data, error } = await query;
       if (error) throw error;
       setBuildings((data as Building[]) || []);
     } catch (error) {
@@ -486,9 +495,8 @@ export const PromotionsManager = () => {
     setDiscountEntries(prev => prev.filter((_, i) => i !== index));
   };
 
-  const filteredBuildings = buildings.filter(b =>
-    `${b.street} ${b.house_number} ${b.city}`.toLowerCase().includes(buildingSearch.toLowerCase())
-  );
+  // Buildings are now filtered server-side, just use the fetched list
+  const filteredBuildings = buildings;
 
   const getScopeInfo = (scope: PromotionScope) => {
     switch (scope) {
@@ -623,9 +631,13 @@ export const PromotionsManager = () => {
                         Gültige Objekte ({selectedBuildings.length} ausgewählt)
                       </h4>
                       <Input
-                        placeholder="Objekte suchen..."
+                        placeholder="Objekte suchen (mind. 2 Zeichen)..."
                         value={buildingSearch}
-                        onChange={(e) => setBuildingSearch(e.target.value)}
+                        onChange={(e) => {
+                          setBuildingSearch(e.target.value);
+                          // Fetch buildings with search term
+                          fetchBuildings(e.target.value);
+                        }}
                       />
                       <div className="max-h-48 overflow-y-auto border rounded-lg p-2 space-y-1">
                         {filteredBuildings.map(building => (
