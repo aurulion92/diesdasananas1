@@ -539,7 +539,7 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
     const result = { created: 0, updated: 0, skipped: 0, errors: [] as string[], batchId: null as string | null };
     const affectedIds: string[] = [];
     const previousStates: any[] = [];
-    const BATCH_SIZE = 500;
+    const BATCH_SIZE = 1000; // Increased for better performance
 
     try {
       console.log('CSV Import gestartet', { csvRows: csvData.length });
@@ -668,13 +668,24 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
         });
       }
 
-      // Process updates in batches
+      // Process updates in batches using bulk updates
       setImportProgress({ 
         current: toInsert.length, 
         total: toInsert.length + toUpdate.length, 
         phase: 'Aktualisiere existierende Einträge...' 
       });
 
+      // First, collect all previous states for undo functionality
+      for (const { existing } of toUpdate) {
+        previousStates.push({
+          id: existing.id,
+          type: 'update',
+          previous: existing
+        });
+        affectedIds.push(existing.id);
+      }
+
+      // Process updates in parallel batches for speed
       for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
         // Check if import was aborted
         if (abortControllerRef.current.aborted) {
@@ -684,32 +695,42 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
 
         const batch = toUpdate.slice(i, i + BATCH_SIZE);
         
-        for (const { building, existing } of batch) {
-          // Check abort in inner loop too
-          if (abortControllerRef.current.aborted) break;
-
-          previousStates.push({
-            id: existing.id,
-            type: 'update',
-            previous: existing
-          });
-          affectedIds.push(existing.id);
-
-          const { error } = await supabase
+        // Execute all updates in this batch in parallel
+        const updatePromises = batch.map(({ building, existing }) => 
+          supabase
             .from('buildings')
             .update({
-              ...building,
+              street: building.street,
+              house_number: building.house_number,
+              city: building.city || 'Falkensee',
+              postal_code: building.postal_code || null,
+              residential_units: building.residential_units || 1,
+              ausbau_art: building.ausbau_art || null,
+              ausbau_status: building.ausbau_status || 'geplant',
+              tiefbau_done: building.tiefbau_done || false,
+              apl_set: building.apl_set || false,
+              kabel_tv_available: building.kabel_tv_available || false,
+              gebaeude_id_v2: building.gebaeude_id_v2 || null,
+              gebaeude_id_k7: building.gebaeude_id_k7 || null,
               original_csv_data: building as any,
               last_import_batch_id: batchId,
             })
-            .eq('id', existing.id);
+            .eq('id', existing.id)
+        );
 
-          if (error) {
-            result.errors.push(`${building.street} ${building.house_number}: ${error.message}`);
+        const results = await Promise.all(updatePromises);
+        
+        let batchErrors = 0;
+        results.forEach((res, idx) => {
+          if (res.error) {
+            batchErrors++;
+            if (result.errors.length < 10) { // Limit error messages
+              result.errors.push(`${batch[idx].building.street} ${batch[idx].building.house_number}: ${res.error.message}`);
+            }
           } else {
             result.updated++;
           }
-        }
+        });
 
         setImportProgress({ 
           current: toInsert.length + Math.min(i + BATCH_SIZE, toUpdate.length), 
