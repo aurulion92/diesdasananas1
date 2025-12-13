@@ -3,16 +3,6 @@ import { useOrderPromotions } from '@/hooks/useOrderPromotions';
 import { useBuildingProducts, DatabaseProduct } from '@/hooks/useBuildingProducts';
 import { useProductOptions, type ProductOptionMapping } from '@/hooks/useProductOptions';
 import { 
-  ftthTariffs, 
-  limitedTariffs,
-  fiberBasicTariff,
-  getRoutersForConnectionType,
-  cominTvOptions,
-  cominTvAddons,
-  cominTvHardware,
-  waipuTvOptions,
-  waipuTvHardware,
-  phoneOptions,
   TariffOption, 
   TariffAddon 
 } from '@/data/tariffs';
@@ -258,9 +248,18 @@ export function TariffSelection() {
         waipuStick: false,
       });
     } else if (type === 'comin') {
+      // Use first COM-IN TV option from database
+      const firstCominOption = tvCominOptions[0];
       setTvSelection({
         type: 'comin',
-        package: cominTvOptions[0],
+        package: firstCominOption ? {
+          id: firstCominOption.option.slug,
+          name: firstCominOption.option.name,
+          description: firstCominOption.option.description || '',
+          monthlyPrice: firstCominOption.option.monthly_price ?? 0,
+          oneTimePrice: firstCominOption.option.one_time_price ?? 0,
+          category: 'tv',
+        } : null,
         hdAddon: null,
         hardware: [],
         waipuStick: false,
@@ -277,11 +276,20 @@ export function TariffSelection() {
   };
 
   const handleWaipuPackageChange = (packageId: string) => {
-    const pkg = waipuTvOptions.find(p => p.id === packageId) || null;
-    setTvSelection({
-      ...tvSelection,
-      package: pkg,
-    });
+    const mapping = tvWaipuOptions.find(m => m.option.slug === packageId);
+    if (mapping) {
+      setTvSelection({
+        ...tvSelection,
+        package: {
+          id: mapping.option.slug,
+          name: mapping.option.name,
+          description: mapping.option.description || '',
+          monthlyPrice: mapping.option.monthly_price ?? 0,
+          oneTimePrice: mapping.option.one_time_price ?? 0,
+          category: 'tv',
+        },
+      });
+    }
   };
 
   const handleHdAddonChange = (addonId: string) => {
@@ -292,21 +300,56 @@ export function TariffSelection() {
         hardware: [],
       });
     } else {
-      const addon = cominTvAddons.find(a => a.id === addonId) || null;
-      const smartcard = cominTvHardware.find(h => h.id === 'tv-smartcard');
+      // Find HD addon from database TV hardware options (they have parent dependency)
+      const addonMapping = tvHardwareOptions.find(m => m.option.slug === addonId);
+      // Find smartcard from hardware options
+      const smartcardMapping = tvHardwareOptions.find(m => m.option.slug.includes('smartcard'));
+      
       setTvSelection({
         ...tvSelection,
-        hdAddon: addon,
-        hardware: smartcard ? [smartcard] : [],
+        hdAddon: addonMapping ? {
+          id: addonMapping.option.slug,
+          name: addonMapping.option.name,
+          description: addonMapping.option.description || '',
+          monthlyPrice: addonMapping.option.monthly_price ?? 0,
+          oneTimePrice: addonMapping.option.one_time_price ?? 0,
+          category: 'tv-addon',
+        } : null,
+        hardware: smartcardMapping ? [{
+          id: smartcardMapping.option.slug,
+          name: smartcardMapping.option.name,
+          description: smartcardMapping.option.description || '',
+          monthlyPrice: smartcardMapping.option.monthly_price ?? 0,
+          oneTimePrice: smartcardMapping.option.one_time_price ?? 0,
+          category: 'tv-hardware',
+        }] : [],
       });
     }
   };
 
   const handleHardwareChange = (hardwareId: string) => {
-    const smartcard = cominTvHardware.find(h => h.id === 'tv-smartcard');
-    const hardware = cominTvHardware.find(h => h.id === hardwareId);
+    const smartcardMapping = tvHardwareOptions.find(m => m.option.slug.includes('smartcard'));
+    const hardwareMapping = tvHardwareOptions.find(m => m.option.slug === hardwareId);
     
-    if (hardware) {
+    if (hardwareMapping) {
+      const smartcard = smartcardMapping ? {
+        id: smartcardMapping.option.slug,
+        name: smartcardMapping.option.name,
+        description: smartcardMapping.option.description || '',
+        monthlyPrice: smartcardMapping.option.monthly_price ?? 0,
+        oneTimePrice: smartcardMapping.option.one_time_price ?? 0,
+        category: 'tv-hardware' as const,
+      } : null;
+      
+      const hardware = {
+        id: hardwareMapping.option.slug,
+        name: hardwareMapping.option.name,
+        description: hardwareMapping.option.description || '',
+        monthlyPrice: hardwareMapping.option.monthly_price ?? 0,
+        oneTimePrice: hardwareMapping.option.one_time_price ?? 0,
+        category: 'tv-hardware' as const,
+      };
+      
       setTvSelection({
         ...tvSelection,
         hardware: smartcard ? [smartcard, hardware] : [hardware],
@@ -561,8 +604,8 @@ export function TariffSelection() {
                   <Label htmlFor="tv-none" className="flex-1 cursor-pointer">Kein TV</Label>
                 </div>
                 
-                {/* COM-IN TV - nur bei FTTH UND Kabel TV verfügbar */}
-                {isFtth && hasKabelTv && (
+                {/* COM-IN TV - nur bei FTTH UND Kabel TV verfügbar, und wenn COM-IN TV Optionen zugewiesen sind */}
+                {isFtth && hasKabelTv && tvCominOptions.length > 0 && (
                   <div className={cn(
                     "p-3 rounded-lg border transition-all",
                     tvSelection.type === 'comin' ? "border-accent bg-accent/5" : "border-border"
@@ -570,67 +613,89 @@ export function TariffSelection() {
                     <div className="flex items-center space-x-3">
                       <RadioGroupItem value="comin" id="tv-comin" />
                       <Label htmlFor="tv-comin" className="flex-1 cursor-pointer">
-                        <div className="flex justify-between items-center">
-                          <span>COM-IN TV (Kabel TV)</span>
-                          <span className="text-accent font-medium">10,00 €/Monat</span>
-                        </div>
+                        {(() => {
+                          const cominOption = tvCominOptions[0];
+                          return (
+                            <div className="flex justify-between items-center">
+                              <span className="flex items-center gap-2">
+                                {cominOption?.option.name || 'COM-IN TV'}
+                                {cominOption?.option.info_text && <InfoTooltip text={cominOption.option.info_text} />}
+                              </span>
+                              <span className="text-accent font-medium">
+                                {(cominOption?.option.monthly_price ?? 0).toFixed(2).replace('.', ',')} €/Monat
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </Label>
                     </div>
                   
                     {tvSelection.type === 'comin' && (
                       <div className="mt-4 ml-6 space-y-4">
-                        {/* HD Addon */}
-                        <div>
-                          <Label className="text-sm text-muted-foreground">HD-Paket (optional)</Label>
-                          <Select 
-                            value={tvSelection.hdAddon?.id || 'none'} 
-                            onValueChange={handleHdAddonChange}
-                          >
-                            <SelectTrigger className="mt-2">
-                              <SelectValue placeholder="HD-Paket wählen" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-card border border-border z-50">
-                              <SelectItem value="none">Kein HD-Paket</SelectItem>
-                              {cominTvAddons.map((addon) => (
-                                <SelectItem key={addon.id} value={addon.id}>
-                                  <div className="flex justify-between items-center w-full gap-4">
-                                    <span>{addon.name}</span>
-                                    <span className="text-accent">+{addon.monthlyPrice.toFixed(2).replace('.', ',')} €/Monat</span>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        {/* HD Addon - from database */}
+                        {tvHardwareOptions.filter(m => m.option.parent_option_slug?.includes('comin-tv')).length > 0 && (
+                          <div>
+                            <Label className="text-sm text-muted-foreground">HD-Paket (optional)</Label>
+                            <Select 
+                              value={tvSelection.hdAddon?.id || 'none'} 
+                              onValueChange={handleHdAddonChange}
+                            >
+                              <SelectTrigger className="mt-2">
+                                <SelectValue placeholder="HD-Paket wählen" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-card border border-border z-50">
+                                <SelectItem value="none">Kein HD-Paket</SelectItem>
+                                {tvHardwareOptions
+                                  .filter(m => m.option.parent_option_slug?.includes('comin-tv') && !m.option.slug.includes('smartcard'))
+                                  .map((mapping) => (
+                                    <SelectItem key={mapping.option.slug} value={mapping.option.slug}>
+                                      <div className="flex justify-between items-center w-full gap-4">
+                                        <span>{mapping.option.name}</span>
+                                        <span className="text-accent">
+                                          {mapping.option.monthly_price ? `+${mapping.option.monthly_price.toFixed(2).replace('.', ',')} €/Monat` : ''}
+                                          {mapping.option.one_time_price ? `${mapping.option.one_time_price.toFixed(2).replace('.', ',')} € einmalig` : ''}
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                         
                         {/* Hardware selection - only if HD package selected */}
                         {tvSelection.hdAddon && (
                           <div>
                             <Label className="text-sm text-muted-foreground">Hardware (erforderlich)</Label>
-                            <p className="text-xs text-muted-foreground mb-2">Smartcard Aktivierung: 29,90 € einmalig</p>
+                            {(() => {
+                              const smartcard = tvHardwareOptions.find(m => m.option.slug.includes('smartcard'));
+                              return smartcard && (
+                                <p className="text-xs text-muted-foreground mb-2">
+                                  {smartcard.option.name}: {(smartcard.option.one_time_price ?? 0).toFixed(2).replace('.', ',')} € einmalig
+                                </p>
+                              );
+                            })()}
                             <RadioGroup 
-                              value={tvSelection.hardware.find(h => h.id !== 'tv-smartcard')?.id || ''}
+                              value={tvSelection.hardware.find(h => !h.id.includes('smartcard'))?.id || ''}
                               onValueChange={handleHardwareChange}
                               className="space-y-2 mt-2"
                             >
-                              <div className="flex items-center space-x-3 p-2 rounded border border-border">
-                                <RadioGroupItem value="tv-receiver" id="tv-receiver" />
-                                <Label htmlFor="tv-receiver" className="flex-1 cursor-pointer text-sm">
-                                  <div className="flex justify-between">
-                                    <span>Technistar 4K ISIO (1TB) Miete</span>
-                                    <span className="text-accent">4,90 €/Monat</span>
+                              {tvHardwareOptions
+                                .filter(m => m.option.exclusive_group === 'comin-hardware' && !m.option.slug.includes('smartcard'))
+                                .map((mapping) => (
+                                  <div key={mapping.option.slug} className="flex items-center space-x-3 p-2 rounded border border-border">
+                                    <RadioGroupItem value={mapping.option.slug} id={mapping.option.slug} />
+                                    <Label htmlFor={mapping.option.slug} className="flex-1 cursor-pointer text-sm">
+                                      <div className="flex justify-between">
+                                        <span>{mapping.option.name}</span>
+                                        <span className="text-accent">
+                                          {mapping.option.monthly_price ? `${mapping.option.monthly_price.toFixed(2).replace('.', ',')} €/Monat` : ''}
+                                          {mapping.option.one_time_price ? `${mapping.option.one_time_price.toFixed(2).replace('.', ',')} € einmalig` : ''}
+                                        </span>
+                                      </div>
+                                    </Label>
                                   </div>
-                                </Label>
-                              </div>
-                              <div className="flex items-center space-x-3 p-2 rounded border border-border">
-                                <RadioGroupItem value="tv-ci-module" id="tv-ci-module" />
-                                <Label htmlFor="tv-ci-module" className="flex-1 cursor-pointer text-sm">
-                                  <div className="flex justify-between">
-                                    <span>CI+ Modul (M7) Kauf</span>
-                                    <span className="text-accent">79,90 € einmalig</span>
-                                  </div>
-                                </Label>
-                              </div>
+                                ))}
                             </RadioGroup>
                           </div>
                         )}
@@ -640,7 +705,7 @@ export function TariffSelection() {
                 )}
 
                 {/* FTTB hint for COM-IN TV */}
-                {!isFtth && (
+                {!isFtth && tvCominOptions.length > 0 && (
                   <div className="p-3 rounded-lg border border-border bg-muted/30">
                     <p className="text-sm text-muted-foreground">
                       COM-IN TV (Kabel TV) ist an Ihrem Standort leider nicht verfügbar. 
@@ -649,58 +714,79 @@ export function TariffSelection() {
                   </div>
                 )}
                 
-                <div className={cn(
-                  "p-3 rounded-lg border transition-all",
-                  tvSelection.type === 'waipu' ? "border-accent bg-accent/5" : "border-border"
-                )}>
-                  <div className="flex items-center space-x-3">
-                    <RadioGroupItem value="waipu" id="tv-waipu" />
-                    <Label htmlFor="tv-waipu" className="flex-1 cursor-pointer">waipu.tv (Streaming)</Label>
-                  </div>
-                  
-                  {tvSelection.type === 'waipu' && (
-                    <div className="mt-4 ml-6 space-y-4">
-                      <div>
-                        <Label className="text-sm text-muted-foreground">Paket wählen</Label>
-                        <Select 
-                          value={tvSelection.package?.id || ''} 
-                          onValueChange={handleWaipuPackageChange}
-                        >
-                          <SelectTrigger className="mt-2">
-                            <SelectValue placeholder="Paket wählen" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-card border border-border z-50">
-                            {waipuTvOptions.map((pkg) => (
-                              <SelectItem key={pkg.id} value={pkg.id}>
-                                <div className="flex justify-between items-center w-full gap-4">
-                                  <span>{pkg.name}</span>
-                                  <span className="text-accent">{pkg.monthlyPrice.toFixed(2).replace('.', ',')} €/Monat</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="flex items-center space-x-3">
-                        <Checkbox 
-                          id="waipu-stick" 
-                          checked={tvSelection.waipuStick}
-                          onCheckedChange={(checked) => setTvSelection({
-                            ...tvSelection,
-                            waipuStick: checked === true
-                          })}
-                        />
-                        <Label htmlFor="waipu-stick" className="cursor-pointer">
-                          <div className="flex justify-between items-center gap-4">
-                            <span>waipu.tv 4K Stick</span>
-                            <span className="text-accent">40,00 € einmalig</span>
-                          </div>
-                        </Label>
-                      </div>
+                {/* waipu.tv - from database */}
+                {tvWaipuOptions.length > 0 && (
+                  <div className={cn(
+                    "p-3 rounded-lg border transition-all",
+                    tvSelection.type === 'waipu' ? "border-accent bg-accent/5" : "border-border"
+                  )}>
+                    <div className="flex items-center space-x-3">
+                      <RadioGroupItem value="waipu" id="tv-waipu" />
+                      <Label htmlFor="tv-waipu" className="flex-1 cursor-pointer">waipu.tv (Streaming)</Label>
                     </div>
-                  )}
-                </div>
+                    
+                    {tvSelection.type === 'waipu' && (
+                      <div className="mt-4 ml-6 space-y-4">
+                        <div>
+                          <Label className="text-sm text-muted-foreground">Paket wählen</Label>
+                          <Select 
+                            value={tvSelection.package?.id || ''} 
+                            onValueChange={handleWaipuPackageChange}
+                          >
+                            <SelectTrigger className="mt-2">
+                              <SelectValue placeholder="Paket wählen" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-card border border-border z-50">
+                              {tvWaipuOptions.map((mapping) => (
+                                <SelectItem key={mapping.option.slug} value={mapping.option.slug}>
+                                  <div className="flex justify-between items-center w-full gap-4">
+                                    <span className="flex items-center gap-2">
+                                      {mapping.option.name}
+                                      {mapping.option.info_text && <InfoTooltip text={mapping.option.info_text} />}
+                                    </span>
+                                    <span className="text-accent">{(mapping.option.monthly_price ?? 0).toFixed(2).replace('.', ',')} €/Monat</span>
+                                  </div>
+                                  {mapping.option.external_link_url && (
+                                    <a 
+                                      href={mapping.option.external_link_url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {mapping.option.external_link_label || 'Mehr Info'}
+                                      <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                  )}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        {/* waipu.tv 4K Stick - from database */}
+                        {tvHardwareOptions.filter(m => m.option.parent_option_slug?.some(p => p.includes('waipu'))).map((stickMapping) => (
+                          <div key={stickMapping.option.slug} className="flex items-center space-x-3">
+                            <Checkbox 
+                              id={stickMapping.option.slug}
+                              checked={tvSelection.waipuStick}
+                              onCheckedChange={(checked) => setTvSelection({
+                                ...tvSelection,
+                                waipuStick: checked === true
+                              })}
+                            />
+                            <Label htmlFor={stickMapping.option.slug} className="cursor-pointer">
+                              <div className="flex justify-between items-center gap-4">
+                                <span>{stickMapping.option.name}</span>
+                                <span className="text-accent">{(stickMapping.option.one_time_price ?? 0).toFixed(2).replace('.', ',')} € einmalig</span>
+                              </div>
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </RadioGroup>
             </div>
           )}
