@@ -310,8 +310,35 @@ export const BuildingsManager = () => {
     }
   };
 
-  // No client-side filtering needed - search is done server-side
-  const filteredBuildings = buildings;
+  // Natural sorting helper for house numbers (1, 2, 3, 4a, 4b, 10, 10a, etc.)
+  const naturalSort = (a: string, b: string): number => {
+    const regex = /(\d+)|(\D+)/g;
+    const aParts = a.match(regex) || [];
+    const bParts = b.match(regex) || [];
+    
+    for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+      const aPart = aParts[i] || '';
+      const bPart = bParts[i] || '';
+      
+      const aNum = parseInt(aPart, 10);
+      const bNum = parseInt(bPart, 10);
+      
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        if (aNum !== bNum) return aNum - bNum;
+      } else {
+        const cmp = aPart.localeCompare(bPart);
+        if (cmp !== 0) return cmp;
+      }
+    }
+    return 0;
+  };
+
+  // Sort buildings alphabetically by street, then naturally by house number
+  const filteredBuildings = [...buildings].sort((a, b) => {
+    const streetCompare = a.street.localeCompare(b.street, 'de');
+    if (streetCompare !== 0) return streetCompare;
+    return naturalSort(a.house_number, b.house_number);
+  });
 
   const StatusIndicator = ({ active, label }: { active: boolean; label: string }) => (
     <div className="flex items-center gap-1">
