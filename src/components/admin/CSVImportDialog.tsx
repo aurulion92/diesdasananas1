@@ -153,6 +153,9 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
   const [ignoredRowsCount, setIgnoredRowsCount] = useState(0);
   const [invalidRowsCount, setInvalidRowsCount] = useState(0);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0, phase: '' });
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [importAborted, setImportAborted] = useState(false);
+  const abortControllerRef = useRef<{ aborted: boolean }>({ aborted: false });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -223,6 +226,30 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
     setIgnoredRowsCount(0);
     setInvalidRowsCount(0);
     setImportProgress({ current: 0, total: 0, phase: '' });
+    setShowCancelConfirm(false);
+    setImportAborted(false);
+    abortControllerRef.current = { aborted: false };
+  };
+
+  const handleCancelImport = () => {
+    if (importing) {
+      setShowCancelConfirm(true);
+    } else {
+      onOpenChange(false);
+      resetState();
+    }
+  };
+
+  const confirmCancelImport = () => {
+    abortControllerRef.current.aborted = true;
+    setImportAborted(true);
+    setShowCancelConfirm(false);
+    toast({
+      title: 'Import abgebrochen',
+      description: 'Der Import wurde abgebrochen. Bereits importierte Daten bleiben erhalten.',
+    });
+    setStep('complete');
+    setImporting(false);
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -593,6 +620,12 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
       setImportProgress({ current: 0, total: toInsert.length + toUpdate.length, phase: 'Erstelle neue Einträge...' });
       
       for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
+        // Check if import was aborted
+        if (abortControllerRef.current.aborted) {
+          console.log('Import abgebrochen bei Insert-Batch', i);
+          break;
+        }
+
         const batch = toInsert.slice(i, i + BATCH_SIZE).map(building => ({
           street: building.street,
           house_number: building.house_number,
@@ -643,9 +676,18 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
       });
 
       for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
+        // Check if import was aborted
+        if (abortControllerRef.current.aborted) {
+          console.log('Import abgebrochen bei Update-Batch', i);
+          break;
+        }
+
         const batch = toUpdate.slice(i, i + BATCH_SIZE);
         
         for (const { building, existing } of batch) {
+          // Check abort in inner loop too
+          if (abortControllerRef.current.aborted) break;
+
           previousStates.push({
             id: existing.id,
             type: 'update',
@@ -674,6 +716,25 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
           total: toInsert.length + toUpdate.length, 
           phase: `Aktualisiere existierende Einträge... (${Math.min(i + BATCH_SIZE, toUpdate.length)}/${toUpdate.length})` 
         });
+      }
+
+      // Check if aborted before final steps
+      if (abortControllerRef.current.aborted) {
+        // Still save what we have
+        await supabase
+          .from('csv_import_logs')
+          .update({
+            records_created: result.created,
+            records_updated: result.updated,
+            records_skipped: result.skipped,
+            errors: [...result.errors, 'Import wurde abgebrochen'],
+            affected_building_ids: affectedIds,
+            previous_states: previousStates,
+          })
+          .eq('id', batchId);
+        
+        setImportResult(result);
+        return;
       }
 
       // Update import log with results and undo data
@@ -729,8 +790,34 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
   );
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) resetState(); }}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <Dialog 
+      open={open} 
+      onOpenChange={(o) => { 
+        // Prevent closing during import unless user confirms
+        if (importing && !o) {
+          setShowCancelConfirm(true);
+          return;
+        }
+        onOpenChange(o); 
+        if (!o) resetState(); 
+      }}
+    >
+      <DialogContent 
+        className="max-w-4xl max-h-[90vh] overflow-y-auto"
+        onPointerDownOutside={(e) => {
+          // Prevent closing by clicking outside during import
+          if (importing) {
+            e.preventDefault();
+          }
+        }}
+        onEscapeKeyDown={(e) => {
+          // Prevent closing with Escape during import
+          if (importing) {
+            e.preventDefault();
+            setShowCancelConfirm(true);
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5" />
@@ -743,9 +830,30 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
             {step === 'preview' && 'Überprüfen Sie die Vorschau vor dem Import.'}
             {step === 'sync-check' && 'Konflikte mit manuell bearbeiteten Gebäuden.'}
             {step === 'importing' && 'Import läuft...'}
-            {step === 'complete' && 'Import abgeschlossen.'}
+            {step === 'complete' && (importAborted ? 'Import abgebrochen.' : 'Import abgeschlossen.')}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Cancel Confirmation Dialog */}
+        {showCancelConfirm && (
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-background border rounded-lg p-6 max-w-md shadow-lg">
+              <h3 className="text-lg font-semibold mb-2">Import abbrechen?</h3>
+              <p className="text-muted-foreground mb-4">
+                Möchten Sie den Import wirklich abbrechen? Bereits importierte Daten bleiben erhalten, 
+                aber der restliche Import geht verloren.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <Button variant="outline" onClick={() => setShowCancelConfirm(false)}>
+                  Weitermachen
+                </Button>
+                <Button variant="destructive" onClick={confirmCancelImport}>
+                  Abbrechen
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Step: Upload */}
         {step === 'upload' && (
@@ -1167,31 +1275,52 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
                 </p>
               )}
             </div>
+
+            <div className="flex justify-center pt-4">
+              <Button variant="outline" onClick={handleCancelImport}>
+                <X className="w-4 h-4 mr-2" />
+                Import abbrechen
+              </Button>
+            </div>
           </div>
         )}
 
         {/* Step: Complete */}
-        {step === 'complete' && importResult && (
+        {step === 'complete' && (importResult || importAborted) && (
           <div className="space-y-4">
             <div className="py-8 text-center">
-              <CheckCircle className="w-16 h-16 mx-auto text-success" />
-              <p className="mt-4 text-xl font-medium">Import abgeschlossen</p>
+              {importAborted ? (
+                <>
+                  <AlertTriangle className="w-16 h-16 mx-auto text-warning" />
+                  <p className="mt-4 text-xl font-medium">Import abgebrochen</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Der Import wurde vorzeitig beendet. Bereits importierte Daten wurden gespeichert.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-16 h-16 mx-auto text-success" />
+                  <p className="mt-4 text-xl font-medium">Import abgeschlossen</p>
+                </>
+              )}
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="border rounded-lg p-4 text-center">
-                <div className="text-3xl font-bold text-success">{importResult.created}</div>
-                <div className="text-sm text-muted-foreground">Erstellt</div>
+            {importResult && (
+              <div className="grid grid-cols-3 gap-4">
+                <div className="border rounded-lg p-4 text-center">
+                  <div className="text-3xl font-bold text-success">{importResult.created}</div>
+                  <div className="text-sm text-muted-foreground">Erstellt</div>
+                </div>
+                <div className="border rounded-lg p-4 text-center">
+                  <div className="text-3xl font-bold text-primary">{importResult.updated}</div>
+                  <div className="text-sm text-muted-foreground">Aktualisiert</div>
+                </div>
+                <div className="border rounded-lg p-4 text-center">
+                  <div className="text-3xl font-bold text-muted-foreground">{importResult.skipped}</div>
+                  <div className="text-sm text-muted-foreground">Übersprungen</div>
+                </div>
               </div>
-              <div className="border rounded-lg p-4 text-center">
-                <div className="text-3xl font-bold text-primary">{importResult.updated}</div>
-                <div className="text-sm text-muted-foreground">Aktualisiert</div>
-              </div>
-              <div className="border rounded-lg p-4 text-center">
-                <div className="text-3xl font-bold text-muted-foreground">{importResult.skipped}</div>
-                <div className="text-sm text-muted-foreground">Übersprungen</div>
-              </div>
-            </div>
+            )}
 
             {importResult.batchId && (
               <div className="bg-muted/50 rounded-lg p-4 flex items-center gap-3">
