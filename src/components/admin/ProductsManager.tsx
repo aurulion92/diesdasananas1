@@ -129,7 +129,7 @@ export const ProductsManager = () => {
       let query = supabase
         .from('products')
         .select('*')
-        .order('display_order', { ascending: true });
+        .order('name', { ascending: true });
       
       if (!showArchived) {
         query = query.or('is_archived.is.null,is_archived.eq.false');
