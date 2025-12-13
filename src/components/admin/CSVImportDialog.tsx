@@ -351,12 +351,79 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
     return mappedFields.includes('street') && mappedFields.includes('house_number');
   };
 
+  // Helper function to interpret Tiefbau status from various text values
+  const interpretTiefbauStatus = (value: string): { tiefbau_done: boolean; apl_set: boolean; ausbau_status: 'abgeschlossen' | 'im_ausbau' | 'geplant' } => {
+    const v = value.toLowerCase().trim();
+    
+    // "ftth angebunden" = Tiefbau erledigt, APL gesetzt, abgeschlossen
+    if (v.includes('angebunden') || v.includes('abgeschlossen') || v.includes('fertig') || v === 'done') {
+      return { tiefbau_done: true, apl_set: true, ausbau_status: 'abgeschlossen' };
+    }
+    
+    // "ftth vorbereitet" = Tiefbau nicht fertig, APL nicht gesetzt, im Ausbau
+    if (v.includes('vorbereitet')) {
+      return { tiefbau_done: false, apl_set: false, ausbau_status: 'im_ausbau' };
+    }
+    
+    // "ftth geplant" = Tiefbau nicht fertig, APL nicht gesetzt, geplant
+    if (v.includes('geplant')) {
+      return { tiefbau_done: false, apl_set: false, ausbau_status: 'geplant' };
+    }
+    
+    // "unbekannt" or anything else = not done
+    if (v.includes('unbekannt') || v === 'unknown' || v === '' || v === '-') {
+      return { tiefbau_done: false, apl_set: false, ausbau_status: 'geplant' };
+    }
+    
+    // Im Ausbau variations
+    if (v.includes('ausbau') || v.includes('in_progress') || v.includes('progress')) {
+      return { tiefbau_done: false, apl_set: false, ausbau_status: 'im_ausbau' };
+    }
+    
+    // Default: not done
+    return { tiefbau_done: false, apl_set: false, ausbau_status: 'geplant' };
+  };
+
+  // Helper function to interpret Ausbauart from various text values
+  const interpretAusbauart = (value: string): 'ftth' | 'fttb' | 'ftth_limited' | null => {
+    const v = value.toLowerCase().trim();
+    
+    // "aktivtechnik" = FTTH limited (max 500 Mbit/s)
+    if (v.includes('aktivtechnik')) {
+      return 'ftth_limited';
+    }
+    
+    // "nicht ausgebaut" or similar = null
+    if (v.includes('nicht ausgebaut') || v.includes('not connected') || v === '' || v === '-') {
+      return null;
+    }
+    
+    // FTTB variations: fttb, gfast, g.fast
+    if (v.includes('fttb') || v.includes('gfast') || v.includes('g.fast') || v.includes('g fast')) {
+      return 'fttb';
+    }
+    
+    // FTTH variations: ftth, mfh ftth, efh ftth
+    if (v.includes('ftth')) {
+      return 'ftth';
+    }
+    
+    return null;
+  };
+
   const transformRow = (row: string[]): Record<string, any> | null => {
     const result: Record<string, any> = {
       city: 'Falkensee', // Default
       residential_units: 1,
       is_manual_entry: false,
+      tiefbau_done: false,
+      apl_set: false,
+      ausbau_status: 'geplant',
     };
+
+    // First pass: collect raw values
+    let tiefbauRawValue: string | null = null;
+    let ausbauArtRawValue: string | null = null;
 
     headers.forEach((header, index) => {
       const dbField = mappings[header];
@@ -378,27 +445,49 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
           result[dbField] = parseInt(value) || 1;
           break;
         case 'ausbau_art':
-          const art = value.toLowerCase();
-          if (art.includes('ftth')) result[dbField] = 'ftth';
-          else if (art.includes('fttb')) result[dbField] = 'fttb';
+          ausbauArtRawValue = value;
           break;
         case 'ausbau_status':
+          // Will be interpreted from tiefbau field if available
           const status = value.toLowerCase();
           if (status.includes('abgeschlossen') || status === 'fertig' || status === 'done') {
-            result[dbField] = 'abgeschlossen';
+            result['ausbau_status'] = 'abgeschlossen';
           } else if (status.includes('ausbau') || status === 'in_progress') {
-            result[dbField] = 'im_ausbau';
+            result['ausbau_status'] = 'im_ausbau';
           } else {
-            result[dbField] = 'geplant';
+            result['ausbau_status'] = 'geplant';
           }
           break;
         case 'tiefbau_done':
+          tiefbauRawValue = value;
+          break;
         case 'apl_set':
+          result[dbField] = value === '1' || value.toLowerCase() === 'true' || value.toLowerCase() === 'ja' || value.toLowerCase() === 'yes';
+          break;
         case 'kabel_tv_available':
           result[dbField] = value === '1' || value.toLowerCase() === 'true' || value.toLowerCase() === 'ja' || value.toLowerCase() === 'yes';
           break;
       }
     });
+
+    // Interpret tiefbau field if present - this sets tiefbau_done, apl_set, and ausbau_status
+    if (tiefbauRawValue) {
+      const tiefbauInterpretation = interpretTiefbauStatus(tiefbauRawValue);
+      result.tiefbau_done = tiefbauInterpretation.tiefbau_done;
+      // Only override apl_set if not already explicitly set
+      if (!result.apl_set) {
+        result.apl_set = tiefbauInterpretation.apl_set;
+      }
+      result.ausbau_status = tiefbauInterpretation.ausbau_status;
+    }
+
+    // Interpret ausbau_art field
+    if (ausbauArtRawValue) {
+      const interpretedArt = interpretAusbauart(ausbauArtRawValue);
+      if (interpretedArt) {
+        result.ausbau_art = interpretedArt;
+      }
+    }
 
     // Validate required fields - street and house_number must exist and not be empty
     if (!result.street || !result.house_number || 
