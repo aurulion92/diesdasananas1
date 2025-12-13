@@ -51,15 +51,6 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => setActiveTab('settings')}
-                className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
-              >
-                <Cog className="w-4 h-4 mr-2" />
-                Einstellungen
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
                 onClick={onLogout}
                 className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
               >
@@ -74,7 +65,7 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 md:grid-cols-7 lg:w-auto lg:inline-grid gap-1">
+          <TabsList className="grid w-full grid-cols-4 md:grid-cols-8 lg:w-auto lg:inline-grid gap-1">
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <ShoppingCart className="w-4 h-4" />
               <span className="hidden sm:inline">Bestellungen</span>
@@ -102,6 +93,10 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
             <TabsTrigger value="documents" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Vorlagen</span>
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Cog className="w-4 h-4" />
+              <span className="hidden sm:inline">Einstellungen</span>
             </TabsTrigger>
           </TabsList>
 
