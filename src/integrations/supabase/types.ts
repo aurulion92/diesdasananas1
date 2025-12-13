@@ -552,6 +552,7 @@ export type Database = {
           download_speed: number | null
           hide_for_ftth: boolean | null
           id: string
+          includes_fiber_tv: boolean | null
           includes_phone: boolean | null
           is_active: boolean | null
           is_building_restricted: boolean | null
@@ -574,6 +575,7 @@ export type Database = {
           download_speed?: number | null
           hide_for_ftth?: boolean | null
           id?: string
+          includes_fiber_tv?: boolean | null
           includes_phone?: boolean | null
           is_active?: boolean | null
           is_building_restricted?: boolean | null
@@ -596,6 +598,7 @@ export type Database = {
           download_speed?: number | null
           hide_for_ftth?: boolean | null
           id?: string
+          includes_fiber_tv?: boolean | null
           includes_phone?: boolean | null
           is_active?: boolean | null
           is_building_restricted?: boolean | null

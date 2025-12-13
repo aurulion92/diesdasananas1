@@ -44,6 +44,7 @@ interface Product {
   product_id_k7: string | null;
   contract_months: number;
   includes_phone: boolean;
+  includes_fiber_tv: boolean;
   hide_for_ftth: boolean;
   is_building_restricted: boolean;
   created_at: string;
@@ -74,6 +75,7 @@ export const ProductsManager = () => {
     product_id_k7: '',
     contract_months: 24,
     includes_phone: false,
+    includes_fiber_tv: false,
     hide_for_ftth: false,
   });
 
@@ -160,6 +162,7 @@ export const ProductsManager = () => {
       product_id_k7: '',
       contract_months: 24,
       includes_phone: false,
+      includes_fiber_tv: false,
       hide_for_ftth: false,
     });
     setEditingProduct(null);
@@ -183,6 +186,7 @@ export const ProductsManager = () => {
       product_id_k7: product.product_id_k7 || '',
       contract_months: product.contract_months,
       includes_phone: product.includes_phone,
+      includes_fiber_tv: product.includes_fiber_tv ?? false,
       hide_for_ftth: product.hide_for_ftth || false,
     });
     setIsDialogOpen(true);
@@ -391,6 +395,14 @@ export const ProductsManager = () => {
                           id="includes_phone"
                           checked={formData.includes_phone}
                           onCheckedChange={(checked) => setFormData({...formData, includes_phone: checked})}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="includes_fiber_tv">FiberTV inkludiert</Label>
+                        <Switch
+                          id="includes_fiber_tv"
+                          checked={formData.includes_fiber_tv}
+                          onCheckedChange={(checked) => setFormData({...formData, includes_fiber_tv: checked})}
                         />
                       </div>
                       <div className="flex items-center justify-between">
