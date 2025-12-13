@@ -1,6 +1,7 @@
 import { useOrder } from '@/context/OrderContext';
 import { useOrderPromotions } from '@/hooks/useOrderPromotions';
 import { useBuildingProducts, DatabaseProduct } from '@/hooks/useBuildingProducts';
+import { useProductOptions } from '@/hooks/useProductOptions';
 import { 
   ftthTariffs, 
   limitedTariffs,
@@ -58,24 +59,26 @@ interface ReferralData {
 // Convert database product to TariffOption format
 function dbProductToTariffOption(product: DatabaseProduct): TariffOption {
   const speedNum = product.download_speed || 0;
+  // Use product name as displayName, only fall back to speed if it's an "einfach" product
+  const isEinfachProduct = product.name.toLowerCase().startsWith('einfach');
   return {
     id: product.slug,
     name: product.name,
-    displayName: speedNum.toString(),
-    speed: `${speedNum} Mbit/s`,
+    displayName: isEinfachProduct ? speedNum.toString() : product.name,
+    speed: speedNum > 0 ? `${speedNum} Mbit/s` : '',
     downloadSpeed: product.download_speed || 0,
     uploadSpeed: product.upload_speed || 0,
     monthlyPrice: product.monthly_price,
     monthlyPrice12: product.monthly_price * 1.4, // Approximate 12-month pricing
     setupFee: product.setup_fee,
-    description: product.includes_phone ? 'Internet + Telefon-Flatrate' : 'Internet-Flatrate',
-    features: [
+    description: product.includes_phone ? 'Internet + Telefon-Flatrate' : product.description || 'Internet-Flatrate',
+    features: speedNum > 0 ? [
       `${product.download_speed} Mbit/s Download`,
       `${product.upload_speed} Mbit/s Upload`,
       'Flatrate',
       'IPv4 & IPv6',
       ...(product.includes_phone ? ['Telefon inklusive'] : [])
-    ],
+    ] : [product.description || 'Spezialtarif'],
     includesPhone: product.includes_phone
   };
 }
@@ -116,6 +119,17 @@ export function TariffSelection() {
   const ausbauart = (address as any)?.ausbauart;
   const { products: dbProducts, loading: productsLoading, hasManualAssignment } = useBuildingProducts(buildingId, ausbauart);
 
+  // Fetch options assigned to the selected product
+  const { 
+    hasOptionsAssigned,
+    hasCategory,
+    routerOptions,
+    phoneOptions: dbPhoneOptions,
+    tvCominOptions,
+    tvWaipuOptions,
+    tvHardwareOptions,
+  } = useProductOptions(selectedTariff?.id || null);
+
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [referralInput, setReferralInput] = useState('');
   const [showFiberBasic, setShowFiberBasic] = useState(false);
@@ -147,6 +161,13 @@ export function TariffSelection() {
   const isFiberBasic = selectedTariff?.id === 'fiber-basic-100';
   const isEinfachTariff = selectedTariff?.id?.startsWith('einfach-');
   const hasKabelTv = address?.kabelTvAvailable === true;
+
+  // Determine if options should be shown based on product_option_mappings
+  // If product has assigned options, only show those categories
+  // If no options assigned, show all options (legacy behavior for standard products)
+  const showRouterOptions = !hasOptionsAssigned || hasCategory('router');
+  const showTvOptions = !hasOptionsAssigned || hasCategory('tv_comin') || hasCategory('tv_waipu');
+  const showPhoneOptions = !hasOptionsAssigned || hasCategory('phone');
 
   // Get available routers for this connection type
   const availableRouters = getRoutersForConnectionType(connectionType);
@@ -397,71 +418,73 @@ export function TariffSelection() {
         <div className="space-y-6 animate-fade-in">
           <h3 className="font-bold text-lg text-primary">Zusatzoptionen</h3>
           
-          {/* Router Dropdown - filtered by connection type */}
-          <div className="bg-card rounded-xl p-5 border border-border">
-            <div className="flex items-center gap-2 mb-3">
-              <Router className="w-5 h-5 text-accent" />
-              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Router auswählen</p>
-              {routerDiscount > 0 && (
-                <span className="bg-success/10 text-success text-xs px-2 py-0.5 rounded-full font-medium">
-                  {routerDiscount}€ Rabatt
-                </span>
+          {/* Router Dropdown - only show if product has router options or no options assigned (legacy) */}
+          {showRouterOptions && (
+            <div className="bg-card rounded-xl p-5 border border-border">
+              <div className="flex items-center gap-2 mb-3">
+                <Router className="w-5 h-5 text-accent" />
+                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Router auswählen</p>
+                {routerDiscount > 0 && (
+                  <span className="bg-success/10 text-success text-xs px-2 py-0.5 rounded-full font-medium">
+                    {routerDiscount}€ Rabatt
+                  </span>
+                )}
+              </div>
+              <Select 
+                value={selectedRouter?.id || 'router-none'} 
+                onValueChange={handleRouterChange}
+              >
+                <SelectTrigger className="h-12 rounded-xl">
+                  <SelectValue placeholder="Router auswählen" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border border-border z-50">
+                  {availableRouters.map((router) => {
+                    // Calculate display price based on promotion discount
+                    const hasDiscount = routerDiscount > 0 && router.monthlyPrice > 0;
+                    const displayPrice = hasDiscount 
+                      ? Math.max(0, router.monthlyPrice - routerDiscount)
+                      : router.monthlyPrice;
+                    
+                    return (
+                      <SelectItem key={router.id} value={router.id}>
+                        <div className="flex items-center justify-between w-full gap-4">
+                          <span>{router.name}</span>
+                          {router.monthlyPrice > 0 && (
+                            <span className="text-accent ml-2">
+                              {hasDiscount && (
+                                <span className="line-through text-muted-foreground mr-1">
+                                  {router.monthlyPrice.toFixed(2).replace('.', ',')} €
+                                </span>
+                              )}
+                              {displayPrice > 0 
+                                ? `${displayPrice.toFixed(2).replace('.', ',')} €/Monat`
+                                : '0,00 €/Monat'
+                              }
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              {selectedRouter && selectedRouter.id !== 'router-none' && (
+                <p className="text-sm text-muted-foreground mt-2">{selectedRouter.description}</p>
               )}
-            </div>
-            <Select 
-              value={selectedRouter?.id || 'router-none'} 
-              onValueChange={handleRouterChange}
-            >
-              <SelectTrigger className="h-12 rounded-xl">
-                <SelectValue placeholder="Router auswählen" />
-              </SelectTrigger>
-              <SelectContent className="bg-card border border-border z-50">
-                {availableRouters.map((router) => {
-                  // Calculate display price based on promotion discount
-                  const hasDiscount = routerDiscount > 0 && router.monthlyPrice > 0;
-                  const displayPrice = hasDiscount 
-                    ? Math.max(0, router.monthlyPrice - routerDiscount)
-                    : router.monthlyPrice;
-                  
-                  return (
-                    <SelectItem key={router.id} value={router.id}>
-                      <div className="flex items-center justify-between w-full gap-4">
-                        <span>{router.name}</span>
-                        {router.monthlyPrice > 0 && (
-                          <span className="text-accent ml-2">
-                            {hasDiscount && (
-                              <span className="line-through text-muted-foreground mr-1">
-                                {router.monthlyPrice.toFixed(2).replace('.', ',')} €
-                              </span>
-                            )}
-                            {displayPrice > 0 
-                              ? `${displayPrice.toFixed(2).replace('.', ',')} €/Monat`
-                              : '0,00 €/Monat'
-                            }
-                          </span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-            {selectedRouter && selectedRouter.id !== 'router-none' && (
-              <p className="text-sm text-muted-foreground mt-2">{selectedRouter.description}</p>
-            )}
-            {routerDiscount > 0 && selectedRouter && selectedRouter.id !== 'router-none' && (
-              <p className="text-sm text-success mt-2 font-medium">
-                Sie sparen {routerDiscount.toFixed(2).replace('.', ',')} €/Monat
+              {routerDiscount > 0 && selectedRouter && selectedRouter.id !== 'router-none' && (
+                <p className="text-sm text-success mt-2 font-medium">
+                  Sie sparen {routerDiscount.toFixed(2).replace('.', ',')} €/Monat
+                </p>
+              )}
+              {/* Router availability hint */}
+              <p className="text-xs text-muted-foreground mt-3">
+                {isFtth ? 'Für Ihren FTTH-Anschluss: FRITZ!Box 5690 oder 5690 Pro' : 'Für Ihren FTTB-Anschluss: FRITZ!Box 7690'}
               </p>
-            )}
-            {/* Router availability hint */}
-            <p className="text-xs text-muted-foreground mt-3">
-              {isFtth ? 'Für Ihren FTTH-Anschluss: FRITZ!Box 5690 oder 5690 Pro' : 'Für Ihren FTTB-Anschluss: FRITZ!Box 7690'}
-            </p>
-          </div>
+            </div>
+          )}
 
-          {/* TV Options - Only for FTTH (COM-IN TV) or always for WAIPU */}
-          {selectedTariff && (
+          {/* TV Options - Only show if product has TV options or no options assigned */}
+          {showTvOptions && selectedTariff && (
             <div className="bg-card rounded-xl p-5 border border-border">
               <div className="flex items-center gap-2 mb-3">
                 <Tv className="w-5 h-5 text-accent" />
@@ -625,8 +648,8 @@ export function TariffSelection() {
             </div>
           )}
 
-          {/* Telefon - Only for einfach tariffs (FiberBasic includes phone) */}
-          {isEinfachTariff && (
+          {/* Telefon - Only show if product has phone options or no options assigned, and only for einfach tariffs */}
+          {showPhoneOptions && isEinfachTariff && (
             <div className="bg-card rounded-xl p-5 border border-border">
               <div className="flex items-center gap-2 mb-3">
                 <Phone className="w-5 h-5 text-accent" />
