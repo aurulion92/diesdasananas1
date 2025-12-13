@@ -18,6 +18,7 @@ import {
   CircleDot,
   AlertTriangle,
   Building2,
+  Undo2,
   RefreshCw
 } from 'lucide-react';
 import {
@@ -29,6 +30,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { CSVImportDialog } from './CSVImportDialog';
+import { CSVImportUndoButton } from './CSVImportUndoButton';
 
 interface Building {
   id: string;
@@ -239,11 +241,12 @@ export const BuildingsManager = () => {
               Verwalten Sie alle Gebäude und deren Anschlussstatus.
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={fetchBuildings}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Aktualisieren
             </Button>
+            <CSVImportUndoButton onUndoComplete={fetchBuildings} />
             <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
               <Upload className="w-4 h-4 mr-2" />
               CSV Import
