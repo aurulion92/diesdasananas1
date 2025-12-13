@@ -147,6 +147,8 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
   const [importMode, setImportMode] = useState<ImportMode>('manual');
   const [newIgnorePattern, setNewIgnorePattern] = useState('');
   const [ignoredRowsCount, setIgnoredRowsCount] = useState(0);
+  const [invalidRowsCount, setInvalidRowsCount] = useState(0);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0, phase: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -215,6 +217,8 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
     setSelectedConflicts(new Set());
     setPreviewRows([]);
     setIgnoredRowsCount(0);
+    setInvalidRowsCount(0);
+    setImportProgress({ current: 0, total: 0, phase: '' });
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -365,12 +369,27 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
       }
     });
 
-    // Validate required fields
-    if (!result.street || !result.house_number) {
+    // Validate required fields - street and house_number must exist and not be empty
+    if (!result.street || !result.house_number || 
+        result.street.trim() === '' || result.house_number.trim() === '') {
       return null;
     }
 
     return result;
+  };
+
+  // Filter out invalid rows (no street or house number) before processing
+  const getValidRows = (): { valid: string[][], invalidCount: number } => {
+    let invalidCount = 0;
+    const valid = csvData.filter(row => {
+      const building = transformRow(row);
+      if (!building) {
+        invalidCount++;
+        return false;
+      }
+      return true;
+    });
+    return { valid, invalidCount };
   };
 
   // Build preview with change detection
@@ -489,8 +508,17 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
     const result = { created: 0, updated: 0, skipped: 0, errors: [] as string[], batchId: null as string | null };
     const affectedIds: string[] = [];
     const previousStates: any[] = [];
+    const BATCH_SIZE = 500;
 
     try {
+      // First, filter out invalid rows
+      const { valid: validRows, invalidCount } = getValidRows();
+      setInvalidRowsCount(invalidCount);
+      result.skipped += invalidCount;
+
+      const totalRows = validRows.length;
+      setImportProgress({ current: 0, total: totalRows, phase: 'Vorbereitung...' });
+
       // Create import log entry first to get batch ID
       const { data: logEntry, error: logError } = await supabase
         .from('csv_import_logs')
@@ -506,30 +534,109 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
       const batchId = logEntry.id;
       result.batchId = batchId;
 
-      for (const row of csvData) {
-        const building = transformRow(row);
-        if (!building) {
-          result.skipped++;
-          continue;
-        }
+      // Transform all valid rows
+      setImportProgress({ current: 0, total: totalRows, phase: 'Transformiere Daten...' });
+      const buildings = validRows.map(row => transformRow(row)).filter(Boolean) as Record<string, any>[];
 
-        // Check if building exists
-        const { data: existing } = await supabase
+      // Fetch all existing buildings in batches for comparison
+      setImportProgress({ current: 0, total: totalRows, phase: 'Lade existierende Daten...' });
+      const existingBuildings = new Map<string, any>();
+      
+      // Fetch existing buildings in chunks to avoid timeout
+      const uniqueKeys = buildings.map(b => `${b.street}|${b.house_number}|${b.city || 'Falkensee'}`);
+      const chunkSize = 1000;
+      
+      for (let i = 0; i < buildings.length; i += chunkSize) {
+        const chunk = buildings.slice(i, i + chunkSize);
+        const { data: existingChunk } = await supabase
           .from('buildings')
           .select('*')
-          .eq('street', building.street)
-          .eq('house_number', building.house_number)
-          .eq('city', building.city)
-          .maybeSingle();
+          .or(chunk.map(b => `and(street.eq.${b.street},house_number.eq.${b.house_number},city.eq.${b.city || 'Falkensee'})`).join(','));
+        
+        if (existingChunk) {
+          existingChunk.forEach(b => {
+            existingBuildings.set(`${b.street}|${b.house_number}|${b.city}`, b);
+          });
+        }
+        setImportProgress({ current: Math.min(i + chunkSize, buildings.length), total: totalRows, phase: 'Lade existierende Daten...' });
+      }
+
+      // Separate into updates and inserts
+      const toUpdate: { building: Record<string, any>; existing: any }[] = [];
+      const toInsert: Record<string, any>[] = [];
+
+      for (const building of buildings) {
+        const key = `${building.street}|${building.house_number}|${building.city || 'Falkensee'}`;
+        const existing = existingBuildings.get(key);
 
         if (existing) {
-          // Skip if manual override is active
           if (existing.manual_override_active) {
             result.skipped++;
-            continue;
+          } else {
+            toUpdate.push({ building, existing });
           }
+        } else {
+          toInsert.push(building);
+        }
+      }
 
-          // Store previous state for undo
+      // Process inserts in batches
+      setImportProgress({ current: 0, total: toInsert.length + toUpdate.length, phase: 'Erstelle neue Einträge...' });
+      
+      for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
+        const batch = toInsert.slice(i, i + BATCH_SIZE).map(building => ({
+          street: building.street,
+          house_number: building.house_number,
+          city: building.city || 'Falkensee',
+          postal_code: building.postal_code || null,
+          residential_units: building.residential_units || 1,
+          ausbau_art: building.ausbau_art || null,
+          ausbau_status: building.ausbau_status || 'geplant',
+          tiefbau_done: building.tiefbau_done || false,
+          apl_set: building.apl_set || false,
+          kabel_tv_available: building.kabel_tv_available || false,
+          gebaeude_id_v2: building.gebaeude_id_v2 || null,
+          gebaeude_id_k7: building.gebaeude_id_k7 || null,
+          is_manual_entry: false,
+          original_csv_data: building as any,
+          last_import_batch_id: batchId,
+        }));
+
+        const { data: insertedBuildings, error } = await supabase
+          .from('buildings')
+          .insert(batch)
+          .select('id');
+
+        if (error) {
+          result.errors.push(`Batch Insert Fehler: ${error.message}`);
+        } else {
+          result.created += batch.length;
+          if (insertedBuildings) {
+            insertedBuildings.forEach(b => {
+              previousStates.push({ id: b.id, type: 'create', previous: null });
+              affectedIds.push(b.id);
+            });
+          }
+        }
+
+        setImportProgress({ 
+          current: Math.min(i + BATCH_SIZE, toInsert.length), 
+          total: toInsert.length + toUpdate.length, 
+          phase: `Erstelle neue Einträge... (${Math.min(i + BATCH_SIZE, toInsert.length)}/${toInsert.length})` 
+        });
+      }
+
+      // Process updates in batches
+      setImportProgress({ 
+        current: toInsert.length, 
+        total: toInsert.length + toUpdate.length, 
+        phase: 'Aktualisiere existierende Einträge...' 
+      });
+
+      for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
+        const batch = toUpdate.slice(i, i + BATCH_SIZE);
+        
+        for (const { building, existing } of batch) {
           previousStates.push({
             id: existing.id,
             type: 'update',
@@ -537,7 +644,6 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
           });
           affectedIds.push(existing.id);
 
-          // Update existing
           const { error } = await supabase
             .from('buildings')
             .update({
@@ -552,46 +658,13 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
           } else {
             result.updated++;
           }
-        } else {
-          // Create new
-          const insertData = {
-            street: building.street,
-            house_number: building.house_number,
-            city: building.city || 'Falkensee',
-            postal_code: building.postal_code || null,
-            residential_units: building.residential_units || 1,
-            ausbau_art: building.ausbau_art || null,
-            ausbau_status: building.ausbau_status || 'geplant',
-            tiefbau_done: building.tiefbau_done || false,
-            apl_set: building.apl_set || false,
-            kabel_tv_available: building.kabel_tv_available || false,
-            gebaeude_id_v2: building.gebaeude_id_v2 || null,
-            gebaeude_id_k7: building.gebaeude_id_k7 || null,
-            is_manual_entry: false,
-            original_csv_data: building as any,
-            last_import_batch_id: batchId,
-          };
-          
-          const { data: newBuilding, error } = await supabase
-            .from('buildings')
-            .insert([insertData])
-            .select('id')
-            .single();
-
-          if (error) {
-            result.errors.push(`${building.street} ${building.house_number}: ${error.message}`);
-          } else {
-            result.created++;
-            if (newBuilding) {
-              previousStates.push({
-                id: newBuilding.id,
-                type: 'create',
-                previous: null
-              });
-              affectedIds.push(newBuilding.id);
-            }
-          }
         }
+
+        setImportProgress({ 
+          current: toInsert.length + Math.min(i + BATCH_SIZE, toUpdate.length), 
+          total: toInsert.length + toUpdate.length, 
+          phase: `Aktualisiere existierende Einträge... (${Math.min(i + BATCH_SIZE, toUpdate.length)}/${toUpdate.length})` 
+        });
       }
 
       // Update import log with results and undo data
@@ -612,7 +685,7 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
 
       toast({
         title: 'Import abgeschlossen',
-        description: `${result.created} erstellt, ${result.updated} aktualisiert, ${result.skipped} übersprungen.`,
+        description: `${result.created} erstellt, ${result.updated} aktualisiert, ${result.skipped} übersprungen${invalidCount > 0 ? ` (davon ${invalidCount} ohne Straße/Hausnummer)` : ''}.`,
       });
 
       onImportComplete();
@@ -1057,10 +1130,35 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
 
         {/* Step: Importing */}
         {step === 'importing' && (
-          <div className="py-12 text-center">
-            <Loader2 className="w-12 h-12 mx-auto animate-spin text-primary" />
-            <p className="mt-4 text-lg font-medium">Import läuft...</p>
-            <p className="text-sm text-muted-foreground">Bitte warten Sie, dies kann einen Moment dauern.</p>
+          <div className="py-8 space-y-6">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 mx-auto animate-spin text-primary" />
+              <p className="mt-4 text-lg font-medium">Import läuft...</p>
+              <p className="text-sm text-muted-foreground">{importProgress.phase || 'Bitte warten Sie, dies kann einen Moment dauern.'}</p>
+            </div>
+            
+            {importProgress.total > 0 && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Fortschritt</span>
+                  <span className="font-medium">
+                    {importProgress.current.toLocaleString()} / {importProgress.total.toLocaleString()} 
+                    ({Math.round((importProgress.current / importProgress.total) * 100)}%)
+                  </span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                  <div 
+                    className="bg-primary h-full transition-all duration-300 ease-out"
+                    style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Geschätzte Restzeit: {importProgress.total > 0 && importProgress.current > 0 
+                    ? `~${Math.ceil(((importProgress.total - importProgress.current) / importProgress.current) * 0.5)} Minuten`
+                    : 'Berechne...'}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
