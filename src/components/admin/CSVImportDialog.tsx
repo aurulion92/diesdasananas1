@@ -88,6 +88,12 @@ const KNOWN_MAPPINGS: Record<string, string> = {
   'gebaeude_id_k7': 'gebaeude_id_k7',
   'gebäude_id_k7': 'gebaeude_id_k7',
   'id_k7': 'gebaeude_id_k7',
+  // GNV field - maps from "datum gee" column
+  'datum_gee': 'gnv_vorhanden',
+  'datumgee': 'gnv_vorhanden',
+  'datum gee': 'gnv_vorhanden',
+  'gnv': 'gnv_vorhanden',
+  'gnv_vorhanden': 'gnv_vorhanden',
 };
 
 const DB_FIELDS = [
@@ -101,6 +107,7 @@ const DB_FIELDS = [
   { key: 'tiefbau_done', label: 'Tiefbau erledigt', required: false },
   { key: 'apl_set', label: 'APL gesetzt', required: false },
   { key: 'kabel_tv_available', label: 'Kabel TV verfügbar', required: false },
+  { key: 'gnv_vorhanden', label: 'GNV vorhanden', required: false },
   { key: 'gebaeude_id_v2', label: 'Gebäude ID V2', required: false },
   { key: 'gebaeude_id_k7', label: 'Gebäude ID K7', required: false },
 ];
@@ -462,10 +469,16 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
           tiefbauRawValue = value;
           break;
         case 'apl_set':
-          result[dbField] = value === '1' || value.toLowerCase() === 'true' || value.toLowerCase() === 'ja' || value.toLowerCase() === 'yes';
+          // APL is set if value is 1 or more (numeric), or true/ja/yes
+          const aplNum = parseInt(value);
+          result[dbField] = (!isNaN(aplNum) && aplNum >= 1) || value.toLowerCase() === 'true' || value.toLowerCase() === 'ja' || value.toLowerCase() === 'yes';
           break;
         case 'kabel_tv_available':
           result[dbField] = value === '1' || value.toLowerCase() === 'true' || value.toLowerCase() === 'ja' || value.toLowerCase() === 'yes';
+          break;
+        case 'gnv_vorhanden':
+          // GNV is present if there's any date value (non-empty)
+          result[dbField] = value.trim() !== '' && value.trim() !== '-' && value.trim().toLowerCase() !== 'null';
           break;
       }
     });

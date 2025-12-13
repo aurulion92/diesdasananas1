@@ -51,6 +51,7 @@ export type Database = {
           created_at: string
           gebaeude_id_k7: string | null
           gebaeude_id_v2: string | null
+          gnv_vorhanden: boolean | null
           has_manual_override: boolean | null
           house_number: string
           id: string
@@ -77,6 +78,7 @@ export type Database = {
           created_at?: string
           gebaeude_id_k7?: string | null
           gebaeude_id_v2?: string | null
+          gnv_vorhanden?: boolean | null
           has_manual_override?: boolean | null
           house_number: string
           id?: string
@@ -103,6 +105,7 @@ export type Database = {
           created_at?: string
           gebaeude_id_k7?: string | null
           gebaeude_id_v2?: string | null
+          gnv_vorhanden?: boolean | null
           has_manual_override?: boolean | null
           house_number?: string
           id?: string
