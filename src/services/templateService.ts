@@ -17,17 +17,30 @@ export interface TemplateData {
 export async function getTemplateByUseCase(useCase: string): Promise<TemplateData | null> {
   const { data, error } = await supabase
     .from('document_templates')
-    .select('id, name, content, template_type, use_case, is_active')
-    .eq('use_case', useCase)
+    .select('*')
     .eq('is_active', true)
-    .maybeSingle();
+    .returns<any[]>();
 
   if (error) {
     console.error('Error fetching template:', error);
     return null;
   }
 
-  return data as TemplateData | null;
+  // Filter by use_case manually since the column might not be in types yet
+  const template = data?.find((t: any) => t.use_case === useCase);
+  
+  if (!template) {
+    return null;
+  }
+
+  return {
+    id: template.id,
+    name: template.name,
+    content: template.content,
+    template_type: template.template_type,
+    use_case: template.use_case,
+    is_active: template.is_active,
+  };
 }
 
 /**

@@ -126,12 +126,12 @@ export function DocumentTemplatesManager() {
     if (error) {
       toast({ title: 'Fehler beim Laden', description: error.message, variant: 'destructive' });
     } else {
-      // Parse placeholders from JSON and include use_case
-      const parsed = (data || []).map(t => ({
+      // Parse placeholders from JSON and include use_case (cast to any to handle new column)
+      const parsed = (data || []).map((t: any) => ({
         ...t,
-        placeholders: Array.isArray(t.placeholders) ? t.placeholders as unknown as Placeholder[] : [],
+        placeholders: Array.isArray(t.placeholders) ? t.placeholders as Placeholder[] : [],
         use_case: t.use_case || null,
-      }));
+      })) as DocumentTemplate[];
       setTemplates(parsed);
     }
     setLoading(false);
@@ -201,7 +201,7 @@ export function DocumentTemplatesManager() {
       return;
     }
 
-    const templateData = {
+    const templateData: Record<string, any> = {
       name: formData.name,
       description: formData.description || null,
       template_type: formData.template_type,
@@ -227,7 +227,7 @@ export function DocumentTemplatesManager() {
     } else {
       const { error } = await supabase
         .from('document_templates')
-        .insert([templateData]);
+        .insert([templateData] as any);
 
       if (error) {
         toast({ title: 'Fehler beim Erstellen', description: error.message, variant: 'destructive' });
