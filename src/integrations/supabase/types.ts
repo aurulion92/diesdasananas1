@@ -267,6 +267,8 @@ export type Database = {
           cancel_previous_provider: boolean | null
           city: string
           connection_type: string | null
+          consent_advertising: boolean | null
+          consent_agb: boolean | null
           contract_months: number
           created_at: string
           customer_email: string
@@ -282,6 +284,14 @@ export type Database = {
           is_archived: boolean
           monthly_total: number
           one_time_total: number
+          phone_book_custom_address: string | null
+          phone_book_custom_name: string | null
+          phone_book_entry_type: string | null
+          phone_book_internet: boolean | null
+          phone_book_phone_info: boolean | null
+          phone_book_printed: boolean | null
+          phone_book_show_address: boolean | null
+          phone_evn: boolean | null
           phone_porting: boolean | null
           phone_porting_numbers: Json | null
           phone_porting_provider: string | null
@@ -312,6 +322,8 @@ export type Database = {
           cancel_previous_provider?: boolean | null
           city?: string
           connection_type?: string | null
+          consent_advertising?: boolean | null
+          consent_agb?: boolean | null
           contract_months?: number
           created_at?: string
           customer_email: string
@@ -327,6 +339,14 @@ export type Database = {
           is_archived?: boolean
           monthly_total: number
           one_time_total?: number
+          phone_book_custom_address?: string | null
+          phone_book_custom_name?: string | null
+          phone_book_entry_type?: string | null
+          phone_book_internet?: boolean | null
+          phone_book_phone_info?: boolean | null
+          phone_book_printed?: boolean | null
+          phone_book_show_address?: boolean | null
+          phone_evn?: boolean | null
           phone_porting?: boolean | null
           phone_porting_numbers?: Json | null
           phone_porting_provider?: string | null
@@ -357,6 +377,8 @@ export type Database = {
           cancel_previous_provider?: boolean | null
           city?: string
           connection_type?: string | null
+          consent_advertising?: boolean | null
+          consent_agb?: boolean | null
           contract_months?: number
           created_at?: string
           customer_email?: string
@@ -372,6 +394,14 @@ export type Database = {
           is_archived?: boolean
           monthly_total?: number
           one_time_total?: number
+          phone_book_custom_address?: string | null
+          phone_book_custom_name?: string | null
+          phone_book_entry_type?: string | null
+          phone_book_internet?: boolean | null
+          phone_book_phone_info?: boolean | null
+          phone_book_printed?: boolean | null
+          phone_book_show_address?: boolean | null
+          phone_evn?: boolean | null
           phone_porting?: boolean | null
           phone_porting_numbers?: Json | null
           phone_porting_provider?: string | null
@@ -491,7 +521,11 @@ export type Database = {
           description: string | null
           display_order: number | null
           exclusive_group: string | null
+          external_link_label: string | null
+          external_link_url: string | null
           id: string
+          image_url: string | null
+          info_text: string | null
           is_active: boolean | null
           is_fttb: boolean | null
           is_ftth: boolean | null
@@ -510,7 +544,11 @@ export type Database = {
           description?: string | null
           display_order?: number | null
           exclusive_group?: string | null
+          external_link_label?: string | null
+          external_link_url?: string | null
           id?: string
+          image_url?: string | null
+          info_text?: string | null
           is_active?: boolean | null
           is_fttb?: boolean | null
           is_ftth?: boolean | null
@@ -529,7 +567,11 @@ export type Database = {
           description?: string | null
           display_order?: number | null
           exclusive_group?: string | null
+          external_link_label?: string | null
+          external_link_url?: string | null
           id?: string
+          image_url?: string | null
+          info_text?: string | null
           is_active?: boolean | null
           is_fttb?: boolean | null
           is_ftth?: boolean | null
@@ -555,6 +597,7 @@ export type Database = {
           id: string
           includes_fiber_tv: boolean | null
           includes_phone: boolean | null
+          info_text: string | null
           is_active: boolean | null
           is_archived: boolean | null
           is_building_restricted: boolean | null
@@ -580,6 +623,7 @@ export type Database = {
           id?: string
           includes_fiber_tv?: boolean | null
           includes_phone?: boolean | null
+          info_text?: string | null
           is_active?: boolean | null
           is_archived?: boolean | null
           is_building_restricted?: boolean | null
@@ -605,6 +649,7 @@ export type Database = {
           id?: string
           includes_fiber_tv?: boolean | null
           includes_phone?: boolean | null
+          info_text?: string | null
           is_active?: boolean | null
           is_archived?: boolean | null
           is_building_restricted?: boolean | null

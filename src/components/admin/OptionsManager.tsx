@@ -44,6 +44,10 @@ interface ProductOption {
   parent_option_slug: string[] | null;
   auto_include_option_slug: string[] | null;
   exclusive_group: string | null;
+  info_text: string | null;
+  image_url: string | null;
+  external_link_url: string | null;
+  external_link_label: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -67,6 +71,7 @@ const CATEGORIES = [
   { value: 'tv_comin', label: 'COM-IN TV' },
   { value: 'tv_waipu', label: 'waipu.tv' },
   { value: 'tv_hardware', label: 'TV Hardware' },
+  { value: 'service', label: 'Service-Leistungen' },
 ];
 
 export const OptionsManager = () => {
@@ -97,6 +102,10 @@ export const OptionsManager = () => {
     parent_option_slugs: [] as string[],
     auto_include_option_slugs: [] as string[],
     exclusive_group: '',
+    info_text: '',
+    image_url: '',
+    external_link_url: '',
+    external_link_label: '',
   });
 
   useEffect(() => {
@@ -197,6 +206,10 @@ export const OptionsManager = () => {
         parent_option_slug: formData.parent_option_slugs.length > 0 ? formData.parent_option_slugs : null,
         auto_include_option_slug: formData.auto_include_option_slugs.length > 0 ? formData.auto_include_option_slugs : null,
         exclusive_group: formData.exclusive_group || null,
+        info_text: formData.info_text || null,
+        image_url: formData.image_url || null,
+        external_link_url: formData.external_link_url || null,
+        external_link_label: formData.external_link_label || null,
       };
 
       if (editingOption) {
@@ -289,6 +302,10 @@ export const OptionsManager = () => {
       parent_option_slugs: [],
       auto_include_option_slugs: [],
       exclusive_group: '',
+      info_text: '',
+      image_url: '',
+      external_link_url: '',
+      external_link_label: '',
     });
     setEditingOption(null);
   };
@@ -310,6 +327,10 @@ export const OptionsManager = () => {
       parent_option_slugs: option.parent_option_slug || [],
       auto_include_option_slugs: option.auto_include_option_slug || [],
       exclusive_group: option.exclusive_group || '',
+      info_text: option.info_text || '',
+      image_url: option.image_url || '',
+      external_link_url: option.external_link_url || '',
+      external_link_label: option.external_link_label || '',
     });
     setIsDialogOpen(true);
   };
@@ -683,6 +704,53 @@ export const OptionsManager = () => {
                         <p className="text-xs text-muted-foreground">
                           Optionen mit der gleichen Gruppe sind gegenseitig ausschließend (entweder/oder).
                         </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 border-t pt-4">
+                    <h4 className="font-medium">Zusätzliche Informationen</h4>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="info_text">Info-Text (Hover)</Label>
+                        <Input
+                          id="info_text"
+                          value={formData.info_text}
+                          onChange={(e) => setFormData({...formData, info_text: e.target.value})}
+                          placeholder="Text der beim Hover über das Info-Icon erscheint"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Wenn ausgefüllt, erscheint ein "i"-Icon neben der Option.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="image_url">Bild-URL</Label>
+                        <Input
+                          id="image_url"
+                          value={formData.image_url}
+                          onChange={(e) => setFormData({...formData, image_url: e.target.value})}
+                          placeholder="https://example.com/image.jpg"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="external_link_url">Externer Link</Label>
+                          <Input
+                            id="external_link_url"
+                            value={formData.external_link_url}
+                            onChange={(e) => setFormData({...formData, external_link_url: e.target.value})}
+                            placeholder="https://example.com/senderliste"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="external_link_label">Link-Beschriftung</Label>
+                          <Input
+                            id="external_link_label"
+                            value={formData.external_link_label}
+                            onChange={(e) => setFormData({...formData, external_link_label: e.target.value})}
+                            placeholder="z.B. Senderliste anzeigen"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>

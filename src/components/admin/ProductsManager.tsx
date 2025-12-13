@@ -51,6 +51,7 @@ interface Product {
   name: string;
   slug: string;
   description: string | null;
+  info_text: string | null;
   monthly_price: number;
   setup_fee: number;
   download_speed: number | null;
@@ -101,6 +102,7 @@ export const ProductsManager = () => {
     name: '',
     slug: '',
     description: '',
+    info_text: '',
     monthly_price: 0,
     setup_fee: 99,
     download_speed: 0,
@@ -157,6 +159,7 @@ export const ProductsManager = () => {
         ...formData,
         product_id_k7: formData.product_id_k7 || null,
         description: formData.description || null,
+        info_text: formData.info_text || null,
       };
 
       if (editingProduct) {
@@ -194,6 +197,7 @@ export const ProductsManager = () => {
       name: '',
       slug: '',
       description: '',
+      info_text: '',
       monthly_price: 0,
       setup_fee: 99,
       download_speed: 0,
@@ -218,6 +222,7 @@ export const ProductsManager = () => {
       name: product.name,
       slug: product.slug,
       description: product.description || '',
+      info_text: product.info_text || '',
       monthly_price: product.monthly_price,
       setup_fee: product.setup_fee,
       download_speed: product.download_speed || 0,
@@ -521,6 +526,19 @@ export const ProductsManager = () => {
                       value={formData.description}
                       onChange={(e) => setFormData({...formData, description: e.target.value})}
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="info_text">Info-Text (Hover)</Label>
+                    <Input
+                      id="info_text"
+                      value={formData.info_text}
+                      onChange={(e) => setFormData({...formData, info_text: e.target.value})}
+                      placeholder="Text der beim Hover über das Info-Icon erscheint"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Wenn ausgefüllt, erscheint ein "i"-Icon neben dem Produkt.
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">
