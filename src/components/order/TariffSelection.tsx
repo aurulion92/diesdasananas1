@@ -528,10 +528,12 @@ export function TariffSelection() {
                   Sie sparen {routerDiscount.toFixed(2).replace('.', ',')} €/Monat
                 </p>
               )}
-              {/* Router availability hint */}
-              <p className="text-xs text-muted-foreground mt-3">
-                {isFtth ? 'Für Ihren FTTH-Anschluss: FRITZ!Box 5690 oder 5690 Pro' : 'Für Ihren FTTB-Anschluss: FRITZ!Box 7690'}
-              </p>
+              {/* Router availability hint - only show if there are actual routers (not just "Kein Router") */}
+              {availableRouters.filter(r => r.id !== 'router-none').length > 0 && (
+                <p className="text-xs text-muted-foreground mt-3">
+                  Verfügbar: {availableRouters.filter(r => r.id !== 'router-none').map(r => r.name).join(' oder ')}
+                </p>
+              )}
             </div>
           )}
 
