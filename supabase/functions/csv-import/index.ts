@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
     const result = { created: 0, updated: 0, skipped: 0, errors: [] as string[], batchId }
 
     // Prepare all building records for upsert
-    const upsertData = buildings.map(building => ({
+    const rawUpsertData = buildings.map((building) => ({
       street: building.street,
       house_number: building.house_number,
       city: building.city || 'Falkensee',
@@ -87,7 +87,22 @@ Deno.serve(async (req) => {
       last_import_batch_id: batchId,
     }))
 
-    console.log(`Prepared ${upsertData.length} records for upsert`)
+    console.log(`Received ${rawUpsertData.length} raw building records`)
+
+    // Deduplicate by (street, house_number, city) to avoid ON CONFLICT errors
+    const dedupedMap = new Map<string, any>()
+    for (const record of rawUpsertData) {
+      const key = `${record.street.trim().toLowerCase()}|${record.house_number
+        .trim()
+        .toLowerCase()}|${record.city.trim().toLowerCase()}`
+      dedupedMap.set(key, record)
+    }
+
+    const upsertData = Array.from(dedupedMap.values())
+
+    console.log(
+      `Prepared ${upsertData.length} unique records for upsert after deduplication`
+    )
 
     // Batch upsert using ON CONFLICT (street, house_number, city)
     // This is much faster than checking each record individually
