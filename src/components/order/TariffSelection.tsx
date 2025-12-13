@@ -705,8 +705,8 @@ export function TariffSelection() {
             </div>
           )}
 
-          {/* Telefon - Only show if product has phone options or no options assigned, and only for einfach tariffs */}
-          {showPhoneOptions && isEinfachTariff && (
+          {/* Telefon - Show if product has phone options assigned in database */}
+          {showPhoneOptions && dbPhoneOptions.length > 0 && (
             <div className="bg-card rounded-xl p-5 border border-border">
               <div className="flex items-center gap-2 mb-3">
                 <Phone className="w-5 h-5 text-accent" />
@@ -714,135 +714,150 @@ export function TariffSelection() {
               </div>
               
               <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <Checkbox 
-                    id="phone-enabled" 
-                    checked={phoneSelection.enabled}
-                    onCheckedChange={(checked) => setPhoneSelection({
-                      ...phoneSelection,
-                      enabled: checked === true,
-                      lines: checked ? phoneSelection.lines : 1,
-                    })}
-                  />
-                  <Label htmlFor="phone-enabled" className="cursor-pointer flex-1">
-                    <div className="flex justify-between items-center">
-                      <span>Telefon-Flat Festnetz</span>
-                      <span className="text-accent">2,95 €/Monat je Leitung</span>
-                    </div>
-                  </Label>
-                </div>
-                
-                {phoneSelection.enabled && (
-                  <div className="ml-6 space-y-4">
-                    <div className="flex items-center gap-4">
-                      <Label className="text-sm">Anzahl Leitungen:</Label>
-                      <div className="flex items-center gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handlePhoneLinesChange(-1)}
-                          disabled={phoneSelection.lines <= 1}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <span className="w-8 text-center font-bold">{phoneSelection.lines}</span>
-                        <Button 
-                          variant="outline" 
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handlePhoneLinesChange(1)}
-                          disabled={phoneSelection.lines >= 10}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
+                {/* Use first phone option from database */}
+                {(() => {
+                  const phoneOption = dbPhoneOptions[0];
+                  const phonePrice = phoneOption?.option.monthly_price ?? 0;
+                  const phoneName = phoneOption?.option.name ?? 'Telefon-Flat';
+                  const phoneInfoText = phoneOption?.option.info_text;
+                  
+                  return (
+                    <>
+                      <div className="flex items-center space-x-3">
+                        <Checkbox 
+                          id="phone-enabled" 
+                          checked={phoneSelection.enabled}
+                          onCheckedChange={(checked) => setPhoneSelection({
+                            ...phoneSelection,
+                            enabled: checked === true,
+                            lines: checked ? phoneSelection.lines : 1,
+                          })}
+                        />
+                        <Label htmlFor="phone-enabled" className="cursor-pointer flex-1">
+                          <div className="flex justify-between items-center">
+                            <span className="flex items-center gap-2">
+                              {phoneName}
+                              {phoneInfoText && <InfoTooltip text={phoneInfoText} />}
+                            </span>
+                            <span className="text-accent">{phonePrice.toFixed(2).replace('.', ',')} €/Monat je Leitung</span>
+                          </div>
+                        </Label>
                       </div>
-                      <span className="text-sm text-muted-foreground">
-                        = {(phoneSelection.lines * 2.95).toFixed(2).replace('.', ',')} €/Monat
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3">
-                      <Checkbox 
-                        id="phone-porting" 
-                        checked={phoneSelection.portingRequired}
-                        onCheckedChange={(checked) => setPhoneSelection({
-                          ...phoneSelection,
-                          portingRequired: checked === true,
-                          portingData: checked ? {
-                            numberOfNumbers: 1,
-                            phoneNumbers: [''],
-                            previousProvider: '',
-                          } : null,
-                        })}
-                      />
-                      <Label htmlFor="phone-porting" className="cursor-pointer">
-                        Rufnummernportierung gewünscht
-                      </Label>
-                    </div>
-                    
-                    {phoneSelection.portingRequired && phoneSelection.portingData && (
-                      <div className="bg-muted/50 rounded-lg p-4 space-y-4">
-                        <div>
-                          <Label className="text-sm">Anzahl der Rufnummern</Label>
-                          <Input 
-                            type="number"
-                            min="1"
-                            max="10"
-                            value={phoneSelection.portingData.numberOfNumbers}
-                            onChange={(e) => {
-                              const num = parseInt(e.target.value) || 1;
-                              const phoneNumbers = Array(num).fill('').map((_, i) => 
-                                phoneSelection.portingData?.phoneNumbers[i] || ''
-                              );
-                              setPhoneSelection({
+                      
+                      {phoneSelection.enabled && (
+                        <div className="ml-6 space-y-4">
+                          <div className="flex items-center gap-4">
+                            <Label className="text-sm">Anzahl Leitungen:</Label>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handlePhoneLinesChange(-1)}
+                                disabled={phoneSelection.lines <= 1}
+                              >
+                                <Minus className="h-4 w-4" />
+                              </Button>
+                              <span className="w-8 text-center font-bold">{phoneSelection.lines}</span>
+                              <Button 
+                                variant="outline" 
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handlePhoneLinesChange(1)}
+                                disabled={phoneSelection.lines >= 10}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <span className="text-sm text-muted-foreground">
+                              = {(phoneSelection.lines * phonePrice).toFixed(2).replace('.', ',')} €/Monat
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center space-x-3">
+                            <Checkbox 
+                              id="phone-porting" 
+                              checked={phoneSelection.portingRequired}
+                              onCheckedChange={(checked) => setPhoneSelection({
                                 ...phoneSelection,
-                                portingData: {
-                                  ...phoneSelection.portingData!,
-                                  numberOfNumbers: num,
-                                  phoneNumbers,
-                                }
-                              });
-                            }}
-                            className="mt-1 w-24"
-                          />
+                                portingRequired: checked === true,
+                                portingData: checked ? {
+                                  numberOfNumbers: 1,
+                                  phoneNumbers: [''],
+                                  previousProvider: '',
+                                } : null,
+                              })}
+                            />
+                            <Label htmlFor="phone-porting" className="cursor-pointer">
+                              Rufnummernportierung gewünscht
+                            </Label>
+                          </div>
+                          
+                          {phoneSelection.portingRequired && phoneSelection.portingData && (
+                            <div className="bg-muted/50 rounded-lg p-4 space-y-4">
+                              <div>
+                                <Label className="text-sm">Anzahl der Rufnummern</Label>
+                                <Input 
+                                  type="number"
+                                  min="1"
+                                  max="10"
+                                  value={phoneSelection.portingData.numberOfNumbers}
+                                  onChange={(e) => {
+                                    const num = parseInt(e.target.value) || 1;
+                                    const phoneNumbers = Array(num).fill('').map((_, i) => 
+                                      phoneSelection.portingData?.phoneNumbers[i] || ''
+                                    );
+                                    setPhoneSelection({
+                                      ...phoneSelection,
+                                      portingData: {
+                                        ...phoneSelection.portingData!,
+                                        numberOfNumbers: num,
+                                        phoneNumbers,
+                                      }
+                                    });
+                                  }}
+                                  className="mt-1 w-24"
+                                />
+                              </div>
+                              
+                              <div>
+                                <Label className="text-sm">Rufnummern</Label>
+                                <Textarea 
+                                  placeholder="Eine Rufnummer pro Zeile"
+                                  value={phoneSelection.portingData.phoneNumbers.join('\n')}
+                                  onChange={(e) => setPhoneSelection({
+                                    ...phoneSelection,
+                                    portingData: {
+                                      ...phoneSelection.portingData!,
+                                      phoneNumbers: e.target.value.split('\n'),
+                                    }
+                                  })}
+                                  className="mt-1"
+                                />
+                              </div>
+                              
+                              <div>
+                                <Label className="text-sm">Bisheriger Anbieter</Label>
+                                <Input 
+                                  placeholder="z.B. Telekom, Vodafone..."
+                                  value={phoneSelection.portingData.previousProvider}
+                                  onChange={(e) => setPhoneSelection({
+                                    ...phoneSelection,
+                                    portingData: {
+                                      ...phoneSelection.portingData!,
+                                      previousProvider: e.target.value,
+                                    }
+                                  })}
+                                  className="mt-1"
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        
-                        <div>
-                          <Label className="text-sm">Rufnummern</Label>
-                          <Textarea 
-                            placeholder="Eine Rufnummer pro Zeile"
-                            value={phoneSelection.portingData.phoneNumbers.join('\n')}
-                            onChange={(e) => setPhoneSelection({
-                              ...phoneSelection,
-                              portingData: {
-                                ...phoneSelection.portingData!,
-                                phoneNumbers: e.target.value.split('\n'),
-                              }
-                            })}
-                            className="mt-1"
-                          />
-                        </div>
-                        
-                        <div>
-                          <Label className="text-sm">Bisheriger Anbieter</Label>
-                          <Input 
-                            placeholder="z.B. Telekom, Vodafone..."
-                            value={phoneSelection.portingData.previousProvider}
-                            onChange={(e) => setPhoneSelection({
-                              ...phoneSelection,
-                              portingData: {
-                                ...phoneSelection.portingData!,
-                                previousProvider: e.target.value,
-                              }
-                            })}
-                            className="mt-1"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           )}
