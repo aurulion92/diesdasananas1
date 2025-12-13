@@ -556,6 +556,7 @@ export type Database = {
           is_building_restricted: boolean | null
           is_fttb: boolean | null
           is_ftth: boolean | null
+          is_ftth_limited: boolean | null
           monthly_price: number
           name: string
           product_id_k7: string | null
@@ -576,6 +577,7 @@ export type Database = {
           is_building_restricted?: boolean | null
           is_fttb?: boolean | null
           is_ftth?: boolean | null
+          is_ftth_limited?: boolean | null
           monthly_price: number
           name: string
           product_id_k7?: string | null
@@ -596,6 +598,7 @@ export type Database = {
           is_building_restricted?: boolean | null
           is_fttb?: boolean | null
           is_ftth?: boolean | null
+          is_ftth_limited?: boolean | null
           monthly_price?: number
           name?: string
           product_id_k7?: string | null

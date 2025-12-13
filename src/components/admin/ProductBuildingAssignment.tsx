@@ -34,6 +34,11 @@ interface SearchResult {
   id: string;
   name: string;
   isAssigned: boolean;
+  isRecommended?: boolean; // Based on ausbau_art matching
+}
+
+interface BuildingInfo {
+  ausbau_art: 'ftth' | 'fttb' | 'ftth_limited' | null;
 }
 
 export function ProductBuildingAssignment({
@@ -49,18 +54,42 @@ export function ProductBuildingAssignment({
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [assignedItems, setAssignedItems] = useState<AssignedItem[]>([]);
   const [searching, setSearching] = useState(false);
+  const [buildingInfo, setBuildingInfo] = useState<BuildingInfo | null>(null);
   const { toast } = useToast();
 
   // Fetch currently assigned items
   useEffect(() => {
     if (open && entityId) {
       fetchAssignedItems();
-      // For building mode, load all products immediately (there aren't many)
+      // For building mode, load building info and all products
       if (mode === 'building') {
-        loadAllProducts();
+        fetchBuildingInfo();
       }
     }
   }, [open, entityId]);
+
+  // Fetch building's ausbau_art for product recommendations
+  const fetchBuildingInfo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('buildings')
+        .select('ausbau_art')
+        .eq('id', entityId)
+        .single();
+
+      if (error) throw error;
+      setBuildingInfo(data as BuildingInfo);
+    } catch (error) {
+      console.error('Error fetching building info:', error);
+    }
+  };
+
+  // Load products once we have building info
+  useEffect(() => {
+    if (mode === 'building' && buildingInfo !== null) {
+      loadAllProducts();
+    }
+  }, [buildingInfo, assignedItems]);
 
   // Search when search term changes (only for product mode searching buildings)
   useEffect(() => {
@@ -113,16 +142,33 @@ export function ProductBuildingAssignment({
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name')
+        .select('id, name, is_ftth, is_fttb, is_ftth_limited')
         .eq('is_active', true)
         .order('display_order', { ascending: true });
 
       if (error) throw error;
 
+      // Determine if product is recommended based on building's ausbau_art
+      const isProductRecommended = (product: any): boolean => {
+        if (!buildingInfo?.ausbau_art) return false;
+        
+        switch (buildingInfo.ausbau_art) {
+          case 'ftth':
+            return product.is_ftth === true;
+          case 'fttb':
+            return product.is_fttb === true;
+          case 'ftth_limited':
+            return product.is_ftth_limited === true;
+          default:
+            return false;
+        }
+      };
+
       setSearchResults((data || []).map(p => ({
         id: p.id,
         name: p.name,
-        isAssigned: assignedItems.some(a => a.id === p.id)
+        isAssigned: assignedItems.some(a => a.id === p.id),
+        isRecommended: isProductRecommended(p)
       })));
     } catch (error) {
       console.error('Error loading products:', error);
@@ -311,31 +357,48 @@ export function ProductBuildingAssignment({
 
           {/* Results list */}
           {mode === 'building' ? (
-            // Building mode: show all products directly
-            <ScrollArea className="h-[250px] border rounded-md">
-              {searching ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : searchResults.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  Keine Produkte verfügbar.
+            // Building mode: show all products directly with recommendations
+            <div className="space-y-2">
+              {buildingInfo && (
+                <p className="text-xs text-muted-foreground px-1">
+                  Ausbauart: <strong>{buildingInfo.ausbau_art?.toUpperCase() || 'Nicht gesetzt'}</strong>
+                  {' '}• Empfohlene Produkte sind grün markiert
                 </p>
-              ) : (
-                <div className="p-2 space-y-1">
-                  {searchResults.map(result => (
-                    <div
-                      key={result.id}
-                      className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer"
-                      onClick={() => toggleAssignment(result.id, result.name, result.isAssigned)}
-                    >
-                      <Checkbox checked={result.isAssigned} />
-                      <span className="text-sm">{result.name}</span>
-                    </div>
-                  ))}
-                </div>
               )}
-            </ScrollArea>
+              <ScrollArea className="h-[250px] border rounded-md">
+                {searching ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Keine Produkte verfügbar.
+                  </p>
+                ) : (
+                  <div className="p-2 space-y-1">
+                    {searchResults.map(result => (
+                      <div
+                        key={result.id}
+                        className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors ${
+                          result.isRecommended 
+                            ? 'bg-success/10 hover:bg-success/20 border border-success/30' 
+                            : 'hover:bg-muted'
+                        }`}
+                        onClick={() => toggleAssignment(result.id, result.name, result.isAssigned)}
+                      >
+                        <Checkbox checked={result.isAssigned} />
+                        <span className="text-sm flex-1">{result.name}</span>
+                        {result.isRecommended && (
+                          <Badge variant="outline" className="text-success border-success text-xs">
+                            Empfohlen
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
           ) : (
             // Product mode: search for buildings
             searchTerm.length >= 3 && (

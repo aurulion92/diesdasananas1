@@ -38,6 +38,7 @@ interface Product {
   upload_speed: number | null;
   is_ftth: boolean;
   is_fttb: boolean;
+  is_ftth_limited: boolean;
   is_active: boolean;
   display_order: number;
   product_id_k7: string | null;
@@ -65,6 +66,7 @@ export const ProductsManager = () => {
     upload_speed: 0,
     is_ftth: true,
     is_fttb: true,
+    is_ftth_limited: true,
     is_active: true,
     display_order: 0,
     product_id_k7: '',
@@ -149,6 +151,7 @@ export const ProductsManager = () => {
       upload_speed: 0,
       is_ftth: true,
       is_fttb: true,
+      is_ftth_limited: true,
       is_active: true,
       display_order: 0,
       product_id_k7: '',
@@ -170,6 +173,7 @@ export const ProductsManager = () => {
       upload_speed: product.upload_speed || 0,
       is_ftth: product.is_ftth,
       is_fttb: product.is_fttb,
+      is_ftth_limited: product.is_ftth_limited,
       is_active: product.is_active,
       display_order: product.display_order,
       product_id_k7: product.product_id_k7 || '',
@@ -369,6 +373,14 @@ export const ProductsManager = () => {
                         />
                       </div>
                       <div className="flex items-center justify-between">
+                        <Label htmlFor="is_ftth_limited">FTTH Limited verfügbar</Label>
+                        <Switch
+                          id="is_ftth_limited"
+                          checked={formData.is_ftth_limited}
+                          onCheckedChange={(checked) => setFormData({...formData, is_ftth_limited: checked})}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
                         <Label htmlFor="includes_phone">Telefon inkludiert</Label>
                         <Switch
                           id="includes_phone"
@@ -452,8 +464,9 @@ export const ProductsManager = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex gap-1">
+                        <div className="flex flex-wrap gap-1">
                           {product.is_ftth && <Badge variant="default">FTTH</Badge>}
+                          {product.is_ftth_limited && <Badge variant="outline" className="border-accent text-accent">Limited</Badge>}
                           {product.is_fttb && <Badge variant="secondary">FTTB</Badge>}
                         </div>
                       </TableCell>
