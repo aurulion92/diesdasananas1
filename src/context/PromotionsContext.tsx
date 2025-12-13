@@ -170,6 +170,7 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Get router discount for a specific router option from applicable promotions
+  // Takes the MAXIMUM discount from any single promotion (no stacking)
   const getRouterDiscountForTariff = (
     tariffSlug: string | null,
     buildingId: string | null,
@@ -178,21 +179,22 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
     if (!selectedRouterOptionId) return 0;
     
     const applicable = getApplicablePromotions(tariffSlug, buildingId);
-    let totalDiscount = 0;
+    let maxDiscount = 0;
 
     for (const promo of applicable) {
       for (const discount of promo.discounts) {
         // Only apply discount if it targets the SELECTED router option
         if (discount.applies_to === 'option' && discount.target_option_id === selectedRouterOptionId) {
           if (discount.discount_type === 'fixed' && discount.discount_amount) {
-            totalDiscount += discount.discount_amount;
+            // Take maximum, don't stack
+            maxDiscount = Math.max(maxDiscount, discount.discount_amount);
           }
         }
       }
     }
 
-    console.log(`Router discount for tariff ${tariffSlug}, router ${selectedRouterOptionId}:`, totalDiscount, 'from promotions:', applicable.map(p => p.name));
-    return totalDiscount;
+    console.log(`Router discount for tariff ${tariffSlug}, router ${selectedRouterOptionId}:`, maxDiscount, 'from promotions:', applicable.map(p => p.name));
+    return maxDiscount;
   };
 
   // Check if setup fee is waived by any applicable promotion
