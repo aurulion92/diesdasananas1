@@ -231,6 +231,12 @@ export const PromotionsManager = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('Saving promotion with:', {
+      scope: formData.scope,
+      selectedProducts,
+      discountEntries,
+    });
+    
     try {
       const promotionData = {
         name: formData.name,
@@ -294,23 +300,51 @@ export const PromotionsManager = () => {
         .eq('promotion_id', promotionId);
 
       if (discountEntries.length > 0) {
-        const discountData = discountEntries.map(entry => ({
-          promotion_id: promotionId,
-          applies_to: entry.applies_to,
-          target_product_id: entry.target_product_id || null,
-          target_option_id: entry.target_option_id || null,
-          discount_type: entry.discount_type,
-          discount_amount: entry.discount_amount,
-          k7_product_id: entry.k7_product_id || null,
-          k7_template_id: entry.k7_template_id || null,
-          k7_template_type: entry.k7_template_type || null,
-        }));
+        // For product-scoped promotions, we need to create entries that link
+        // the discount to the selected products/tariffs
+        const discountData: any[] = [];
+        
+        if ((formData.scope === 'product' || formData.scope === 'building_and_product') && selectedProducts.length > 0) {
+          // Create discount entries linked to each selected product
+          for (const productId of selectedProducts) {
+            for (const entry of discountEntries) {
+              discountData.push({
+                promotion_id: promotionId,
+                applies_to: entry.applies_to,
+                target_product_id: productId, // Link discount to this tariff
+                target_option_id: entry.target_option_id || null,
+                discount_type: entry.discount_type,
+                discount_amount: entry.discount_amount,
+                k7_product_id: entry.k7_product_id || null,
+                k7_template_id: entry.k7_template_id || null,
+                k7_template_type: entry.k7_template_type || null,
+              });
+            }
+          }
+        } else {
+          // Global or building-only: discounts apply universally
+          for (const entry of discountEntries) {
+            discountData.push({
+              promotion_id: promotionId,
+              applies_to: entry.applies_to,
+              target_product_id: entry.target_product_id || null,
+              target_option_id: entry.target_option_id || null,
+              discount_type: entry.discount_type,
+              discount_amount: entry.discount_amount,
+              k7_product_id: entry.k7_product_id || null,
+              k7_template_id: entry.k7_template_id || null,
+              k7_template_type: entry.k7_template_type || null,
+            });
+          }
+        }
 
-        const { error: discountError } = await supabase
-          .from('promotion_discounts')
-          .insert(discountData);
+        if (discountData.length > 0) {
+          const { error: discountError } = await supabase
+            .from('promotion_discounts')
+            .insert(discountData);
 
-        if (discountError) throw discountError;
+          if (discountError) throw discountError;
+        }
       }
 
       setIsDialogOpen(false);
