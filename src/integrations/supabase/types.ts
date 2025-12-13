@@ -399,6 +399,42 @@ export type Database = {
           },
         ]
       }
+      product_buildings: {
+        Row: {
+          building_id: string
+          created_at: string
+          id: string
+          product_id: string
+        }
+        Insert: {
+          building_id: string
+          created_at?: string
+          id?: string
+          product_id: string
+        }
+        Update: {
+          building_id?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_buildings_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_buildings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_option_mappings: {
         Row: {
           created_at: string
@@ -514,6 +550,7 @@ export type Database = {
           id: string
           includes_phone: boolean | null
           is_active: boolean | null
+          is_building_restricted: boolean | null
           is_fttb: boolean | null
           is_ftth: boolean | null
           monthly_price: number
@@ -533,6 +570,7 @@ export type Database = {
           id?: string
           includes_phone?: boolean | null
           is_active?: boolean | null
+          is_building_restricted?: boolean | null
           is_fttb?: boolean | null
           is_ftth?: boolean | null
           monthly_price: number
@@ -552,6 +590,7 @@ export type Database = {
           id?: string
           includes_phone?: boolean | null
           is_active?: boolean | null
+          is_building_restricted?: boolean | null
           is_fttb?: boolean | null
           is_ftth?: boolean | null
           monthly_price?: number

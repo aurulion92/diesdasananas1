@@ -14,7 +14,8 @@ import {
   Package,
   AlertTriangle,
   RefreshCw,
-  Pencil
+  Pencil,
+  Building2
 } from 'lucide-react';
 import {
   Table,
@@ -24,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ProductBuildingAssignment } from './ProductBuildingAssignment';
 
 interface Product {
   id: string;
@@ -50,6 +52,7 @@ export const ProductsManager = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [assignmentProduct, setAssignmentProduct] = useState<{ id: string; name: string } | null>(null);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -471,13 +474,23 @@ export const ProductsManager = () => {
                         />
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEditDialog(product)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setAssignmentProduct({ id: product.id, name: product.name })}
+                            title="Gebäude zuweisen"
+                          >
+                            <Building2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditDialog(product)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -485,6 +498,18 @@ export const ProductsManager = () => {
               </TableBody>
             </Table>
           </div>
+        )}
+
+        {/* Product-Building Assignment Dialog */}
+        {assignmentProduct && (
+          <ProductBuildingAssignment
+            mode="product"
+            entityId={assignmentProduct.id}
+            entityName={assignmentProduct.name}
+            open={!!assignmentProduct}
+            onOpenChange={(open) => !open && setAssignmentProduct(null)}
+            onUpdate={fetchProducts}
+          />
         )}
       </CardContent>
     </Card>
