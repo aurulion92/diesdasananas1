@@ -175,25 +175,19 @@ export function TariffSelection() {
   const databaseTariffs = dbProducts.map(dbProductToTariffOption);
 
   // Determine which tariffs to show
-  // If we have manual assignments, use only those
-  // Otherwise, use database products filtered by hide_for_ftth (only for FTTH connections)
+  // hide_for_ftth filtering applies ALWAYS for FTTH connections, regardless of manual assignment
   const isFtthConnection = connectionType === 'ftth';
   
-  const baseTariffs = hasManualAssignment 
-    ? databaseTariffs
-    : databaseTariffs.filter(t => {
-        // t.id is the UUID, find by UUID
-        const dbProduct = dbProducts.find(p => p.id === t.id);
-        // Only hide products for FTTH connections when hide_for_ftth is true
-        return !(isFtthConnection && dbProduct?.hide_for_ftth);
-      });
+  const baseTariffs = databaseTariffs.filter(t => {
+    const dbProduct = dbProducts.find(p => p.id === t.id);
+    // Hide products for FTTH connections when hide_for_ftth is true
+    return !(isFtthConnection && dbProduct?.hide_for_ftth);
+  });
   
-  const hiddenTariffs = hasManualAssignment
-    ? []
-    : databaseTariffs.filter(t => {
-        const dbProduct = dbProducts.find(p => p.id === t.id);
-        return isFtthConnection && dbProduct?.hide_for_ftth;
-      });
+  const hiddenTariffs = databaseTariffs.filter(t => {
+    const dbProduct = dbProducts.find(p => p.id === t.id);
+    return isFtthConnection && dbProduct?.hide_for_ftth;
+  });
 
   const tariffs = showFiberBasic ? [...baseTariffs, ...hiddenTariffs] : baseTariffs;
   
