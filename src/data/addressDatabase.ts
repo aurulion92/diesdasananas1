@@ -9,6 +9,7 @@ export interface AddressData {
   ausbauart: string;
   connectionType: ConnectionType;
   kabelTvAvailable: boolean;
+  buildingId?: string;
 }
 
 // Determine connection type based on ausbau_art from database
@@ -36,13 +37,37 @@ export function getConnectionType(ausbauart: string | null): ConnectionType {
   return 'not-connected';
 }
 
-// Check address against Supabase database using RPC function
+// Check address against Supabase database - get full building info including ID
 export async function checkAddress(
   street: string, 
   houseNumber: string, 
   city: string
 ): Promise<AddressData | null> {
   try {
+    // First try to get from buildings table directly to get the building ID
+    const { data: buildingData, error: buildingError } = await supabase
+      .from('buildings')
+      .select('id, street, house_number, city, ausbau_art, ausbau_status, kabel_tv_available')
+      .ilike('street', street)
+      .ilike('house_number', houseNumber)
+      .ilike('city', city)
+      .eq('ausbau_status', 'abgeschlossen')
+      .limit(1)
+      .single();
+
+    if (!buildingError && buildingData) {
+      return {
+        street: buildingData.street,
+        houseNumber: buildingData.house_number,
+        city: buildingData.city,
+        ausbauart: buildingData.ausbau_art || '',
+        connectionType: getConnectionType(buildingData.ausbau_art),
+        kabelTvAvailable: buildingData.kabel_tv_available || false,
+        buildingId: buildingData.id
+      };
+    }
+
+    // Fallback to RPC if direct query fails
     const { data, error } = await supabase.rpc('check_address_availability', {
       p_street: street,
       p_house_number: houseNumber,
