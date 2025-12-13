@@ -63,10 +63,11 @@ export function useBuildingProducts(
 
           if (!assignError && assignedProducts && assignedProducts.length > 0) {
             // Building has manual assignments - use only these products
+            // Keep hide_for_ftth value from database!
             const manualProducts = assignedProducts
               .map((ap: any) => ap.products)
               .filter((p: any) => p && p.is_active)
-              .map((p: any) => ({ ...p, hide_for_ftth: false }))
+              .map((p: any) => ({ ...p, hide_for_ftth: p.hide_for_ftth ?? false }))
               .sort((a: DatabaseProduct, b: DatabaseProduct) => 
                 (a.display_order || 0) - (b.display_order || 0)
               );
