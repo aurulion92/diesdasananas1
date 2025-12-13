@@ -30,7 +30,7 @@ export interface ActivePromotion {
 interface PromotionsContextType {
   promotions: ActivePromotion[];
   loading: boolean;
-  getRouterDiscountForTariff: (tariffSlug: string | null, buildingId: string | null) => number;
+  getRouterDiscountForTariff: (tariffSlug: string | null, buildingId: string | null, selectedRouterOptionId: string | null) => number;
   isSetupFeeWaived: (tariffSlug: string | null, buildingId: string | null) => boolean;
   refetch: () => void;
 }
@@ -169,18 +169,21 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  // Get total router discount from all applicable promotions
+  // Get router discount for a specific router option from applicable promotions
   const getRouterDiscountForTariff = (
     tariffSlug: string | null,
-    buildingId: string | null
+    buildingId: string | null,
+    selectedRouterOptionId: string | null
   ): number => {
+    if (!selectedRouterOptionId) return 0;
+    
     const applicable = getApplicablePromotions(tariffSlug, buildingId);
     let totalDiscount = 0;
 
     for (const promo of applicable) {
       for (const discount of promo.discounts) {
-        // Apply discounts targeting options (routers are options)
-        if (discount.applies_to === 'option') {
+        // Only apply discount if it targets the SELECTED router option
+        if (discount.applies_to === 'option' && discount.target_option_id === selectedRouterOptionId) {
           if (discount.discount_type === 'fixed' && discount.discount_amount) {
             totalDiscount += discount.discount_amount;
           }
@@ -188,7 +191,7 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
-    console.log(`Router discount for tariff ${tariffSlug}:`, totalDiscount, 'from promotions:', applicable.map(p => p.name));
+    console.log(`Router discount for tariff ${tariffSlug}, router ${selectedRouterOptionId}:`, totalDiscount, 'from promotions:', applicable.map(p => p.name));
     return totalDiscount;
   };
 

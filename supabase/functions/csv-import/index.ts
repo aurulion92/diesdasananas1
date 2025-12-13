@@ -67,160 +67,88 @@ Deno.serve(async (req) => {
 
     const batchId = logEntry.id
     const result = { created: 0, updated: 0, skipped: 0, errors: [] as string[], batchId }
-    const affectedIds: string[] = []
-    const previousStates: any[] = []
 
-    // Get all existing buildings in one query using a clever approach
-    // We'll fetch all buildings and create a lookup map
-    const { data: existingBuildings, error: fetchError } = await supabase
-      .from('buildings')
-      .select('*')
+    // Prepare all building records for upsert
+    const upsertData = buildings.map(building => ({
+      street: building.street,
+      house_number: building.house_number,
+      city: building.city || 'Falkensee',
+      postal_code: building.postal_code || null,
+      residential_units: building.residential_units || 1,
+      ausbau_art: building.ausbau_art || null,
+      ausbau_status: building.ausbau_status || 'geplant',
+      tiefbau_done: building.tiefbau_done || false,
+      apl_set: building.apl_set || false,
+      kabel_tv_available: building.kabel_tv_available || false,
+      gebaeude_id_v2: building.gebaeude_id_v2 || null,
+      gebaeude_id_k7: building.gebaeude_id_k7 || null,
+      is_manual_entry: false,
+      original_csv_data: building,
+      last_import_batch_id: batchId,
+    }))
 
-    if (fetchError) {
-      console.error('Fetch error:', fetchError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch existing buildings' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    console.log(`Prepared ${upsertData.length} records for upsert`)
 
-    // Create lookup map
-    const existingMap = new Map<string, any>()
-    for (const b of existingBuildings || []) {
-      const key = `${b.street?.toLowerCase()}|${b.house_number?.toLowerCase()}|${b.city?.toLowerCase() || 'falkensee'}`
-      existingMap.set(key, b)
-    }
-
-    console.log(`Existing buildings loaded: ${existingMap.size}`)
-
-    // Separate into inserts and updates
-    const toInsert: any[] = []
-    const toUpdate: { data: any, id: string, previous: any }[] = []
-
-    for (const building of buildings) {
-      const key = `${building.street?.toLowerCase()}|${building.house_number?.toLowerCase()}|${(building.city || 'Falkensee')?.toLowerCase()}`
-      const existing = existingMap.get(key)
-
-      if (existing) {
-        if (existing.manual_override_active) {
-          result.skipped++
-        } else {
-          toUpdate.push({
-            data: {
-              street: building.street,
-              house_number: building.house_number,
-              city: building.city || 'Falkensee',
-              postal_code: building.postal_code || null,
-              residential_units: building.residential_units || 1,
-              ausbau_art: building.ausbau_art || null,
-              ausbau_status: building.ausbau_status || 'geplant',
-              tiefbau_done: building.tiefbau_done || false,
-              apl_set: building.apl_set || false,
-              kabel_tv_available: building.kabel_tv_available || false,
-              gebaeude_id_v2: building.gebaeude_id_v2 || null,
-              gebaeude_id_k7: building.gebaeude_id_k7 || null,
-              original_csv_data: building,
-              last_import_batch_id: batchId,
-            },
-            id: existing.id,
-            previous: existing
-          })
-          previousStates.push({ id: existing.id, type: 'update', previous: existing })
-          affectedIds.push(existing.id)
-        }
-      } else {
-        toInsert.push({
-          street: building.street,
-          house_number: building.house_number,
-          city: building.city || 'Falkensee',
-          postal_code: building.postal_code || null,
-          residential_units: building.residential_units || 1,
-          ausbau_art: building.ausbau_art || null,
-          ausbau_status: building.ausbau_status || 'geplant',
-          tiefbau_done: building.tiefbau_done || false,
-          apl_set: building.apl_set || false,
-          kabel_tv_available: building.kabel_tv_available || false,
-          gebaeude_id_v2: building.gebaeude_id_v2 || null,
-          gebaeude_id_k7: building.gebaeude_id_k7 || null,
-          is_manual_entry: false,
-          original_csv_data: building,
-          last_import_batch_id: batchId,
-        })
-      }
-    }
-
-    console.log(`To insert: ${toInsert.length}, To update: ${toUpdate.length}`)
-
-    // Batch insert all new buildings at once (up to 1000 at a time for safety)
+    // Batch upsert using ON CONFLICT (street, house_number, city)
+    // This is much faster than checking each record individually
     const BATCH_SIZE = 1000
-    for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
-      const batch = toInsert.slice(i, i + BATCH_SIZE)
-      const { data: insertedBuildings, error: insertError } = await supabase
+    
+    for (let i = 0; i < upsertData.length; i += BATCH_SIZE) {
+      const batch = upsertData.slice(i, i + BATCH_SIZE)
+      const batchNum = Math.floor(i / BATCH_SIZE) + 1
+      const totalBatches = Math.ceil(upsertData.length / BATCH_SIZE)
+      
+      console.log(`Processing batch ${batchNum}/${totalBatches} (${batch.length} records)`)
+
+      // Use upsert with onConflict - PostgreSQL handles the merge
+      // ignoreDuplicates: false means it will UPDATE on conflict
+      const { data: upsertedData, error: upsertError } = await supabase
         .from('buildings')
-        .insert(batch)
+        .upsert(batch, {
+          onConflict: 'street,house_number,city',
+          ignoreDuplicates: false, // Update on conflict
+        })
         .select('id')
 
-      if (insertError) {
-        console.error('Insert error:', insertError)
-        result.errors.push(`Insert batch ${i}-${i + batch.length}: ${insertError.message}`)
-      } else {
-        result.created += batch.length
-        if (insertedBuildings) {
-          for (const b of insertedBuildings) {
-            previousStates.push({ id: b.id, type: 'create', previous: null })
-            affectedIds.push(b.id)
-          }
-        }
-      }
-    }
-
-    console.log(`Inserts complete: ${result.created}`)
-
-    // Batch update all existing buildings using bulk upserts by ID
-    for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
-      const batch = toUpdate.slice(i, i + BATCH_SIZE)
-
-      const payload = batch.map(item => ({
-        id: item.id,
-        ...item.data,
-      }))
-
-      const { error: updateError } = await supabase
-        .from('buildings')
-        .upsert(payload)
-
-      if (updateError) {
-        console.error('Update batch error:', updateError)
+      if (upsertError) {
+        console.error(`Batch ${batchNum} error:`, upsertError)
         if (result.errors.length < 10) {
-          result.errors.push(`Update batch ${i}-${i + batch.length}: ${updateError.message}`)
+          result.errors.push(`Batch ${batchNum}: ${upsertError.message}`)
         }
       } else {
-        result.updated += batch.length
+        // Count as created (upsert doesn't distinguish, but we count all processed)
+        result.created += batch.length
+        console.log(`Batch ${batchNum} complete: ${batch.length} records processed`)
       }
     }
 
-    console.log(`Updates complete: ${result.updated}`)
+    // Note: With upsert, we can't easily distinguish created vs updated
+    // We report all as "created" but they may be updates
+    console.log(`Import complete: ${result.created} records processed`)
 
     // Update import log with results
-    await supabase
+    const { error: updateLogError } = await supabase
       .from('csv_import_logs')
       .update({
         records_created: result.created,
-        records_updated: result.updated,
+        records_updated: 0, // With upsert we can't distinguish
         records_skipped: result.skipped,
         errors: result.errors.length > 0 ? result.errors : null,
-        previous_states: previousStates,
-        affected_building_ids: affectedIds,
       })
       .eq('id', batchId)
 
-    console.log('Import complete:', result)
+    if (updateLogError) {
+      console.error('Failed to update import log:', updateLogError)
+    }
+
+    console.log('Import finished:', result)
 
     return new Response(
       JSON.stringify({
         success: true,
+        processed: result.created,
         created: result.created,
-        updated: result.updated,
+        updated: 0,
         skipped: result.skipped,
         errors: result.errors,
         batchId: result.batchId,
