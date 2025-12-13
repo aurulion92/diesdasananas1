@@ -55,7 +55,7 @@ export function useBuildingProducts(
                 id, name, slug, description, monthly_price, setup_fee,
                 download_speed, upload_speed, is_ftth, is_fttb, is_ftth_limited,
                 is_active, display_order, contract_months, includes_phone,
-                is_building_restricted
+                is_building_restricted, hide_for_ftth
               )
             `)
             .eq('building_id', buildingId);
