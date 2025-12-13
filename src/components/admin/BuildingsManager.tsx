@@ -269,6 +269,47 @@ export const BuildingsManager = () => {
     }
   };
 
+  const deleteAllBuildings = async () => {
+    if (!confirm('ACHTUNG: Möchten Sie wirklich ALLE Gebäude löschen? Diese Aktion kann nicht rückgängig gemacht werden!')) {
+      return;
+    }
+    if (!confirm('Sind Sie ABSOLUT sicher? Alle Gebäudedaten werden unwiderruflich gelöscht!')) {
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      // First delete all product_buildings associations
+      const { error: pbError } = await supabase
+        .from('product_buildings')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+      
+      if (pbError) throw pbError;
+
+      // Then delete all buildings
+      const { error } = await supabase
+        .from('buildings')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+      
+      if (error) throw error;
+      
+      toast({ title: 'Erfolg', description: 'Alle Gebäude wurden gelöscht.' });
+      setBuildings([]);
+    } catch (error: any) {
+      console.error('Error deleting all buildings:', error);
+      toast({
+        title: 'Fehler',
+        description: error.message || 'Gebäude konnten nicht gelöscht werden.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // No client-side filtering needed - search is done server-side
   const filteredBuildings = buildings;
 
@@ -301,6 +342,10 @@ export const BuildingsManager = () => {
             <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
               <Upload className="w-4 h-4 mr-2" />
               CSV Import
+            </Button>
+            <Button variant="destructive" size="sm" onClick={deleteAllBuildings}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              Alle löschen
             </Button>
             <CSVImportDialog 
               open={isImportOpen} 
