@@ -57,6 +57,20 @@ interface PhoneSelection {
   lines: number; // Number of phone lines (each 2.95€)
   portingRequired: boolean;
   portingData: PhonePortingData | null;
+  // Phone book options
+  evn: boolean;
+  phoneBookEntryType: 'none' | 'standard' | 'custom';
+  phoneBookPrinted: boolean;
+  phoneBookPhoneInfo: boolean;
+  phoneBookInternet: boolean;
+  phoneBookCustomName: string;
+  phoneBookCustomAddress: string;
+  phoneBookShowAddress: boolean;
+}
+
+interface ConsentData {
+  advertising: boolean;
+  agb: boolean;
 }
 
 interface OrderState {
@@ -82,6 +96,7 @@ interface OrderState {
   promoCodeError: string | null;
   vzfDownloaded: boolean;
   vzfConfirmed: boolean;
+  consentData: ConsentData;
 }
 
 interface OrderContextType extends OrderState {
@@ -108,6 +123,7 @@ interface OrderContextType extends OrderState {
   clearPromoCode: () => void;
   setVzfDownloaded: (downloaded: boolean) => void;
   setVzfConfirmed: (confirmed: boolean) => void;
+  setConsentData: (data: ConsentData) => void;
   getTotalMonthly: () => number;
   getTotalOneTime: () => number;
   getRouterPrice: () => number;
@@ -118,6 +134,7 @@ interface OrderContextType extends OrderState {
   resetOrder: () => void;
   canNavigateToStep: (step: number) => boolean;
   isMFH: () => boolean;
+  hasPhoneBooked: () => boolean;
 }
 
 const initialTvSelection: TvSelection = {
@@ -133,6 +150,19 @@ const initialPhoneSelection: PhoneSelection = {
   lines: 1,
   portingRequired: false,
   portingData: null,
+  evn: false,
+  phoneBookEntryType: 'none',
+  phoneBookPrinted: false,
+  phoneBookPhoneInfo: false,
+  phoneBookInternet: false,
+  phoneBookCustomName: '',
+  phoneBookCustomAddress: '',
+  phoneBookShowAddress: true,
+};
+
+const initialConsentData: ConsentData = {
+  advertising: false,
+  agb: false,
 };
 
 const initialReferralData: ReferralData = {
@@ -162,6 +192,7 @@ const initialState: OrderState = {
   promoCodeError: null,
   vzfDownloaded: false,
   vzfConfirmed: false,
+  consentData: initialConsentData,
 };
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -337,6 +368,14 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
   const isMFH = (): boolean => {
     // MFH detection based on address data - can be extended later
     return false; // Will be updated when we have building type info
+  };
+
+  const setConsentData = (consentData: ConsentData) =>
+    setState(prev => ({ ...prev, consentData }));
+
+  const hasPhoneBooked = (): boolean => {
+    // Phone is booked if tariff includes phone OR phone option is enabled
+    return state.selectedTariff?.includesPhone === true || state.phoneSelection.enabled;
   };
 
   // Check if einfach tariff discount applies (4€ on routers)
@@ -517,6 +556,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
       resetOrder,
       canNavigateToStep,
       isMFH,
+      setConsentData,
+      hasPhoneBooked,
     }}>
       {children}
     </OrderContext.Provider>
