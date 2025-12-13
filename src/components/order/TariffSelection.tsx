@@ -1,4 +1,5 @@
 import { useOrder } from '@/context/OrderContext';
+import { useOrderPromotions } from '@/hooks/useOrderPromotions';
 import { 
   ftthTariffs, 
   limitedTariffs,
@@ -73,9 +74,15 @@ export function TariffSelection() {
     promoCodeError,
     applyPromoCode,
     clearPromoCode,
-    getRouterDiscount,
     setStep 
   } = useOrder();
+
+  // Use promotions from database
+  const { 
+    totalRouterDiscount, 
+    hasRouterDiscount,
+    getPromotedRouterPrice 
+  } = useOrderPromotions();
 
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [referralInput, setReferralInput] = useState('');
@@ -202,7 +209,7 @@ export function TariffSelection() {
     }
   };
 
-  const routerDiscount = getRouterDiscount();
+  const routerDiscount = totalRouterDiscount;
 
   return (
     <div className="space-y-10 animate-slide-up">
@@ -320,9 +327,9 @@ export function TariffSelection() {
             <div className="flex items-center gap-2 mb-3">
               <Router className="w-5 h-5 text-accent" />
               <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Router auswählen</p>
-              {(isEinfachTariff || appliedPromoCode?.routerDiscount) && (
+              {routerDiscount > 0 && (
                 <span className="bg-success/10 text-success text-xs px-2 py-0.5 rounded-full font-medium">
-                  4€ Rabatt
+                  {routerDiscount}€ Rabatt
                 </span>
               )}
             </div>
@@ -335,10 +342,11 @@ export function TariffSelection() {
               </SelectTrigger>
               <SelectContent className="bg-card border border-border z-50">
                 {availableRouters.map((router) => {
-                  const showDiscount = (isEinfachTariff || appliedPromoCode?.routerDiscount) && 
-                    router.discountedPrice !== undefined && 
-                    router.discountedPrice !== router.monthlyPrice;
-                  const displayPrice = showDiscount ? router.discountedPrice : router.monthlyPrice;
+                  // Calculate display price based on promotion discount
+                  const hasDiscount = routerDiscount > 0 && router.monthlyPrice > 0;
+                  const displayPrice = hasDiscount 
+                    ? Math.max(0, router.monthlyPrice - routerDiscount)
+                    : router.monthlyPrice;
                   
                   return (
                     <SelectItem key={router.id} value={router.id}>
@@ -346,14 +354,14 @@ export function TariffSelection() {
                         <span>{router.name}</span>
                         {router.monthlyPrice > 0 && (
                           <span className="text-accent ml-2">
-                            {showDiscount && (
+                            {hasDiscount && (
                               <span className="line-through text-muted-foreground mr-1">
                                 {router.monthlyPrice.toFixed(2).replace('.', ',')} €
                               </span>
                             )}
-                            {displayPrice !== undefined && displayPrice > 0 
+                            {displayPrice > 0 
                               ? `${displayPrice.toFixed(2).replace('.', ',')} €/Monat`
-                              : displayPrice === 0 ? '0,00 €/Monat' : ''
+                              : '0,00 €/Monat'
                             }
                           </span>
                         )}
