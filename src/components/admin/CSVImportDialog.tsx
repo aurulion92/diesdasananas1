@@ -425,72 +425,136 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
 
   // Build preview with change detection
   const buildPreview = async () => {
+    const LARGE_CSV_THRESHOLD = 2000;
+    const PREVIEW_SAMPLE_LIMIT = 200;
+
+    setImporting(true);
     setStep('importing');
-    const preview: PreviewRow[] = [];
-    
-    for (const row of csvData) {
-      const building = transformRow(row);
-      if (!building) {
-        preview.push({
-          data: { street: row[0] || '-', house_number: row[1] || '-' },
-          existing: null,
-          hasChanges: false,
-          changes: [],
-          willBeSkipped: true,
-          skipReason: 'Ungültige Daten'
-        });
-        continue;
-      }
 
-      const { data: existing } = await supabase
-        .from('buildings')
-        .select('*')
-        .eq('street', building.street)
-        .eq('house_number', building.house_number)
-        .eq('city', building.city || 'Falkensee')
-        .maybeSingle();
+    try {
+      const preview: PreviewRow[] = [];
 
-      const changes: { field: string; oldValue: any; newValue: any }[] = [];
-      
-      if (existing) {
-        const fieldsToCompare = ['ausbau_art', 'ausbau_status', 'tiefbau_done', 'apl_set', 'kabel_tv_available', 'residential_units', 'gebaeude_id_v2', 'gebaeude_id_k7'];
-        
-        for (const field of fieldsToCompare) {
-          if (building[field] !== undefined && existing[field] !== building[field]) {
-            changes.push({
-              field,
-              oldValue: existing[field],
-              newValue: building[field]
+      // Für sehr große CSV-Dateien überspringen wir den teuren Detailabgleich
+      // gegen die Datenbank und zeigen nur eine Schnellvorschau auf Basis
+      // einer Stichprobe. Der vollständige Import kann bei Bedarf über
+      // "Letzten Import rückgängig machen" wieder zurückgerollt werden.
+      if (csvData.length > LARGE_CSV_THRESHOLD) {
+        let added = 0;
+
+        for (const row of csvData) {
+          const building = transformRow(row);
+
+          if (!building) {
+            preview.push({
+              data: { street: row[0] || '-', house_number: row[1] || '-' },
+              existing: null,
+              hasChanges: false,
+              changes: [],
+              willBeSkipped: true,
+              skipReason: 'Ungültige Daten',
+            });
+          } else {
+            preview.push({
+              data: building,
+              existing: null,
+              hasChanges: false,
+              changes: [],
+              willBeSkipped: false,
             });
           }
+
+          added++;
+          if (added >= PREVIEW_SAMPLE_LIMIT) break;
         }
+
+        setPreviewRows(preview);
+        setSyncConflicts([]);
+        toast({
+          title: 'Schnellvorschau für große CSV',
+          description: `Für große Dateien (${csvData.length.toLocaleString()} Zeilen) wird der Detailabgleich übersprungen. Der Import kann bei Bedarf über "Letzten Import rückgängig machen" zurückgerollt werden.`,
+        });
+        setStep('preview');
+        return;
       }
 
-      const willBeSkipped = existing?.manual_override_active && changes.length > 0;
+      // Bisheriges Verhalten für kleinere Dateien: Detailabgleich mit Datenbank
+      for (const row of csvData) {
+        const building = transformRow(row);
+        if (!building) {
+          preview.push({
+            data: { street: row[0] || '-', house_number: row[1] || '-' },
+            existing: null,
+            hasChanges: false,
+            changes: [],
+            willBeSkipped: true,
+            skipReason: 'Ungültige Daten',
+          });
+          continue;
+        }
 
-      preview.push({
-        data: building,
-        existing,
-        hasChanges: changes.length > 0,
-        changes,
-        willBeSkipped,
-        skipReason: willBeSkipped ? 'Manuelle Änderungen aktiv' : undefined
-      });
-    }
+        const { data: existing } = await supabase
+          .from('buildings')
+          .select('*')
+          .eq('street', building.street)
+          .eq('house_number', building.house_number)
+          .eq('city', building.city || 'Falkensee')
+          .maybeSingle();
 
-    setPreviewRows(preview);
-    
-    // Check for sync conflicts
-    const conflicts = preview.filter(p => p.willBeSkipped && p.changes.length > 0);
-    if (conflicts.length > 0 && importMode === 'manual') {
-      setSyncConflicts(conflicts.map(c => ({
-        building: c.data,
-        existing: c.existing,
-        changes: c.changes
-      })));
-      setStep('sync-check');
-    } else {
-      setStep('preview');
+        const changes: { field: string; oldValue: any; newValue: any }[] = [];
+
+        if (existing) {
+          const fieldsToCompare = [
+            'ausbau_art',
+            'ausbau_status',
+            'tiefbau_done',
+            'apl_set',
+            'kabel_tv_available',
+            'residential_units',
+            'gebaeude_id_v2',
+            'gebaeude_id_k7',
+          ];
+
+          for (const field of fieldsToCompare) {
+            if (building[field] !== undefined && existing[field] !== building[field]) {
+              changes.push({
+                field,
+                oldValue: existing[field],
+                newValue: building[field],
+              });
+            }
+          }
+        }
+
+        const willBeSkipped = existing?.manual_override_active && changes.length > 0;
+
+        preview.push({
+          data: building,
+          existing,
+          hasChanges: changes.length > 0,
+          changes,
+          willBeSkipped,
+          skipReason: willBeSkipped ? 'Manuelle Änderungen aktiv' : undefined,
+        });
+      }
+
+      setPreviewRows(preview);
+
+      // Check for sync conflicts
+      const conflicts = preview.filter((p) => p.willBeSkipped && p.changes.length > 0);
+      if (conflicts.length > 0 && importMode === 'manual') {
+        setSyncConflicts(
+          conflicts.map((c) => ({
+            building: c.data,
+            existing: c.existing,
+            changes: c.changes,
+          })),
+        );
+        setStep('sync-check');
+      } else {
+        setStep('preview');
+      }
+    } finally {
+      setImporting(false);
     }
   };
 
