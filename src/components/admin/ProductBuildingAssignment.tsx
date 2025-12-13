@@ -174,37 +174,10 @@ export function ProductBuildingAssignment({
         }
       };
 
-      // Auto-assign recommended products once for buildings without manual assignments
-      if (
-        mode === 'building' &&
-        buildingInfo?.ausbau_art &&
-        assignedItems.length === 0 &&
-        !autoAssignmentDone
-      ) {
-        const recommendedProducts = products.filter(p => isProductRecommended(p));
-
-        if (recommendedProducts.length > 0) {
-          const { error: insertError } = await supabase
-            .from('product_buildings')
-            .insert(
-              recommendedProducts.map(p => ({
-                product_id: p.id,
-                building_id: entityId,
-              }))
-            );
-
-          if (insertError) {
-            console.error('Error auto-assigning products:', insertError);
-          } else {
-            setAutoAssignmentDone(true);
-            // Refresh assigned items; searchResults will sync via effect
-            await fetchAssignedItems();
-          }
-        } else {
-          // Nothing to auto-assign but mark as done to avoid repeated checks
-          setAutoAssignmentDone(true);
-        }
-      }
+      // No auto-assignment - building assignments are always manual
+      // If a building has no assigned products, it means administrator
+      // intentionally left it empty or it was never configured
+      // Products shown will follow the building's ausbau_art compatibility
 
       setSearchResults(products.map(p => ({
         id: p.id,
