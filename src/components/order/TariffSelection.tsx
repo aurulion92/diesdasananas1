@@ -399,7 +399,7 @@ export function TariffSelection() {
             className="text-sm text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1"
           >
             <ChevronDown className="w-4 h-4" />
-            Weitere Optionen anzeigen
+            Weitere Produkte anzeigen
           </button>
         </div>
       )}
