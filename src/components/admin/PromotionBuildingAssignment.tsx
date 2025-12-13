@@ -41,7 +41,7 @@ export const PromotionBuildingAssignment = ({
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch all promotions (only non-global ones make sense for building assignment)
+      // Fetch all non-global promotions first
       const { data: promoData, error: promoError } = await supabase
         .from('promotions')
         .select('id, name, code, is_active')
@@ -49,7 +49,35 @@ export const PromotionBuildingAssignment = ({
         .order('name', { ascending: true });
 
       if (promoError) throw promoError;
-      setPromotions(promoData || []);
+
+      // Filter out product-only promotions (those that have discounts with target_product_id but no building assignments)
+      const promotionsWithBuildingScope: Promotion[] = [];
+      
+      for (const promo of promoData || []) {
+        // Check if this promotion has any building assignments already or is purely product-based
+        const { data: discountData } = await supabase
+          .from('promotion_discounts')
+          .select('target_product_id')
+          .eq('promotion_id', promo.id)
+          .not('target_product_id', 'is', null)
+          .limit(1);
+        
+        const { data: buildingData } = await supabase
+          .from('promotion_buildings')
+          .select('building_id')
+          .eq('promotion_id', promo.id)
+          .limit(1);
+        
+        const hasProductTargets = discountData && discountData.length > 0;
+        const hasBuildingAssignments = buildingData && buildingData.length > 0;
+        
+        // Include if: has building assignments, or has no product targets (pure building scope), or is combined scope
+        if (hasBuildingAssignments || !hasProductTargets) {
+          promotionsWithBuildingScope.push(promo);
+        }
+      }
+      
+      setPromotions(promotionsWithBuildingScope);
 
       // Fetch current assignments for this building
       const { data: assignData, error: assignError } = await supabase

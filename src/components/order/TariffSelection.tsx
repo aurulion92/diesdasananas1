@@ -43,10 +43,14 @@ import {
   CheckCircle2,
   XCircle,
   ChevronDown,
-  Loader2
+  Loader2,
+  Wrench,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
+import { PhoneBookOptions } from '@/components/order/PhoneBookOptions';
 
 interface ReferralData {
   type: 'none' | 'internet' | 'social-media' | 'referral' | 'promo-code';
@@ -160,6 +164,7 @@ export function TariffSelection() {
     tvCominOptions,
     tvWaipuOptions,
     tvHardwareOptions,
+    serviceOptions,
   } = useProductOptions(selectedTariff?.id || null);
 
   const [promoCodeInput, setPromoCodeInput] = useState('');
@@ -850,6 +855,73 @@ export function TariffSelection() {
               <p className="text-sm text-success font-medium">
                 ✓ Telefon-Flat ins deutsche Festnetz ist bereits inklusive
               </p>
+            </div>
+          )}
+
+          {/* Phone Book Options - Show when phone is booked */}
+          {(phoneSelection.enabled || isFiberBasic) && (
+            <PhoneBookOptions
+              data={phoneSelection}
+              onChange={setPhoneSelection}
+            />
+          )}
+
+          {/* Service-Leistungen - Options with category 'service' */}
+          {serviceOptions.length > 0 && (
+            <div className="bg-card rounded-xl p-5 border border-border">
+              <div className="flex items-center gap-2 mb-3">
+                <Wrench className="w-5 h-5 text-accent" />
+                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Service-Leistungen</p>
+              </div>
+              
+              <div className="space-y-3">
+                {serviceOptions.map(({ option }) => (
+                  <div key={option.id} className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:border-accent/50 transition-all">
+                    <Checkbox 
+                      id={`service-${option.id}`}
+                      // TODO: Add state management for service options
+                    />
+                    <Label htmlFor={`service-${option.id}`} className="cursor-pointer flex-1">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-2">
+                          <span>{option.name}</span>
+                          {option.info_text && <InfoTooltip text={option.info_text} />}
+                          {option.external_link_url && (
+                            <a 
+                              href={option.external_link_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline text-xs inline-flex items-center gap-1"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {option.external_link_label || 'Mehr Info'}
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          {(option.monthly_price ?? 0) > 0 && (
+                            <span className="text-accent font-medium">
+                              {option.monthly_price?.toFixed(2).replace('.', ',')} €/Monat
+                            </span>
+                          )}
+                          {(option.one_time_price ?? 0) > 0 && (
+                            <span className="text-accent font-medium ml-2">
+                              {option.one_time_price?.toFixed(2).replace('.', ',')} € einm.
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {option.description && (
+                        <p className="text-sm text-muted-foreground mt-1">{option.description}</p>
+                      )}
+                      {option.image_url && (
+                        <img src={option.image_url} alt={option.name} className="mt-2 rounded-md max-h-24 object-contain" />
+                      )}
+                    </Label>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
