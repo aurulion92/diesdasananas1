@@ -19,7 +19,8 @@ import {
   AlertTriangle,
   Building2,
   Undo2,
-  RefreshCw
+  RefreshCw,
+  Package
 } from 'lucide-react';
 import {
   Table,
@@ -31,6 +32,7 @@ import {
 } from '@/components/ui/table';
 import { CSVImportDialog } from './CSVImportDialog';
 import { CSVImportUndoButton } from './CSVImportUndoButton';
+import { ProductBuildingAssignment } from './ProductBuildingAssignment';
 
 interface Building {
   id: string;
@@ -71,6 +73,7 @@ export const BuildingsManager = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
+  const [assignmentBuilding, setAssignmentBuilding] = useState<{ id: string; name: string } | null>(null);
   const { toast } = useToast();
 
   // Form state
@@ -553,7 +556,18 @@ export const BuildingsManager = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                        {building.has_manual_override && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setAssignmentBuilding({ 
+                              id: building.id, 
+                              name: `${building.street} ${building.house_number}, ${building.city}` 
+                            })}
+                            title="Produkte zuweisen"
+                          >
+                            <Package className="w-4 h-4" />
+                          </Button>
+                          {building.has_manual_override && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -578,6 +592,18 @@ export const BuildingsManager = () => {
               </TableBody>
             </Table>
           </div>
+        )}
+
+        {/* Building-Product Assignment Dialog */}
+        {assignmentBuilding && (
+          <ProductBuildingAssignment
+            mode="building"
+            entityId={assignmentBuilding.id}
+            entityName={assignmentBuilding.name}
+            open={!!assignmentBuilding}
+            onOpenChange={(open) => !open && setAssignmentBuilding(null)}
+            onUpdate={() => fetchBuildings(searchTerm)}
+          />
         )}
       </CardContent>
     </Card>
