@@ -69,25 +69,58 @@ Deno.serve(async (req) => {
     const batchId = logEntry.id
     const result = { created: 0, updated: 0, skipped: 0, errors: [] as string[], batchId }
 
-    // Prepare all building records for upsert
-    const rawUpsertData = buildings.map((building) => ({
-      street: building.street,
-      house_number: building.house_number,
-      city: building.city || 'Falkensee',
-      postal_code: building.postal_code || null,
-      residential_units: building.residential_units || 1,
-      ausbau_art: building.ausbau_art || null,
-      ausbau_status: building.ausbau_status || 'geplant',
-      tiefbau_done: building.tiefbau_done || false,
-      apl_set: building.apl_set || false,
-      kabel_tv_available: building.kabel_tv_available || false,
-      gnv_vorhanden: building.gnv_vorhanden || false,
-      gebaeude_id_v2: building.gebaeude_id_v2 || null,
-      gebaeude_id_k7: building.gebaeude_id_k7 || null,
-      is_manual_entry: false,
-      original_csv_data: building,
-      last_import_batch_id: batchId,
-    }))
+    // Get all existing buildings to preserve protected fields (kabel_tv_available)
+    // These fields are ONLY set manually and should never be overwritten by CSV
+    const existingBuildingsMap = new Map<string, { kabel_tv_available: boolean }>()
+    
+    // Fetch existing buildings in batches to get current kabel_tv_available values
+    const FETCH_BATCH = 1000
+    for (let i = 0; i < buildings.length; i += FETCH_BATCH) {
+      const batch = buildings.slice(i, i + FETCH_BATCH)
+      const conditions = batch.map(b => 
+        `and(street.ilike.${encodeURIComponent(b.street.trim())},house_number.ilike.${encodeURIComponent(b.house_number.trim())},city.ilike.${encodeURIComponent((b.city || 'Falkensee').trim())})`
+      ).join(',')
+      
+      const { data: existingData } = await supabase
+        .from('buildings')
+        .select('street, house_number, city, kabel_tv_available')
+        .or(conditions)
+      
+      if (existingData) {
+        for (const existing of existingData) {
+          const key = `${existing.street.trim().toLowerCase()}|${existing.house_number.trim().toLowerCase()}|${existing.city.trim().toLowerCase()}`
+          existingBuildingsMap.set(key, { kabel_tv_available: existing.kabel_tv_available })
+        }
+      }
+    }
+
+    console.log(`Found ${existingBuildingsMap.size} existing buildings with protected fields`)
+
+    // Prepare all building records for upsert, preserving protected fields
+    const rawUpsertData = buildings.map((building) => {
+      const key = `${building.street.trim().toLowerCase()}|${building.house_number.trim().toLowerCase()}|${(building.city || 'Falkensee').trim().toLowerCase()}`
+      const existing = existingBuildingsMap.get(key)
+      
+      return {
+        street: building.street,
+        house_number: building.house_number,
+        city: building.city || 'Falkensee',
+        postal_code: building.postal_code || null,
+        residential_units: building.residential_units || 1,
+        ausbau_art: building.ausbau_art || null,
+        ausbau_status: building.ausbau_status || 'geplant',
+        tiefbau_done: building.tiefbau_done || false,
+        apl_set: building.apl_set || false,
+        // PROTECTED: Keep existing kabel_tv_available if building exists, otherwise use CSV value (usually false)
+        kabel_tv_available: existing ? existing.kabel_tv_available : (building.kabel_tv_available || false),
+        gnv_vorhanden: building.gnv_vorhanden || false,
+        gebaeude_id_v2: building.gebaeude_id_v2 || null,
+        gebaeude_id_k7: building.gebaeude_id_k7 || null,
+        is_manual_entry: false,
+        original_csv_data: building,
+        last_import_batch_id: batchId,
+      }
+    })
 
     console.log(`Received ${rawUpsertData.length} raw building records`)
 

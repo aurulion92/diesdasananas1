@@ -293,8 +293,8 @@ export function AddressCheck() {
           </Button>
         </div>
 
-        {/* Hinweis wenn Hausnummer nicht in der Liste - zeigt Kontaktformular */}
-        {houseNumber && !isHouseNumberInDatabase && houseNumberSuggestions.length > 0 && (
+        {/* Hinweis wenn Hausnummer nicht in der Liste - zeigt Kontaktformular nur wenn kein anderes result aktiv */}
+        {houseNumber && !isHouseNumberInDatabase && houseNumberSuggestions.length > 0 && !result && (
           <div className="animate-scale-in mt-6 space-y-4">
             <div className="p-5 bg-muted border border-border rounded-xl">
               <div className="flex items-start gap-4">
