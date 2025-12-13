@@ -36,7 +36,7 @@ export const CSVImportUndoButton = ({ onUndoComplete }: CSVImportUndoButtonProps
   const { toast } = useToast();
 
   const checkLastImport = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('csv_import_logs')
       .select('id, created_at, records_created, records_updated, affected_building_ids, previous_states, is_reverted')
       .eq('import_type', 'buildings')
@@ -45,18 +45,38 @@ export const CSVImportUndoButton = ({ onUndoComplete }: CSVImportUndoButtonProps
       .limit(1)
       .maybeSingle();
 
-    if (data && (data.affected_building_ids?.length || 0) > 0) {
-      setLastImport(data as ImportLog);
-      setDialogOpen(true);
-    } else {
+    if (error) {
+      console.error('Error loading last import:', error);
+      toast({
+        title: 'Fehler',
+        description: 'Der letzte Import konnte nicht geprüft werden.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!data) {
       toast({
         title: 'Kein Import vorhanden',
         description: 'Es gibt keinen rückgängig zu machenden Import.',
         variant: 'destructive',
       });
+      return;
+    }
+
+    const affectedCount = data.affected_building_ids?.length || 0;
+
+    if (affectedCount > 0) {
+      setLastImport(data as ImportLog);
+      setDialogOpen(true);
+    } else {
+      toast({
+        title: 'Import kann nicht rückgängig gemacht werden',
+        description: 'Der letzte Import wurde mit dem Schnell-Import ausgeführt. Für diese Importe werden aktuell keine Detaildaten für "Rückgängig" gespeichert. Verwende ggf. "Alle löschen" und importiere erneut.',
+        variant: 'destructive',
+      });
     }
   };
-
   const handleUndo = async () => {
     if (!lastImport) return;
     
