@@ -5,9 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff, Shield, Trash2, RefreshCw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
+import { de } from 'date-fns/locale';
 
 interface EmailSettings {
   smtp_host: string;
@@ -28,6 +33,29 @@ interface DesignSettings {
   accent_lightness: string;
   border_radius: string;
   preset: string;
+}
+
+interface RateLimitSettings {
+  enabled: boolean;
+  order_max_attempts: number;
+  order_window_minutes: number;
+  order_block_minutes: number;
+  contact_max_attempts: number;
+  contact_window_minutes: number;
+  contact_block_minutes: number;
+  login_max_attempts: number;
+  login_window_minutes: number;
+  login_block_minutes: number;
+}
+
+interface RateLimitEntry {
+  id: string;
+  ip_address: string;
+  action_type: string;
+  attempts: number;
+  blocked_until: string | null;
+  first_attempt_at: string;
+  last_attempt_at: string;
 }
 
 const DEFAULT_DESIGN: DesignSettings = {
@@ -82,6 +110,19 @@ const DEFAULT_EMAIL: EmailSettings = {
   use_ssl: true,
 };
 
+const DEFAULT_RATE_LIMIT: RateLimitSettings = {
+  enabled: true,
+  order_max_attempts: 3,
+  order_window_minutes: 60,
+  order_block_minutes: 60,
+  contact_max_attempts: 5,
+  contact_window_minutes: 30,
+  contact_block_minutes: 30,
+  login_max_attempts: 5,
+  login_window_minutes: 15,
+  login_block_minutes: 30,
+};
+
 export const SettingsManager = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -90,9 +131,13 @@ export const SettingsManager = () => {
   
   const [emailSettings, setEmailSettings] = useState<EmailSettings>(DEFAULT_EMAIL);
   const [designSettings, setDesignSettings] = useState<DesignSettings>(DEFAULT_DESIGN);
+  const [rateLimitSettings, setRateLimitSettings] = useState<RateLimitSettings>(DEFAULT_RATE_LIMIT);
+  const [rateLimitEntries, setRateLimitEntries] = useState<RateLimitEntry[]>([]);
+  const [loadingRateLimits, setLoadingRateLimits] = useState(false);
 
   useEffect(() => {
     fetchSettings();
+    fetchRateLimits();
   }, []);
 
   const fetchSettings = async () => {
@@ -122,7 +167,32 @@ export const SettingsManager = () => {
       applyDesignSettings(settings);
     }
 
+    // Fetch rate limit settings
+    const { data: rateLimitData } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'rate_limit_settings')
+      .maybeSingle();
+    
+    if (rateLimitData?.value) {
+      setRateLimitSettings({ ...DEFAULT_RATE_LIMIT, ...(rateLimitData.value as object) });
+    }
+
     setLoading(false);
+  };
+
+  const fetchRateLimits = async () => {
+    setLoadingRateLimits(true);
+    const { data, error } = await supabase
+      .from('rate_limits')
+      .select('*')
+      .order('last_attempt_at', { ascending: false })
+      .limit(100);
+    
+    if (!error && data) {
+      setRateLimitEntries(data);
+    }
+    setLoadingRateLimits(false);
   };
 
   const applyDesignSettings = (settings: DesignSettings) => {
@@ -174,6 +244,26 @@ export const SettingsManager = () => {
     setSaving(false);
   };
 
+  const saveRateLimitSettings = async () => {
+    setSaving(true);
+    
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert([{
+        key: 'rate_limit_settings',
+        value: rateLimitSettings as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString()
+      }] as any, { onConflict: 'key' });
+
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Gespeichert', description: 'Rate-Limit-Einstellungen wurden gespeichert.' });
+    }
+    
+    setSaving(false);
+  };
+
   const resetDesign = async () => {
     setDesignSettings(DEFAULT_DESIGN);
     applyDesignSettings(DEFAULT_DESIGN);
@@ -211,6 +301,58 @@ export const SettingsManager = () => {
     }
   };
 
+  const unblockIP = async (id: string) => {
+    const { error } = await supabase
+      .from('rate_limits')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Entsperrt', description: 'IP wurde entsperrt.' });
+      fetchRateLimits();
+    }
+  };
+
+  const clearAllRateLimits = async () => {
+    if (!confirm('Alle Rate-Limit-Einträge wirklich löschen?')) return;
+    
+    const { error } = await supabase
+      .from('rate_limits')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+    
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Gelöscht', description: 'Alle Rate-Limit-Einträge wurden gelöscht.' });
+      fetchRateLimits();
+    }
+  };
+
+  const isBlocked = (entry: RateLimitEntry) => {
+    if (!entry.blocked_until) return false;
+    return new Date(entry.blocked_until) > new Date();
+  };
+
+  const getActionLabel = (actionType: string) => {
+    switch (actionType) {
+      case 'order_submission':
+      case 'order':
+        return 'Bestellung';
+      case 'contact_form':
+        return 'Kontaktformular';
+      case 'admin_login':
+      case 'login':
+        return 'Login';
+      case 'customer_login':
+        return 'Kundenportal';
+      default:
+        return actionType;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -223,7 +365,7 @@ export const SettingsManager = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-foreground">Einstellungen</h2>
-        <p className="text-muted-foreground">Verwalten Sie Design und E-Mail-Konfiguration</p>
+        <p className="text-muted-foreground">Verwalten Sie Design, E-Mail und Sicherheit</p>
       </div>
 
       <Tabs defaultValue="email" className="space-y-4">
@@ -235,6 +377,10 @@ export const SettingsManager = () => {
           <TabsTrigger value="design" className="flex items-center gap-2">
             <Palette className="w-4 h-4" />
             Design
+          </TabsTrigger>
+          <TabsTrigger value="security" className="flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            Rate-Limit / Sicherheit
           </TabsTrigger>
         </TabsList>
 
@@ -515,6 +661,217 @@ export const SettingsManager = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="security">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="w-5 h-5" />
+                  Rate-Limit Einstellungen
+                </CardTitle>
+                <CardDescription>
+                  Konfigurieren Sie wie oft IPs Aktionen ausführen dürfen bevor sie gesperrt werden
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                  <div>
+                    <Label className="text-base font-medium">Rate-Limiting aktiviert</Label>
+                    <p className="text-sm text-muted-foreground">Schützt vor Spam und Brute-Force-Angriffen</p>
+                  </div>
+                  <Switch
+                    checked={rateLimitSettings.enabled}
+                    onCheckedChange={(checked) => setRateLimitSettings({ ...rateLimitSettings, enabled: checked })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Bestellungen */}
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <h4 className="font-medium">Bestellungen</h4>
+                    <div className="space-y-2">
+                      <Label>Max. Versuche</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={rateLimitSettings.order_max_attempts}
+                        onChange={(e) => setRateLimitSettings({ ...rateLimitSettings, order_max_attempts: parseInt(e.target.value) || 3 })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Zeitfenster (Min.)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={rateLimitSettings.order_window_minutes}
+                        onChange={(e) => setRateLimitSettings({ ...rateLimitSettings, order_window_minutes: parseInt(e.target.value) || 60 })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Sperrzeit (Min.)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={rateLimitSettings.order_block_minutes}
+                        onChange={(e) => setRateLimitSettings({ ...rateLimitSettings, order_block_minutes: parseInt(e.target.value) || 60 })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Kontaktformular */}
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <h4 className="font-medium">Kontaktformular</h4>
+                    <div className="space-y-2">
+                      <Label>Max. Versuche</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={rateLimitSettings.contact_max_attempts}
+                        onChange={(e) => setRateLimitSettings({ ...rateLimitSettings, contact_max_attempts: parseInt(e.target.value) || 5 })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Zeitfenster (Min.)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={rateLimitSettings.contact_window_minutes}
+                        onChange={(e) => setRateLimitSettings({ ...rateLimitSettings, contact_window_minutes: parseInt(e.target.value) || 30 })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Sperrzeit (Min.)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={rateLimitSettings.contact_block_minutes}
+                        onChange={(e) => setRateLimitSettings({ ...rateLimitSettings, contact_block_minutes: parseInt(e.target.value) || 30 })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Login */}
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <h4 className="font-medium">Login-Versuche</h4>
+                    <div className="space-y-2">
+                      <Label>Max. Versuche</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={rateLimitSettings.login_max_attempts}
+                        onChange={(e) => setRateLimitSettings({ ...rateLimitSettings, login_max_attempts: parseInt(e.target.value) || 5 })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Zeitfenster (Min.)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={rateLimitSettings.login_window_minutes}
+                        onChange={(e) => setRateLimitSettings({ ...rateLimitSettings, login_window_minutes: parseInt(e.target.value) || 15 })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Sperrzeit (Min.)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={rateLimitSettings.login_block_minutes}
+                        onChange={(e) => setRateLimitSettings({ ...rateLimitSettings, login_block_minutes: parseInt(e.target.value) || 30 })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex justify-end">
+                  <Button onClick={saveRateLimitSettings} disabled={saving}>
+                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Speichern
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Shield className="w-5 h-5" />
+                    Aktive Rate-Limits / Gesperrte IPs
+                  </span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={fetchRateLimits}>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Aktualisieren
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={clearAllRateLimits}>
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Alle löschen
+                    </Button>
+                  </div>
+                </CardTitle>
+                <CardDescription>
+                  Übersicht aller IPs mit Rate-Limit-Einträgen
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingRateLimits ? (
+                  <div className="flex items-center justify-center h-32">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                ) : rateLimitEntries.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Keine Rate-Limit-Einträge vorhanden
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>IP-Adresse</TableHead>
+                        <TableHead>Aktion</TableHead>
+                        <TableHead>Versuche</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Letzter Versuch</TableHead>
+                        <TableHead>Aktionen</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rateLimitEntries.map((entry) => (
+                        <TableRow key={entry.id}>
+                          <TableCell className="font-mono">{entry.ip_address}</TableCell>
+                          <TableCell>{getActionLabel(entry.action_type)}</TableCell>
+                          <TableCell>{entry.attempts}</TableCell>
+                          <TableCell>
+                            {isBlocked(entry) ? (
+                              <Badge variant="destructive">
+                                Gesperrt bis {format(new Date(entry.blocked_until!), 'HH:mm', { locale: de })}
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary">Aktiv</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {format(new Date(entry.last_attempt_at), 'dd.MM.yy HH:mm', { locale: de })}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => unblockIP(entry.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
