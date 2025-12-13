@@ -55,18 +55,26 @@ export function ProductBuildingAssignment({
   const [assignedItems, setAssignedItems] = useState<AssignedItem[]>([]);
   const [searching, setSearching] = useState(false);
   const [buildingInfo, setBuildingInfo] = useState<BuildingInfo | null>(null);
+  const [autoAssignmentDone, setAutoAssignmentDone] = useState(false);
   const { toast } = useToast();
 
   // Fetch currently assigned items
   useEffect(() => {
     if (open && entityId) {
+      setAutoAssignmentDone(false);
       fetchAssignedItems();
       // For building mode, load building info and all products
       if (mode === 'building') {
         fetchBuildingInfo();
       }
+    } else if (!open) {
+      // Reset state when dialog closes
+      setAssignedItems([]);
+      setSearchResults([]);
+      setBuildingInfo(null);
+      setSearchTerm('');
     }
-  }, [open, entityId]);
+  }, [open, entityId, mode]);
 
   // Fetch building's ausbau_art for product recommendations
   const fetchBuildingInfo = async () => {
@@ -148,6 +156,8 @@ export function ProductBuildingAssignment({
 
       if (error) throw error;
 
+      const products = data || [];
+
       // Determine if product is recommended based on building's ausbau_art
       const isProductRecommended = (product: any): boolean => {
         if (!buildingInfo?.ausbau_art) return false;
@@ -164,11 +174,43 @@ export function ProductBuildingAssignment({
         }
       };
 
-      setSearchResults((data || []).map(p => ({
+      // Auto-assign recommended products once for buildings without manual assignments
+      if (
+        mode === 'building' &&
+        buildingInfo?.ausbau_art &&
+        assignedItems.length === 0 &&
+        !autoAssignmentDone
+      ) {
+        const recommendedProducts = products.filter(p => isProductRecommended(p));
+
+        if (recommendedProducts.length > 0) {
+          const { error: insertError } = await supabase
+            .from('product_buildings')
+            .insert(
+              recommendedProducts.map(p => ({
+                product_id: p.id,
+                building_id: entityId,
+              }))
+            );
+
+          if (insertError) {
+            console.error('Error auto-assigning products:', insertError);
+          } else {
+            setAutoAssignmentDone(true);
+            // Refresh assigned items; searchResults will sync via effect
+            await fetchAssignedItems();
+          }
+        } else {
+          // Nothing to auto-assign but mark as done to avoid repeated checks
+          setAutoAssignmentDone(true);
+        }
+      }
+
+      setSearchResults(products.map(p => ({
         id: p.id,
         name: p.name,
         isAssigned: assignedItems.some(a => a.id === p.id),
-        isRecommended: isProductRecommended(p)
+        isRecommended: isProductRecommended(p),
       })));
     } catch (error) {
       console.error('Error loading products:', error);
