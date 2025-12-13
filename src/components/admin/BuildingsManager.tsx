@@ -22,7 +22,8 @@ import {
   Undo2,
   RefreshCw,
   Package,
-  Trash2
+  Trash2,
+  Tag
 } from 'lucide-react';
 import {
   Table,
@@ -35,6 +36,7 @@ import {
 import { CSVImportDialog } from './CSVImportDialog';
 import { CSVImportUndoButton } from './CSVImportUndoButton';
 import { ProductBuildingAssignment } from './ProductBuildingAssignment';
+import { PromotionBuildingAssignment } from './PromotionBuildingAssignment';
 
 interface Building {
   id: string;
@@ -77,7 +79,9 @@ export const BuildingsManager = () => {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
   const [assignmentBuilding, setAssignmentBuilding] = useState<{ id: string; name: string } | null>(null);
+  const [promotionBuilding, setPromotionBuilding] = useState<{ id: string; name: string } | null>(null);
   const [buildingsWithProducts, setBuildingsWithProducts] = useState<Set<string>>(new Set());
+  const [buildingsWithPromotions, setBuildingsWithPromotions] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   // Form state
@@ -128,9 +132,11 @@ export const BuildingsManager = () => {
       const buildingsList = (data as Building[]) || [];
       setBuildings(buildingsList);
 
-      // Fetch which buildings have manual product assignments
+      // Fetch which buildings have manual product and promotion assignments
       if (buildingsList.length > 0) {
         const buildingIds = buildingsList.map(b => b.id);
+        
+        // Fetch product assignments
         const { data: productBuildings, error: pbError } = await supabase
           .from('product_buildings')
           .select('building_id')
@@ -139,6 +145,17 @@ export const BuildingsManager = () => {
         if (!pbError && productBuildings) {
           const uniqueBuildingIds = new Set(productBuildings.map((pb: any) => pb.building_id));
           setBuildingsWithProducts(uniqueBuildingIds);
+        }
+
+        // Fetch promotion assignments
+        const { data: promotionBuildings, error: promError } = await supabase
+          .from('promotion_buildings')
+          .select('building_id')
+          .in('building_id', buildingIds);
+
+        if (!promError && promotionBuildings) {
+          const uniquePromotionIds = new Set(promotionBuildings.map((pb: any) => pb.building_id));
+          setBuildingsWithPromotions(uniquePromotionIds);
         }
       }
     } catch (error) {
@@ -712,6 +729,25 @@ export const BuildingsManager = () => {
                               buildingsWithProducts.has(building.id) && "text-accent animate-pulse"
                             )} />
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPromotionBuilding({ 
+                              id: building.id, 
+                              name: `${building.street} ${building.house_number}, ${building.city}` 
+                            })}
+                            title={buildingsWithPromotions.has(building.id) 
+                              ? "Aktionen zugewiesen - Klicken zum Bearbeiten" 
+                              : "Aktionen zuweisen"}
+                            className={buildingsWithPromotions.has(building.id) 
+                              ? "text-primary" 
+                              : ""}
+                          >
+                            <Tag className={cn(
+                              "w-4 h-4",
+                              buildingsWithPromotions.has(building.id) && "text-primary animate-pulse"
+                            )} />
+                          </Button>
                           {building.has_manual_override && (
                             <Button
                               variant="ghost"
@@ -757,6 +793,16 @@ export const BuildingsManager = () => {
             open={!!assignmentBuilding}
             onOpenChange={(open) => !open && setAssignmentBuilding(null)}
             onUpdate={() => fetchBuildings(searchTerm)}
+          />
+        )}
+
+        {/* Building-Promotion Assignment Dialog */}
+        {promotionBuilding && (
+          <PromotionBuildingAssignment
+            buildingId={promotionBuilding.id}
+            buildingName={promotionBuilding.name}
+            open={!!promotionBuilding}
+            onOpenChange={(open) => !open && setPromotionBuilding(null)}
           />
         )}
       </CardContent>
