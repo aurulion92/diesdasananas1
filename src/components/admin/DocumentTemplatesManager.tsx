@@ -39,6 +39,8 @@ import {
   Code
 } from 'lucide-react';
 
+import { TEMPLATE_USE_CASES } from '@/services/templateService';
+
 interface Placeholder {
   key: string;
   description: string;
@@ -50,6 +52,7 @@ interface DocumentTemplate {
   name: string;
   description: string | null;
   template_type: string;
+  use_case: string | null;
   content: string;
   placeholders: Placeholder[];
   is_active: boolean;
@@ -73,14 +76,22 @@ const DEFAULT_PLACEHOLDERS: Placeholder[] = [
   { key: '{{kunde_telefon}}', description: 'Telefonnummer', example: '0123456789' },
   { key: '{{adresse_strasse}}', description: 'Straße', example: 'Musterstraße' },
   { key: '{{adresse_hausnummer}}', description: 'Hausnummer', example: '42' },
-  { key: '{{adresse_stadt}}', description: 'Stadt', example: 'Falkensee' },
+  { key: '{{adresse_stadt}}', description: 'Stadt', example: 'Ingolstadt' },
   { key: '{{tarif_name}}', description: 'Tarifname', example: 'einfach 300' },
   { key: '{{tarif_preis}}', description: 'Monatlicher Tarifpreis', example: '39,90 €' },
+  { key: '{{tarif_download}}', description: 'Download-Geschwindigkeit', example: '300 Mbit/s' },
+  { key: '{{tarif_upload}}', description: 'Upload-Geschwindigkeit', example: '100 Mbit/s' },
   { key: '{{gesamt_monatlich}}', description: 'Gesamtkosten monatlich', example: '49,90 €' },
   { key: '{{gesamt_einmalig}}', description: 'Einmalige Kosten', example: '99,00 €' },
+  { key: '{{bereitstellung}}', description: 'Bereitstellungspreis', example: '99,00 €' },
   { key: '{{vertragslaufzeit}}', description: 'Vertragslaufzeit', example: '24 Monate' },
+  { key: '{{router_name}}', description: 'Router-Modell', example: 'FRITZ!Box 5690' },
+  { key: '{{router_preis}}', description: 'Router-Monatspreis', example: '4,00 €' },
+  { key: '{{tv_name}}', description: 'TV-Paket', example: 'COM-IN TV' },
+  { key: '{{tv_preis}}', description: 'TV-Monatspreis', example: '10,00 €' },
   { key: '{{datum_heute}}', description: 'Aktuelles Datum', example: '12.06.2025' },
   { key: '{{bestellnummer}}', description: 'Bestellnummer', example: 'COM-ABC123' },
+  { key: '{{vzf_timestamp}}', description: 'VZF-Erstellungszeitpunkt', example: '12.06.2025 14:30' },
 ];
 
 export function DocumentTemplatesManager() {
@@ -96,6 +107,7 @@ export function DocumentTemplatesManager() {
     name: '',
     description: '',
     template_type: 'general',
+    use_case: '',
     content: '',
     is_active: true,
   });
@@ -114,10 +126,11 @@ export function DocumentTemplatesManager() {
     if (error) {
       toast({ title: 'Fehler beim Laden', description: error.message, variant: 'destructive' });
     } else {
-      // Parse placeholders from JSON
+      // Parse placeholders from JSON and include use_case
       const parsed = (data || []).map(t => ({
         ...t,
-        placeholders: Array.isArray(t.placeholders) ? t.placeholders as unknown as Placeholder[] : []
+        placeholders: Array.isArray(t.placeholders) ? t.placeholders as unknown as Placeholder[] : [],
+        use_case: t.use_case || null,
       }));
       setTemplates(parsed);
     }
@@ -130,6 +143,7 @@ export function DocumentTemplatesManager() {
       name: '',
       description: '',
       template_type: 'general',
+      use_case: '',
       content: getDefaultTemplate(),
       is_active: true,
     });
@@ -142,6 +156,7 @@ export function DocumentTemplatesManager() {
       name: template.name,
       description: template.description || '',
       template_type: template.template_type,
+      use_case: template.use_case || '',
       content: template.content,
       is_active: template.is_active,
     });
@@ -190,6 +205,7 @@ export function DocumentTemplatesManager() {
       name: formData.name,
       description: formData.description || null,
       template_type: formData.template_type,
+      use_case: formData.use_case || null,
       content: formData.content,
       placeholders: JSON.parse(JSON.stringify(DEFAULT_PLACEHOLDERS)),
       is_active: formData.is_active,
@@ -317,6 +333,7 @@ export function DocumentTemplatesManager() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Typ</TableHead>
+              <TableHead>Anwendungsfall</TableHead>
               <TableHead>Beschreibung</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Aktionen</TableHead>
@@ -325,11 +342,11 @@ export function DocumentTemplatesManager() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">Laden...</TableCell>
+                <TableCell colSpan={6} className="text-center py-8">Laden...</TableCell>
               </TableRow>
             ) : templates.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   Keine Vorlagen vorhanden
                 </TableCell>
               </TableRow>
@@ -343,6 +360,15 @@ export function DocumentTemplatesManager() {
                     </div>
                   </TableCell>
                   <TableCell>{getTypeBadge(template.template_type)}</TableCell>
+                  <TableCell>
+                    {template.use_case ? (
+                      <Badge variant="secondary" className="font-mono text-xs">
+                        {TEMPLATE_USE_CASES.find(uc => uc.value === template.use_case)?.label || template.use_case}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">–</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-muted-foreground max-w-xs truncate">
                     {template.description || '-'}
                   </TableCell>
@@ -411,14 +437,42 @@ export function DocumentTemplatesManager() {
                 </div>
               </div>
 
-              <div>
-                <Label>Beschreibung</Label>
-                <Input
-                  value={formData.description}
-                  onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Kurze Beschreibung der Vorlage"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Beschreibung</Label>
+                  <Input
+                    value={formData.description}
+                    onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Kurze Beschreibung der Vorlage"
+                  />
+                </div>
+                <div>
+                  <Label>Anwendungsfall</Label>
+                  <Select
+                    value={formData.use_case}
+                    onValueChange={v => setFormData(prev => ({ ...prev, use_case: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Keiner (manuell)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Keiner (manuell)</SelectItem>
+                      {TEMPLATE_USE_CASES.map(uc => (
+                        <SelectItem key={uc.value} value={uc.value}>
+                          <div>
+                            <div>{uc.label}</div>
+                            <div className="text-xs text-muted-foreground">{uc.description}</div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Definiert wann diese Vorlage automatisch verwendet wird
+                  </p>
+                </div>
               </div>
+
 
               <div>
                 <Label>HTML-Inhalt</Label>
