@@ -6,13 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff, Shield, Trash2, RefreshCw } from 'lucide-react';
+import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff, Shield, Trash2, RefreshCw, Building2, Image } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { BrandingSettings, DEFAULT_BRANDING } from '@/hooks/useBranding';
 
 interface EmailSettings {
   smtp_host: string;
@@ -132,6 +134,7 @@ export const SettingsManager = () => {
   const [emailSettings, setEmailSettings] = useState<EmailSettings>(DEFAULT_EMAIL);
   const [designSettings, setDesignSettings] = useState<DesignSettings>(DEFAULT_DESIGN);
   const [rateLimitSettings, setRateLimitSettings] = useState<RateLimitSettings>(DEFAULT_RATE_LIMIT);
+  const [brandingSettings, setBrandingSettings] = useState<BrandingSettings>(DEFAULT_BRANDING);
   const [rateLimitEntries, setRateLimitEntries] = useState<RateLimitEntry[]>([]);
   const [loadingRateLimits, setLoadingRateLimits] = useState(false);
 
@@ -176,6 +179,17 @@ export const SettingsManager = () => {
     
     if (rateLimitData?.value) {
       setRateLimitSettings({ ...DEFAULT_RATE_LIMIT, ...(rateLimitData.value as object) });
+    }
+
+    // Fetch branding settings
+    const { data: brandingData } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'branding_settings')
+      .maybeSingle();
+    
+    if (brandingData?.value) {
+      setBrandingSettings({ ...DEFAULT_BRANDING, ...(brandingData.value as object) });
     }
 
     setLoading(false);
@@ -283,6 +297,44 @@ export const SettingsManager = () => {
     }
   };
 
+  const saveBrandingSettings = async () => {
+    setSaving(true);
+    
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert([{
+        key: 'branding_settings',
+        value: brandingSettings as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString()
+      }] as any, { onConflict: 'key' });
+
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Gespeichert', description: 'Branding-Einstellungen wurden gespeichert. Die Änderungen sind auf der Bestellstrecke sofort sichtbar.' });
+    }
+    
+    setSaving(false);
+  };
+
+  const resetBranding = async () => {
+    setBrandingSettings(DEFAULT_BRANDING);
+    
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert([{
+        key: 'branding_settings',
+        value: DEFAULT_BRANDING as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString()
+      }] as any, { onConflict: 'key' });
+
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Zurückgesetzt', description: 'Branding wurde auf Standardwerte zurückgesetzt.' });
+    }
+  };
+
   const applyPreset = (presetId: string) => {
     const preset = DESIGN_PRESETS.find(p => p.id === presetId);
     if (preset) {
@@ -368,21 +420,175 @@ export const SettingsManager = () => {
         <p className="text-muted-foreground">Verwalten Sie Design, E-Mail und Sicherheit</p>
       </div>
 
-      <Tabs defaultValue="email" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="email" className="flex items-center gap-2">
-            <Mail className="w-4 h-4" />
-            E-Mail Server
+      <Tabs defaultValue="branding" className="space-y-4">
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="branding" className="flex items-center gap-2">
+            <Building2 className="w-4 h-4" />
+            Branding
           </TabsTrigger>
           <TabsTrigger value="design" className="flex items-center gap-2">
             <Palette className="w-4 h-4" />
-            Design
+            Farben
+          </TabsTrigger>
+          <TabsTrigger value="email" className="flex items-center gap-2">
+            <Mail className="w-4 h-4" />
+            E-Mail
           </TabsTrigger>
           <TabsTrigger value="security" className="flex items-center gap-2">
             <Shield className="w-4 h-4" />
-            Rate-Limit / Sicherheit
+            Sicherheit
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="branding">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="w-5 h-5" />
+                Branding & Texte
+              </CardTitle>
+              <CardDescription>
+                Passen Sie Logo, Firmenname und Texte für die Bestellstrecke an
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="company_name">Firmenname</Label>
+                  <Input
+                    id="company_name"
+                    value={brandingSettings.company_name}
+                    onChange={(e) => setBrandingSettings({ ...brandingSettings, company_name: e.target.value })}
+                    placeholder="COM-IN"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="logo_url">Logo URL (leer = Text-Logo)</Label>
+                  <Input
+                    id="logo_url"
+                    value={brandingSettings.logo_url}
+                    onChange={(e) => setBrandingSettings({ ...brandingSettings, logo_url: e.target.value })}
+                    placeholder="https://example.com/logo.png"
+                  />
+                  {brandingSettings.logo_url && (
+                    <div className="mt-2 p-2 bg-muted rounded flex items-center justify-center">
+                      <img src={brandingSettings.logo_url} alt="Logo Vorschau" className="max-h-12" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-4">Willkommensseite</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="welcome_title">Überschrift</Label>
+                    <Input
+                      id="welcome_title"
+                      value={brandingSettings.welcome_title}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, welcome_title: e.target.value })}
+                      placeholder="Willkommen bei COM-IN"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="welcome_subtitle">Unterzeile</Label>
+                    <Input
+                      id="welcome_subtitle"
+                      value={brandingSettings.welcome_subtitle}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, welcome_subtitle: e.target.value })}
+                      placeholder="Glasfaser-Internet für Ingolstadt"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-4">Header / Hotline</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="hotline_number">Hotline Nummer</Label>
+                    <Input
+                      id="hotline_number"
+                      value={brandingSettings.hotline_number}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, hotline_number: e.target.value })}
+                      placeholder="+49 841 88511-0"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="hotline_hours">Erreichbarkeit</Label>
+                    <Input
+                      id="hotline_hours"
+                      value={brandingSettings.hotline_hours}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, hotline_hours: e.target.value })}
+                      placeholder="Mo-Fr 8-18 Uhr"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-4">Neukunde-Button</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="new_customer_title">Titel</Label>
+                    <Input
+                      id="new_customer_title"
+                      value={brandingSettings.new_customer_title}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, new_customer_title: e.target.value })}
+                      placeholder="Neukunde"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new_customer_description">Beschreibung</Label>
+                    <Textarea
+                      id="new_customer_description"
+                      value={brandingSettings.new_customer_description}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, new_customer_description: e.target.value })}
+                      placeholder="Jetzt Verfügbarkeit prüfen..."
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-4">Bestandskunde-Button</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="existing_customer_title">Titel</Label>
+                    <Input
+                      id="existing_customer_title"
+                      value={brandingSettings.existing_customer_title}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, existing_customer_title: e.target.value })}
+                      placeholder="Bestandskunde?"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="existing_customer_description">Beschreibung</Label>
+                    <Textarea
+                      id="existing_customer_description"
+                      value={brandingSettings.existing_customer_description}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, existing_customer_description: e.target.value })}
+                      placeholder="Vertragsänderung, Umzug..."
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 flex justify-between">
+                <Button variant="outline" onClick={resetBranding}>
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Auf Standard zurücksetzen
+                </Button>
+                <Button onClick={saveBrandingSettings} disabled={saving}>
+                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  Speichern
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="email">
           <Card>
