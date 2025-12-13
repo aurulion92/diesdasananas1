@@ -56,6 +56,7 @@ export type Database = {
           id: string
           is_manual_entry: boolean | null
           kabel_tv_available: boolean | null
+          last_import_batch_id: string | null
           manual_override_active: boolean | null
           original_csv_data: Json | null
           postal_code: string | null
@@ -81,6 +82,7 @@ export type Database = {
           id?: string
           is_manual_entry?: boolean | null
           kabel_tv_available?: boolean | null
+          last_import_batch_id?: string | null
           manual_override_active?: boolean | null
           original_csv_data?: Json | null
           postal_code?: string | null
@@ -106,6 +108,7 @@ export type Database = {
           id?: string
           is_manual_entry?: boolean | null
           kabel_tv_available?: boolean | null
+          last_import_batch_id?: string | null
           manual_override_active?: boolean | null
           original_csv_data?: Json | null
           postal_code?: string | null
@@ -114,46 +117,69 @@ export type Database = {
           tiefbau_done?: boolean | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "buildings_last_import_batch_id_fkey"
+            columns: ["last_import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "csv_import_logs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       csv_import_logs: {
         Row: {
+          affected_building_ids: string[] | null
           created_at: string
           errors: Json | null
           file_name: string | null
           id: string
           import_type: string
           imported_by: string | null
+          is_reverted: boolean | null
+          previous_states: Json | null
           records_created: number | null
           records_processed: number | null
           records_skipped: number | null
           records_updated: number | null
+          reverted_at: string | null
+          reverted_by: string | null
           source_url: string | null
         }
         Insert: {
+          affected_building_ids?: string[] | null
           created_at?: string
           errors?: Json | null
           file_name?: string | null
           id?: string
           import_type: string
           imported_by?: string | null
+          is_reverted?: boolean | null
+          previous_states?: Json | null
           records_created?: number | null
           records_processed?: number | null
           records_skipped?: number | null
           records_updated?: number | null
+          reverted_at?: string | null
+          reverted_by?: string | null
           source_url?: string | null
         }
         Update: {
+          affected_building_ids?: string[] | null
           created_at?: string
           errors?: Json | null
           file_name?: string | null
           id?: string
           import_type?: string
           imported_by?: string | null
+          is_reverted?: boolean | null
+          previous_states?: Json | null
           records_created?: number | null
           records_processed?: number | null
           records_skipped?: number | null
           records_updated?: number | null
+          reverted_at?: string | null
+          reverted_by?: string | null
           source_url?: string | null
         }
         Relationships: []

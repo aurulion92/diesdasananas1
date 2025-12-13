@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Upload, 
@@ -16,7 +17,12 @@ import {
   AlertTriangle,
   ArrowRight,
   Wrench,
-  RotateCcw
+  RotateCcw,
+  Settings,
+  X,
+  Plus,
+  Eye,
+  Info
 } from 'lucide-react';
 import {
   Table,
@@ -26,6 +32,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 
 interface CSVImportDialogProps {
   open: boolean;
@@ -84,12 +101,27 @@ const DB_FIELDS = [
   { key: 'gebaeude_id_k7', label: 'Gebäude ID K7', required: false },
 ];
 
-type ImportStep = 'upload' | 'mapping' | 'preview' | 'sync-check' | 'importing' | 'complete';
+type ImportStep = 'upload' | 'settings' | 'mapping' | 'preview' | 'sync-check' | 'importing' | 'complete';
+type ImportMode = 'manual' | 'automatic';
 
 interface SyncConflict {
   building: any;
   existing: any;
   changes: { field: string; oldValue: any; newValue: any }[];
+}
+
+interface CSVImportSettings {
+  ignore_patterns: string[];
+  default_mode: ImportMode;
+}
+
+interface PreviewRow {
+  data: Record<string, any>;
+  existing: any | null;
+  hasChanges: boolean;
+  changes: { field: string; oldValue: any; newValue: any }[];
+  willBeSkipped: boolean;
+  skipReason?: string;
 }
 
 export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImportDialogProps) => {
@@ -98,11 +130,80 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
   const [headers, setHeaders] = useState<string[]>([]);
   const [mappings, setMappings] = useState<Record<string, string>>({});
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ created: number; updated: number; skipped: number; errors: string[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ 
+    created: number; 
+    updated: number; 
+    skipped: number; 
+    errors: string[];
+    batchId: string | null;
+  } | null>(null);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
   const [selectedConflicts, setSelectedConflicts] = useState<Set<string>>(new Set());
+  const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
+  const [settings, setSettings] = useState<CSVImportSettings>({
+    ignore_patterns: ['flurstück'],
+    default_mode: 'manual'
+  });
+  const [importMode, setImportMode] = useState<ImportMode>('manual');
+  const [newIgnorePattern, setNewIgnorePattern] = useState('');
+  const [ignoredRowsCount, setIgnoredRowsCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Load settings from database
+  useEffect(() => {
+    const loadSettings = async () => {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'csv_import_settings')
+        .maybeSingle();
+      
+      if (data?.value && typeof data.value === 'object' && !Array.isArray(data.value)) {
+        const loadedSettings = data.value as unknown as CSVImportSettings;
+        if (loadedSettings.ignore_patterns && loadedSettings.default_mode) {
+          setSettings(loadedSettings);
+          setImportMode(loadedSettings.default_mode || 'manual');
+        }
+      }
+    };
+    if (open) loadSettings();
+  }, [open]);
+
+  const saveSettings = async (newSettings: CSVImportSettings) => {
+    setSettings(newSettings);
+    await supabase
+      .from('app_settings')
+      .upsert({ 
+        key: 'csv_import_settings', 
+        value: newSettings as any,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' });
+  };
+
+  const addIgnorePattern = () => {
+    if (newIgnorePattern.trim() && !settings.ignore_patterns.includes(newIgnorePattern.trim().toLowerCase())) {
+      const newSettings = {
+        ...settings,
+        ignore_patterns: [...settings.ignore_patterns, newIgnorePattern.trim().toLowerCase()]
+      };
+      saveSettings(newSettings);
+      setNewIgnorePattern('');
+    }
+  };
+
+  const removeIgnorePattern = (pattern: string) => {
+    const newSettings = {
+      ...settings,
+      ignore_patterns: settings.ignore_patterns.filter(p => p !== pattern)
+    };
+    saveSettings(newSettings);
+  };
+
+  const shouldIgnoreRow = (row: string[]): boolean => {
+    const rowText = row.join(' ').toLowerCase();
+    return settings.ignore_patterns.some(pattern => rowText.includes(pattern.toLowerCase()));
+  };
 
   const resetState = () => {
     setStep('upload');
@@ -112,6 +213,8 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
     setImportResult(null);
     setSyncConflicts([]);
     setSelectedConflicts(new Set());
+    setPreviewRows([]);
+    setIgnoredRowsCount(0);
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,8 +259,13 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
       const parsedHeaders = parseCSVLine(lines[0]).map(h => h.replace(/"/g, '').toLowerCase().trim());
       const parsedData = lines.slice(1).map(line => parseCSVLine(line));
 
+      // Filter out ignored rows and count them
+      const filteredData = parsedData.filter(row => !shouldIgnoreRow(row));
+      const ignoredCount = parsedData.length - filteredData.length;
+      setIgnoredRowsCount(ignoredCount);
+
       setHeaders(parsedHeaders);
-      setCsvData(parsedData);
+      setCsvData(filteredData);
 
       // Auto-map columns using known mappings
       const autoMappings: Record<string, string> = {};
@@ -169,11 +277,11 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
       });
       setMappings(autoMappings);
 
-      setStep('mapping');
+      setStep('settings');
       
       toast({
         title: 'CSV geladen',
-        description: `${parsedData.length} Zeilen erkannt. Spalten wurden automatisch zugeordnet.`,
+        description: `${filteredData.length} Zeilen erkannt${ignoredCount > 0 ? ` (${ignoredCount} ignoriert)` : ''}.`,
       });
     } catch (error) {
       console.error('Error parsing CSV:', error);
@@ -265,13 +373,24 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
     return result;
   };
 
-  // Check for sync conflicts with manually edited buildings
-  const checkSyncConflicts = async () => {
-    const conflicts: SyncConflict[] = [];
+  // Build preview with change detection
+  const buildPreview = async () => {
+    setStep('importing');
+    const preview: PreviewRow[] = [];
     
     for (const row of csvData) {
       const building = transformRow(row);
-      if (!building) continue;
+      if (!building) {
+        preview.push({
+          data: { street: row[0] || '-', house_number: row[1] || '-' },
+          existing: null,
+          hasChanges: false,
+          changes: [],
+          willBeSkipped: true,
+          skipReason: 'Ungültige Daten'
+        });
+        continue;
+      }
 
       const { data: existing } = await supabase
         .from('buildings')
@@ -281,10 +400,9 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
         .eq('city', building.city || 'Falkensee')
         .maybeSingle();
 
-      if (existing && existing.manual_override_active) {
-        const changes: { field: string; oldValue: any; newValue: any }[] = [];
-        
-        // Compare fields
+      const changes: { field: string; oldValue: any; newValue: any }[] = [];
+      
+      if (existing) {
         const fieldsToCompare = ['ausbau_art', 'ausbau_status', 'tiefbau_done', 'apl_set', 'kabel_tv_available', 'residential_units', 'gebaeude_id_v2', 'gebaeude_id_k7'];
         
         for (const field of fieldsToCompare) {
@@ -296,22 +414,30 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
             });
           }
         }
-
-        if (changes.length > 0) {
-          conflicts.push({ building, existing, changes });
-        }
       }
+
+      const willBeSkipped = existing?.manual_override_active && changes.length > 0;
+
+      preview.push({
+        data: building,
+        existing,
+        hasChanges: changes.length > 0,
+        changes,
+        willBeSkipped,
+        skipReason: willBeSkipped ? 'Manuelle Änderungen aktiv' : undefined
+      });
     }
 
-    return conflicts;
-  };
-
-  const handlePreviewWithConflicts = async () => {
-    setStep('importing'); // Show loading
-    const conflicts = await checkSyncConflicts();
+    setPreviewRows(preview);
     
-    if (conflicts.length > 0) {
-      setSyncConflicts(conflicts);
+    // Check for sync conflicts
+    const conflicts = preview.filter(p => p.willBeSkipped && p.changes.length > 0);
+    if (conflicts.length > 0 && importMode === 'manual') {
+      setSyncConflicts(conflicts.map(c => ({
+        building: c.data,
+        existing: c.existing,
+        changes: c.changes
+      })));
       setStep('sync-check');
     } else {
       setStep('preview');
@@ -344,6 +470,12 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
     } else {
       toast({ title: 'Manuelle Änderungen zurückgesetzt' });
       setSyncConflicts(prev => prev.filter(c => c.existing.id !== buildingId));
+      // Also update preview
+      setPreviewRows(prev => prev.map(p => 
+        p.existing?.id === buildingId 
+          ? { ...p, willBeSkipped: false, skipReason: undefined }
+          : p
+      ));
       if (syncConflicts.length <= 1) {
         setStep('preview');
       }
@@ -354,9 +486,26 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
     setImporting(true);
     setStep('importing');
 
-    const result = { created: 0, updated: 0, skipped: 0, errors: [] as string[] };
+    const result = { created: 0, updated: 0, skipped: 0, errors: [] as string[], batchId: null as string | null };
+    const affectedIds: string[] = [];
+    const previousStates: any[] = [];
 
     try {
+      // Create import log entry first to get batch ID
+      const { data: logEntry, error: logError } = await supabase
+        .from('csv_import_logs')
+        .insert({
+          import_type: 'buildings',
+          file_name: 'manual_upload',
+          records_processed: csvData.length,
+        })
+        .select('id')
+        .single();
+
+      if (logError) throw logError;
+      const batchId = logEntry.id;
+      result.batchId = batchId;
+
       for (const row of csvData) {
         const building = transformRow(row);
         if (!building) {
@@ -367,7 +516,7 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
         // Check if building exists
         const { data: existing } = await supabase
           .from('buildings')
-          .select('id, has_manual_override, manual_override_active')
+          .select('*')
           .eq('street', building.street)
           .eq('house_number', building.house_number)
           .eq('city', building.city)
@@ -380,12 +529,21 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
             continue;
           }
 
+          // Store previous state for undo
+          previousStates.push({
+            id: existing.id,
+            type: 'update',
+            previous: existing
+          });
+          affectedIds.push(existing.id);
+
           // Update existing
           const { error } = await supabase
             .from('buildings')
             .update({
               ...building,
               original_csv_data: building as any,
+              last_import_batch_id: batchId,
             })
             .eq('id', existing.id);
 
@@ -411,30 +569,43 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
             gebaeude_id_k7: building.gebaeude_id_k7 || null,
             is_manual_entry: false,
             original_csv_data: building as any,
+            last_import_batch_id: batchId,
           };
           
-          const { error } = await supabase
+          const { data: newBuilding, error } = await supabase
             .from('buildings')
-            .insert([insertData]);
+            .insert([insertData])
+            .select('id')
+            .single();
 
           if (error) {
             result.errors.push(`${building.street} ${building.house_number}: ${error.message}`);
           } else {
             result.created++;
+            if (newBuilding) {
+              previousStates.push({
+                id: newBuilding.id,
+                type: 'create',
+                previous: null
+              });
+              affectedIds.push(newBuilding.id);
+            }
           }
         }
       }
 
-      // Log import
-      await supabase.from('csv_import_logs').insert({
-        import_type: 'buildings',
-        file_name: 'manual_upload',
-        records_processed: csvData.length,
-        records_created: result.created,
-        records_updated: result.updated,
-        records_skipped: result.skipped,
-        errors: result.errors.length > 0 ? result.errors : null,
-      });
+      // Update import log with results and undo data
+      await supabase
+        .from('csv_import_logs')
+        .update({
+          records_created: result.created,
+          records_updated: result.updated,
+          records_skipped: result.skipped,
+          errors: result.errors.length > 0 ? result.errors : null,
+          affected_building_ids: affectedIds,
+          previous_states: previousStates,
+        })
+        .eq('id', batchId);
 
       setImportResult(result);
       setStep('complete');
@@ -458,7 +629,22 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
     }
   };
 
-  const previewData = csvData.slice(0, 5).map(row => transformRow(row)).filter(Boolean);
+  const ChangePreviewTooltip = ({ changes }: { changes: { field: string; oldValue: any; newValue: any }[] }) => (
+    <div className="space-y-1 text-xs">
+      <div className="font-medium mb-2">Änderungen:</div>
+      {changes.map((change, idx) => {
+        const fieldLabel = DB_FIELDS.find(f => f.key === change.field)?.label || change.field;
+        return (
+          <div key={idx} className="flex items-center gap-2">
+            <span className="font-medium">{fieldLabel}:</span>
+            <span className="text-destructive line-through">{String(change.oldValue ?? '-')}</span>
+            <ArrowRight className="w-3 h-3" />
+            <span className="text-success">{String(change.newValue ?? '-')}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
 
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) resetState(); }}>
@@ -470,8 +656,10 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
           </DialogTitle>
           <DialogDescription>
             {step === 'upload' && 'Laden Sie eine CSV-Datei mit Gebäudedaten hoch.'}
+            {step === 'settings' && 'Konfigurieren Sie den Import-Modus und Filterregeln.'}
             {step === 'mapping' && 'Überprüfen Sie die Spaltenzuordnung. KI hat bekannte Spalten automatisch zugeordnet.'}
             {step === 'preview' && 'Überprüfen Sie die Vorschau vor dem Import.'}
+            {step === 'sync-check' && 'Konflikte mit manuell bearbeiteten Gebäuden.'}
             {step === 'importing' && 'Import läuft...'}
             {step === 'complete' && 'Import abgeschlossen.'}
           </DialogDescription>
@@ -507,6 +695,102 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
                 Die KI erkennt automatisch Spalten wie "Straße", "Hausnummer", "Ausbauart" etc. 
                 und ordnet sie den Datenbankfeldern zu. Sie können die Zuordnung anschließend anpassen.
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Step: Settings */}
+        {step === 'settings' && (
+          <div className="space-y-6">
+            <div className="bg-muted/50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-accent" />
+                  <span className="font-medium">Import-Einstellungen</span>
+                </div>
+                {ignoredRowsCount > 0 && (
+                  <Badge variant="secondary">
+                    {ignoredRowsCount} Zeilen ignoriert
+                  </Badge>
+                )}
+              </div>
+
+              {/* Import Mode */}
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium">Import-Modus</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Entscheiden Sie, ob Sie jeden Eintrag manuell prüfen oder automatisch importieren möchten.
+                  </p>
+                  <div className="flex gap-4">
+                    <Button
+                      type="button"
+                      variant={importMode === 'manual' ? 'default' : 'outline'}
+                      onClick={() => setImportMode('manual')}
+                      className="flex-1"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Manuell prüfen
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={importMode === 'automatic' ? 'default' : 'outline'}
+                      onClick={() => setImportMode('automatic')}
+                      className="flex-1"
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Automatisch
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {importMode === 'manual' 
+                      ? 'Sie sehen eine Vorschau aller Änderungen und können Konflikte manuell lösen.'
+                      : 'Alle Einträge werden sofort importiert. Manuell bearbeitete Gebäude werden übersprungen.'}
+                  </p>
+                </div>
+
+                {/* Ignore Patterns */}
+                <div className="border-t pt-4">
+                  <Label className="text-sm font-medium">Zeilen ignorieren</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Zeilen, die diese Begriffe enthalten, werden beim Import ignoriert.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {settings.ignore_patterns.map((pattern) => (
+                      <Badge key={pattern} variant="secondary" className="flex items-center gap-1">
+                        {pattern}
+                        <button 
+                          onClick={() => removeIgnorePattern(pattern)}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="z.B. 'flurstück', 'test', ..."
+                      value={newIgnorePattern}
+                      onChange={(e) => setNewIgnorePattern(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addIgnorePattern())}
+                      className="flex-1"
+                    />
+                    <Button type="button" variant="outline" size="sm" onClick={addIgnorePattern}>
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between">
+              <Button variant="outline" onClick={() => { onOpenChange(false); resetState(); }}>
+                Abbrechen
+              </Button>
+              <Button onClick={() => setStep('mapping')}>
+                Weiter zur Spaltenzuordnung
+              </Button>
             </div>
           </div>
         )}
@@ -568,6 +852,9 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
             <div className="flex items-center justify-between pt-4 border-t">
               <div className="text-sm">
                 <span className="text-muted-foreground">{csvData.length} Zeilen</span>
+                {ignoredRowsCount > 0 && (
+                  <span className="text-muted-foreground ml-2">({ignoredRowsCount} ignoriert)</span>
+                )}
                 {!canProceedToPreview() && (
                   <span className="text-destructive ml-4">
                     <AlertTriangle className="w-4 h-4 inline mr-1" />
@@ -576,10 +863,10 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
                 )}
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => { onOpenChange(false); resetState(); }}>
-                  Abbrechen
+                <Button variant="outline" onClick={() => setStep('settings')}>
+                  Zurück
                 </Button>
-                <Button onClick={handlePreviewWithConflicts} disabled={!canProceedToPreview()}>
+                <Button onClick={buildPreview} disabled={!canProceedToPreview()}>
                   Vorschau
                 </Button>
               </div>
@@ -660,10 +947,26 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
         {/* Step: Preview */}
         {step === 'preview' && (
           <div className="space-y-4">
-            <div className="border rounded-lg overflow-hidden">
+            <div className="flex items-center gap-4 text-sm mb-2">
+              <Badge variant="outline" className="gap-1">
+                <span className="w-2 h-2 rounded-full bg-success" />
+                Neu: {previewRows.filter(r => !r.existing && !r.willBeSkipped).length}
+              </Badge>
+              <Badge variant="outline" className="gap-1">
+                <span className="w-2 h-2 rounded-full bg-primary" />
+                Update: {previewRows.filter(r => r.existing && r.hasChanges && !r.willBeSkipped).length}
+              </Badge>
+              <Badge variant="outline" className="gap-1">
+                <span className="w-2 h-2 rounded-full bg-muted-foreground" />
+                Übersprungen: {previewRows.filter(r => r.willBeSkipped || (!r.hasChanges && r.existing)).length}
+              </Badge>
+            </div>
+
+            <div className="border rounded-lg overflow-hidden max-h-[400px] overflow-y-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10"></TableHead>
                     <TableHead>Straße</TableHead>
                     <TableHead>Nr.</TableHead>
                     <TableHead>Stadt</TableHead>
@@ -673,21 +976,60 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {previewData.map((row, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>{row?.street}</TableCell>
-                      <TableCell>{row?.house_number}</TableCell>
-                      <TableCell>{row?.city}</TableCell>
-                      <TableCell>{row?.residential_units}</TableCell>
+                  {previewRows.slice(0, 50).map((row, idx) => (
+                    <TableRow 
+                      key={idx} 
+                      className={row.willBeSkipped ? 'opacity-50' : row.hasChanges ? 'bg-primary/5' : ''}
+                    >
                       <TableCell>
-                        {row?.ausbau_art && (
-                          <Badge variant={row.ausbau_art === 'ftth' ? 'default' : 'secondary'}>
-                            {row.ausbau_art.toUpperCase()}
+                        {row.willBeSkipped ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <AlertTriangle className="w-4 h-4 text-warning" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{row.skipReason}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : row.hasChanges && row.existing ? (
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <button className="hover:bg-accent/20 p-1 rounded">
+                                <Wrench className="w-4 h-4 text-accent" />
+                              </button>
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80">
+                              <ChangePreviewTooltip changes={row.changes} />
+                            </HoverCardContent>
+                          </HoverCard>
+                        ) : !row.existing ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Plus className="w-4 h-4 text-success" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Neu</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : null}
+                      </TableCell>
+                      <TableCell>{row.data.street}</TableCell>
+                      <TableCell>{row.data.house_number}</TableCell>
+                      <TableCell>{row.data.city}</TableCell>
+                      <TableCell>{row.data.residential_units}</TableCell>
+                      <TableCell>
+                        {row.data.ausbau_art && (
+                          <Badge variant={row.data.ausbau_art === 'ftth' ? 'default' : 'secondary'}>
+                            {row.data.ausbau_art.toUpperCase()}
                           </Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-sm capitalize">
-                        {row?.ausbau_status?.replace('_', ' ')}
+                        {row.data.ausbau_status?.replace('_', ' ')}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -695,9 +1037,11 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
               </Table>
             </div>
 
-            <p className="text-sm text-muted-foreground">
-              Vorschau der ersten {previewData.length} von {csvData.length} Zeilen
-            </p>
+            {previewRows.length > 50 && (
+              <p className="text-sm text-muted-foreground">
+                Zeige 50 von {previewRows.length} Zeilen
+              </p>
+            )}
 
             <div className="flex justify-between pt-4 border-t">
               <Button variant="outline" onClick={() => setStep('mapping')}>
@@ -705,7 +1049,7 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
               </Button>
               <Button onClick={handleImport}>
                 <Upload className="w-4 h-4 mr-2" />
-                {csvData.length} Gebäude importieren
+                {previewRows.filter(r => !r.willBeSkipped && (r.hasChanges || !r.existing)).length} Gebäude importieren
               </Button>
             </div>
           </div>
@@ -742,6 +1086,18 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
                 <div className="text-sm text-muted-foreground">Übersprungen</div>
               </div>
             </div>
+
+            {importResult.batchId && (
+              <div className="bg-muted/50 rounded-lg p-4 flex items-center gap-3">
+                <Info className="w-5 h-5 text-muted-foreground shrink-0" />
+                <div className="text-sm">
+                  <span className="font-medium">Rückgängig machen:</span>{' '}
+                  <span className="text-muted-foreground">
+                    Dieser Import kann im Gebäude-Manager über "Letzten Import rückgängig machen" widerrufen werden.
+                  </span>
+                </div>
+              </div>
+            )}
 
             {importResult.errors.length > 0 && (
               <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
