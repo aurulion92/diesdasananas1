@@ -33,6 +33,7 @@ import { format, subHours, startOfDay, endOfDay } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { renderVZFFromTemplate, VZFRenderData } from '@/utils/renderVZFTemplate';
 import { generateVZFContent, VZFData } from '@/utils/generateVZF';
+import { openVZFAsPDF } from '@/services/pdfService';
 
 interface Order {
   id: string;
@@ -197,11 +198,10 @@ export const OrdersManager = () => {
   };
 
   const reconstructVZF = async (order: Order) => {
-    const vzfWindow = window.open('', '_blank');
-    if (!vzfWindow) return;
-
-    // Show loading state
-    vzfWindow.document.write('<html><body style="font-family: sans-serif; padding: 40px;"><p>Lade VZF...</p></body></html>');
+    toast({
+      title: "VZF wird generiert",
+      description: "Bitte warten...",
+    });
 
     try {
       // Build render data from order
@@ -231,7 +231,6 @@ export const OrdersManager = () => {
         vzfTimestamp: format(new Date(order.vzf_generated_at), 'dd.MM.yyyy HH:mm', { locale: de }),
       };
 
-      // Try to use database template, fall back to hardcoded if vzf_data contains original VZF data
       let content: string;
       
       if (order.vzf_data?.tariff) {
@@ -259,62 +258,83 @@ export const OrdersManager = () => {
         content = await renderVZFFromTemplate(vzfData, renderData);
       } else {
         // Fallback to simple HTML for old orders without full vzf_data
-        content = `
-          <html>
-            <head>
-              <title>VZF - ${order.customer_name} - ${format(new Date(order.vzf_generated_at), 'dd.MM.yyyy HH:mm', { locale: de })}</title>
-              <style>
-                body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
-                h1 { color: #003366; border-bottom: 2px solid #003366; padding-bottom: 10px; }
-                h2 { color: #003366; margin-top: 30px; }
-                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-                th { background: #f5f5f5; }
-                .total { font-weight: bold; font-size: 1.1em; }
-                .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 0.9em; color: #666; }
-              </style>
-            </head>
-            <body>
-              <h1>Vertragszusammenfassung (VZF)</h1>
-              <p><strong>Erstellt am:</strong> ${format(new Date(order.vzf_generated_at), 'dd.MM.yyyy HH:mm', { locale: de })} Uhr</p>
-              <h2>Kundendaten</h2>
-              <table>
-                <tr><th>Name</th><td>${order.customer_name}</td></tr>
-                <tr><th>E-Mail</th><td>${order.customer_email}</td></tr>
-                <tr><th>Telefon</th><td>${order.customer_phone || '-'}</td></tr>
-                <tr><th>Adresse</th><td>${order.street} ${order.house_number}, ${order.city}</td></tr>
-              </table>
-              <h2>Gewählter Tarif</h2>
-              <table>
-                <tr><th>Produkt</th><td>${order.product_name}</td></tr>
-                <tr><th>Monatspreis</th><td>${order.product_monthly_price.toFixed(2)} €</td></tr>
-                <tr><th>Vertragslaufzeit</th><td>${order.contract_months} Monate</td></tr>
-              </table>
-              <h2>Preisübersicht</h2>
-              <table>
-                <tr><th>Position</th><th>Betrag</th></tr>
-                <tr><td>Monatliche Kosten</td><td>${order.monthly_total.toFixed(2)} €</td></tr>
-                <tr><td>Bereitstellungspreis</td><td>${order.setup_fee.toFixed(2)} €</td></tr>
-                <tr class="total"><td>Einmalig gesamt</td><td>${(order.setup_fee + order.one_time_total).toFixed(2)} €</td></tr>
-              </table>
-              <div class="footer">
-                <p>Diese Vertragszusammenfassung wurde automatisch generiert.</p>
-                <p>COM-IN Telekommunikations GmbH | kontakt@comin-glasfaser.de</p>
-              </div>
-            </body>
-          </html>
-        `;
+        content = generateFallbackVZFHTML(order, renderData);
       }
 
-      vzfWindow.document.open();
-      vzfWindow.document.write(content);
-      vzfWindow.document.close();
+      // Try to generate PDF
+      const orderNumber = `COM-${order.id.slice(0, 8).toUpperCase()}`;
+      const success = await openVZFAsPDF(content, orderNumber);
+      
+      if (!success) {
+        // Fallback: Open in new window
+        const vzfWindow = window.open('', '_blank');
+        if (vzfWindow) {
+          vzfWindow.document.open();
+          vzfWindow.document.write(content);
+          vzfWindow.document.close();
+        }
+      }
+      
+      toast({
+        title: "VZF geöffnet",
+        description: "Das Dokument wurde in einem neuen Tab geöffnet.",
+      });
     } catch (error) {
       console.error('Error reconstructing VZF:', error);
-      vzfWindow.document.open();
-      vzfWindow.document.write('<html><body style="font-family: sans-serif; padding: 40px;"><p style="color: red;">Fehler beim Laden der VZF</p></body></html>');
-      vzfWindow.document.close();
+      toast({
+        title: "Fehler",
+        description: "VZF konnte nicht generiert werden.",
+        variant: "destructive",
+      });
     }
+  };
+
+  const generateFallbackVZFHTML = (order: Order, renderData: VZFRenderData): string => {
+    return `
+      <html>
+        <head>
+          <title>VZF - ${order.customer_name} - ${format(new Date(order.vzf_generated_at), 'dd.MM.yyyy HH:mm', { locale: de })}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+            h1 { color: #003366; border-bottom: 2px solid #003366; padding-bottom: 10px; }
+            h2 { color: #003366; margin-top: 30px; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+            th { background: #f5f5f5; }
+            .total { font-weight: bold; font-size: 1.1em; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 0.9em; color: #666; }
+          </style>
+        </head>
+        <body>
+          <h1>Vertragszusammenfassung (VZF)</h1>
+          <p><strong>Erstellt am:</strong> ${format(new Date(order.vzf_generated_at), 'dd.MM.yyyy HH:mm', { locale: de })} Uhr</p>
+          <h2>Kundendaten</h2>
+          <table>
+            <tr><th>Name</th><td>${order.customer_name}</td></tr>
+            <tr><th>E-Mail</th><td>${order.customer_email}</td></tr>
+            <tr><th>Telefon</th><td>${order.customer_phone || '-'}</td></tr>
+            <tr><th>Adresse</th><td>${order.street} ${order.house_number}, ${order.city}</td></tr>
+          </table>
+          <h2>Gewählter Tarif</h2>
+          <table>
+            <tr><th>Produkt</th><td>${order.product_name}</td></tr>
+            <tr><th>Monatspreis</th><td>${order.product_monthly_price.toFixed(2)} €</td></tr>
+            <tr><th>Vertragslaufzeit</th><td>${order.contract_months} Monate</td></tr>
+          </table>
+          <h2>Preisübersicht</h2>
+          <table>
+            <tr><th>Position</th><th>Betrag</th></tr>
+            <tr><td>Monatliche Kosten</td><td>${order.monthly_total.toFixed(2)} €</td></tr>
+            <tr><td>Bereitstellungspreis</td><td>${order.setup_fee.toFixed(2)} €</td></tr>
+            <tr class="total"><td>Einmalig gesamt</td><td>${(order.setup_fee + order.one_time_total).toFixed(2)} €</td></tr>
+          </table>
+          <div class="footer">
+            <p>Diese Vertragszusammenfassung wurde automatisch generiert.</p>
+            <p>COM-IN Telekommunikations GmbH | kontakt@comin-glasfaser.de</p>
+          </div>
+        </body>
+      </html>
+    `;
   };
 
   const filteredOrders = orders.filter(order =>
