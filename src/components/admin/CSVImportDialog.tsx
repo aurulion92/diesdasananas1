@@ -538,17 +538,19 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
 
     try {
       console.log('CSV Import gestartet - Edge Function Modus', { csvRows: csvData.length });
-      setImportProgress({ current: 0, total: csvData.length, phase: 'Bereite Daten vor...' });
+      // Initialisierungs-Progress in drei Schritten anzeigen
+      setImportProgress({ current: 0, total: 3, phase: 'Initialisiere (1/3): Prüfe CSV-Zeilen...' });
 
       // Filter invalid rows
       const { valid: validRows, invalidCount } = getValidRows();
       setInvalidRowsCount(invalidCount);
       
       // Transform rows
-      setImportProgress({ current: 0, total: validRows.length, phase: 'Transformiere Daten...' });
+      setImportProgress({ current: 1, total: 3, phase: 'Initialisiere (2/3): Transformiere Daten...' });
       const buildings = validRows.map(row => transformRow(row)).filter(Boolean) as Record<string, any>[];
 
-      setImportProgress({ current: buildings.length, total: buildings.length, phase: 'Sende an Server...' });
+      // Sende Daten an Server
+      setImportProgress({ current: 2, total: 3, phase: 'Initialisiere (3/3): Sende Daten an Server...' });
 
       // Call Edge Function for server-side import
       const startTime = Date.now();
@@ -580,6 +582,9 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
 
       setImportResult(result);
       setStep('complete');
+
+      // Abschluss-Status im Progress anzeigen
+      setImportProgress({ current: 3, total: 3, phase: 'Import abgeschlossen' });
 
       toast({
         title: 'Import abgeschlossen',
@@ -636,6 +641,14 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
           // Prevent closing by clicking outside during import
           if (importing) {
             e.preventDefault();
+            setShowCancelConfirm(true);
+          }
+        }}
+        onInteractOutside={(e) => {
+          // Extra safety: also block generic outside interactions during Import
+          if (importing) {
+            e.preventDefault();
+            setShowCancelConfirm(true);
           }
         }}
         onEscapeKeyDown={(e) => {
