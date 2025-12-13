@@ -194,37 +194,34 @@ export function TariffSelection() {
   const hasKabelTv = address?.kabelTvAvailable === true;
 
   // Determine option availability based on product_option_mappings
+  // ALL options must come from the database - no legacy fallback
   const hasRouterDbOptions = routerOptions.length > 0;
   const hasTvDbOptions = tvCominOptions.length > 0 || tvWaipuOptions.length > 0;
   const hasPhoneDbOptions = dbPhoneOptions.length > 0;
 
-  // Build available routers list: if product has DB options, use only those;
-  // otherwise fall back to legacy router list by connection type.
+  // Build available routers list: ONLY from database options
   let availableRouters: TariffAddon[] = [];
 
-  if (hasOptionsAssigned) {
-    if (hasRouterDbOptions && connectionType && connectionType !== 'not-connected') {
-      const isFtthConnection = connectionType === 'ftth' || connectionType === 'limited';
+  if (hasRouterDbOptions && connectionType && connectionType !== 'not-connected') {
+    const isFtthConnection = connectionType === 'ftth' || connectionType === 'limited';
 
-      const dbRouters = routerOptions
-        .filter(({ option }) => {
-          // Filter routers by infrastructure flags when present
-          if (isFtthConnection) return option.is_ftth !== false;
-          return option.is_fttb !== false;
-        })
-        .map(dbRouterOptionToAddon);
+    const dbRouters = routerOptions
+      .filter(({ option }) => {
+        // Filter routers by infrastructure flags when present
+        if (isFtthConnection) return option.is_ftth !== false;
+        return option.is_fttb !== false;
+      })
+      .map(dbRouterOptionToAddon);
 
-      if (dbRouters.length > 0) {
-        availableRouters = [NO_ROUTER_ADDON, ...dbRouters];
-      }
+    if (dbRouters.length > 0) {
+      availableRouters = [NO_ROUTER_ADDON, ...dbRouters];
     }
-  } else {
-    availableRouters = getRoutersForConnectionType(connectionType);
   }
 
+  // Show options ONLY if they are assigned in the database
   const showRouterOptions = availableRouters.length > 0;
-  const showTvOptions = hasOptionsAssigned ? hasTvDbOptions : true;
-  const showPhoneOptions = hasOptionsAssigned ? hasPhoneDbOptions : true;
+  const showTvOptions = hasTvDbOptions;
+  const showPhoneOptions = hasPhoneDbOptions;
 
   // Reset router when connection type changes
   useEffect(() => {
