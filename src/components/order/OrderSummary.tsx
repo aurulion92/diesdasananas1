@@ -33,6 +33,7 @@ import { downloadVZFAsPDF } from '@/services/pdfService';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { ConsentCheckboxes } from '@/components/order/ConsentCheckboxes';
 
 export function OrderSummary() {
   const { 
@@ -57,6 +58,8 @@ export function OrderSummary() {
     vzfConfirmed,
     setVzfDownloaded,
     setVzfConfirmed,
+    consentData,
+    setConsentData,
     getTotalMonthly,
     getTotalOneTime,
     getRouterPrice,
@@ -300,6 +303,20 @@ export function OrderSummary() {
         phone_porting: phoneSelection.portingRequired || false,
         phone_porting_numbers: phoneSelection.portingData?.phoneNumbers || [],
         phone_porting_provider: phoneSelection.portingData?.previousProvider || null,
+        
+        // Phone book options
+        phone_evn: phoneSelection.evn || false,
+        phone_book_entry_type: phoneSelection.phoneBookEntryType || 'none',
+        phone_book_printed: phoneSelection.phoneBookPrinted || false,
+        phone_book_phone_info: phoneSelection.phoneBookPhoneInfo || false,
+        phone_book_internet: phoneSelection.phoneBookInternet || false,
+        phone_book_custom_name: phoneSelection.phoneBookCustomName || null,
+        phone_book_custom_address: phoneSelection.phoneBookCustomAddress || null,
+        phone_book_show_address: phoneSelection.phoneBookShowAddress ?? true,
+        
+        // Consent
+        consent_advertising: consentData.advertising,
+        consent_agb: consentData.agb,
         
         // Previous provider cancellation
         cancel_previous_provider: cancelPreviousProvider,
@@ -816,6 +833,13 @@ export function OrderSummary() {
           </div>
         </div>
 
+        {/* Consent Checkboxes */}
+        <ConsentCheckboxes
+          data={consentData}
+          onChange={setConsentData}
+          errors={!consentData.agb && vzfConfirmed ? { agb: 'Bitte akzeptieren Sie die AGB, um fortzufahren.' } : undefined}
+        />
+
         {/* VZF Download */}
         <div className={cn(
           "bg-card rounded-xl shadow-card p-6 border-2 border-dashed",
@@ -885,7 +909,7 @@ export function OrderSummary() {
           </Button>
           <Button 
             onClick={handleOrder}
-            disabled={!vzfConfirmed || isSubmitting}
+            disabled={!vzfConfirmed || !consentData.agb || isSubmitting}
             className="flex-1 h-12"
             variant="orange"
           >

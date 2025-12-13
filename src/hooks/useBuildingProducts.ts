@@ -19,6 +19,7 @@ export interface DatabaseProduct {
   includes_phone: boolean;
   is_building_restricted: boolean;
   hide_for_ftth: boolean;
+  info_text: string | null;
 }
 
 interface UseBuildingProductsResult {
@@ -55,7 +56,7 @@ export function useBuildingProducts(
                 id, name, slug, description, monthly_price, setup_fee,
                 download_speed, upload_speed, is_ftth, is_fttb, is_ftth_limited,
                 is_active, display_order, contract_months, includes_phone,
-                is_building_restricted, hide_for_ftth
+                is_building_restricted, hide_for_ftth, info_text
               )
             `)
             .eq('building_id', buildingId);

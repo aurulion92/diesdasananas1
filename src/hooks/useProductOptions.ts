@@ -16,6 +16,10 @@ export interface ProductOption {
   exclusive_group: string | null;
   requires_kabel_tv: boolean;
   display_order: number;
+  info_text: string | null;
+  image_url: string | null;
+  external_link_url: string | null;
+  external_link_label: string | null;
 }
 
 export interface ProductOptionMapping {
@@ -74,7 +78,11 @@ export function useProductOptions(productId: string | null) {
               auto_include_option_slug,
               exclusive_group,
               requires_kabel_tv,
-              display_order
+              display_order,
+              info_text,
+              image_url,
+              external_link_url,
+              external_link_label
             )
           `)
           .eq('product_id', productUuid);
@@ -108,6 +116,10 @@ export function useProductOptions(productId: string | null) {
               exclusive_group: (d.product_options as any).exclusive_group,
               requires_kabel_tv: (d.product_options as any).requires_kabel_tv,
               display_order: (d.product_options as any).display_order || 0,
+              info_text: (d.product_options as any).info_text,
+              image_url: (d.product_options as any).image_url,
+              external_link_url: (d.product_options as any).external_link_url,
+              external_link_label: (d.product_options as any).external_link_label,
             }
           }))
           .sort((a, b) => a.option.display_order - b.option.display_order);
@@ -145,5 +157,6 @@ export function useProductOptions(productId: string | null) {
     tvCominOptions: getOptionsByCategory('tv_comin'),
     tvWaipuOptions: getOptionsByCategory('tv_waipu'),
     tvHardwareOptions: getOptionsByCategory('tv_hardware'),
+    serviceOptions: getOptionsByCategory('service'),
   };
 }
