@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 import { ConnectionType, AddressData } from '@/data/addressDatabase';
 import { TariffOption, TariffAddon, promoCodes, PromoCode, validCustomerNumbers } from '@/data/tariffs';
 

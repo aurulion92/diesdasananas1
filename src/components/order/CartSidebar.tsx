@@ -1,4 +1,5 @@
 import { useOrder } from '@/context/OrderContext';
+import { useOrderPromotions } from '@/hooks/useOrderPromotions';
 import { ShoppingCart, MapPin, Wifi, Package, Check, Globe, Router, Tv, Phone, Tag, Gift, X, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -13,22 +14,92 @@ export function CartSidebar() {
     referralData,
     appliedPromoCode,
     expressActivation,
-    getRouterPrice,
-    getRouterDiscount,
-    getSetupFee,
-    isSetupFeeWaived,
-    getTotalMonthly, 
     getTotalOneTime,
     isMFH,
   } = useOrder();
 
-  const totalMonthly = getTotalMonthly();
-  const totalOneTime = getTotalOneTime();
-  const routerDiscount = getRouterDiscount();
-  const setupFee = getSetupFee();
-  const setupFeeWaived = isSetupFeeWaived();
+  // Use promotions from database
+  const { 
+    totalRouterDiscount,
+    getPromotedRouterPrice,
+    isSetupFeeWaivedByPromotions,
+    getApplicablePromotionNames,
+  } = useOrderPromotions();
+
+  const routerDiscount = totalRouterDiscount;
+  const routerPrice = getPromotedRouterPrice();
+  const setupFeeWaived = isSetupFeeWaivedByPromotions() || appliedPromoCode?.setupFeeWaived === true;
+  const setupFee = setupFeeWaived ? 0 : (selectedTariff?.setupFee || 99);
+  
   const isFiberBasic = selectedTariff?.id === 'fiber-basic-100';
   const isEinfachTariff = selectedTariff?.id?.startsWith('einfach-');
+
+  // Calculate monthly total with promotion discounts
+  const calculateMonthlyTotal = () => {
+    let total = 0;
+    
+    if (selectedTariff) {
+      total += contractDuration === 12 && isFiberBasic
+        ? selectedTariff.monthlyPrice12 
+        : selectedTariff.monthlyPrice;
+    }
+    
+    // Router with promotion discount
+    total += routerPrice;
+    
+    // TV costs
+    if (tvSelection.type === 'comin') {
+      total += 10.00;
+    }
+    if (tvSelection.package && tvSelection.type === 'waipu') {
+      total += tvSelection.package.monthlyPrice;
+    }
+    if (tvSelection.hdAddon) {
+      total += tvSelection.hdAddon.monthlyPrice;
+    }
+    tvSelection.hardware.forEach(hw => {
+      total += hw.monthlyPrice;
+    });
+    
+    // Phone costs
+    if (phoneSelection.enabled && isEinfachTariff) {
+      total += phoneSelection.lines * 2.95;
+    }
+    
+    return total;
+  };
+
+  const totalMonthly = calculateMonthlyTotal();
+
+  // Calculate one-time total with promotion discounts  
+  const calculateOneTimeTotal = () => {
+    let total = setupFee;
+    
+    if (selectedRouter) {
+      total += selectedRouter.oneTimePrice;
+    }
+    
+    tvSelection.hardware.forEach(hw => {
+      total += hw.oneTimePrice;
+    });
+    
+    if (tvSelection.waipuStick) {
+      total += 40.00;
+    }
+    
+    if (expressActivation) {
+      total += 200.00;
+    }
+    
+    // Referral bonus
+    if (referralData.type === 'referral' && referralData.referralValidated) {
+      total -= 50;
+    }
+    
+    return Math.max(0, total);
+  };
+
+  const totalOneTime = calculateOneTimeTotal();
 
   return (
     <div className="bg-card rounded-2xl shadow-card p-6 sticky top-24 animate-fade-in">
@@ -110,7 +181,7 @@ export function CartSidebar() {
                     </p>
                   )}
                   <p className="text-sm font-medium text-accent">
-                    {getRouterPrice().toFixed(2).replace('.', ',')} €
+                    {routerPrice.toFixed(2).replace('.', ',')} €
                   </p>
                 </div>
               </div>
