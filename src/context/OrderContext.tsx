@@ -378,7 +378,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
 
   const getSetupFee = (): number => {
     if (isSetupFeeWaived()) return 0;
-    return state.selectedTariff?.setupFee || 99;
+    // Use nullish coalescing to allow 0 as valid value
+    return state.selectedTariff?.setupFee ?? 99;
   };
 
   const getTotalMonthly = () => {
