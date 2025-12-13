@@ -26,8 +26,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
-import { downloadVZF } from '@/utils/generateVZF';
-import { downloadVZFWithTemplate, VZFRenderData } from '@/utils/renderVZFTemplate';
+import { generateVZFContent, VZFData } from '@/utils/generateVZF';
+import { renderVZFFromTemplate, VZFRenderData } from '@/utils/renderVZFTemplate';
+import { downloadVZFAsPDF } from '@/services/pdfService';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -119,20 +120,75 @@ export function OrderSummary() {
     };
 
     try {
-      await downloadVZFWithTemplate(vzfData, renderData);
-      setVzfDownloaded(true);
-      toast({
-        title: "VZF heruntergeladen",
-        description: "Bitte lesen Sie das Dokument sorgfältig durch.",
-      });
+      // Build VZF data for content generation
+      const vzfDataForContent: VZFData = {
+        tariff: selectedTariff,
+        router: selectedRouter,
+        tvType: tvSelection.type,
+        tvPackage: tvSelection.package,
+        tvHdAddon: tvSelection.hdAddon,
+        tvHardware: tvSelection.hardware,
+        waipuStick: tvSelection.waipuStick,
+        phoneEnabled: phoneSelection.enabled,
+        phoneLines: phoneSelection.lines,
+        routerDiscount: routerDiscount,
+        setupFee: getSetupFee(),
+        setupFeeWaived: isSetupFeeWaived(),
+        contractDuration: isFiberBasic ? contractDuration : 24,
+        expressActivation: expressActivation,
+        promoCode: appliedPromoCode?.code,
+        isFiberBasic: isFiberBasic,
+        referralBonus: getReferralBonus(),
+      };
+
+      // Get the HTML content
+      const htmlContent = await renderVZFFromTemplate(vzfDataForContent, renderData);
+      const orderNumber = renderData.orderNumber;
+
+      // Try to generate and download as PDF
+      const success = await downloadVZFAsPDF(htmlContent, orderNumber);
+      
+      if (success) {
+        setVzfDownloaded(true);
+        toast({
+          title: "VZF heruntergeladen",
+          description: "Bitte lesen Sie das Dokument sorgfältig durch.",
+        });
+      } else {
+        throw new Error('PDF generation failed');
+      }
     } catch (error) {
       console.error('VZF download error:', error);
-      // Fallback to old method
-      downloadVZF(vzfData);
+      // Fallback: Open in new window for printing
+      const vzfDataForContent: VZFData = {
+        tariff: selectedTariff,
+        router: selectedRouter,
+        tvType: tvSelection.type,
+        tvPackage: tvSelection.package,
+        tvHdAddon: tvSelection.hdAddon,
+        tvHardware: tvSelection.hardware,
+        waipuStick: tvSelection.waipuStick,
+        phoneEnabled: phoneSelection.enabled,
+        phoneLines: phoneSelection.lines,
+        routerDiscount: routerDiscount,
+        setupFee: getSetupFee(),
+        setupFeeWaived: isSetupFeeWaived(),
+        contractDuration: isFiberBasic ? contractDuration : 24,
+        expressActivation: expressActivation,
+        promoCode: appliedPromoCode?.code,
+        isFiberBasic: isFiberBasic,
+        referralBonus: getReferralBonus(),
+      };
+      const htmlContent = generateVZFContent(vzfDataForContent);
+      const newWindow = window.open('', '_blank');
+      if (newWindow) {
+        newWindow.document.write(htmlContent);
+        newWindow.document.close();
+      }
       setVzfDownloaded(true);
       toast({
-        title: "VZF heruntergeladen",
-        description: "Bitte lesen Sie das Dokument sorgfältig durch.",
+        title: "VZF geöffnet",
+        description: "Bitte drucken Sie das Dokument als PDF.",
       });
     }
   };
