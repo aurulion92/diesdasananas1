@@ -536,247 +536,54 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
     setImporting(true);
     setStep('importing');
 
-    const result = { created: 0, updated: 0, skipped: 0, errors: [] as string[], batchId: null as string | null };
-    const affectedIds: string[] = [];
-    const previousStates: any[] = [];
-    const BATCH_SIZE = 1000; // Increased for better performance
-
     try {
-      console.log('CSV Import gestartet', { csvRows: csvData.length });
-      // Initialen Fortschritt mit Gesamtzahl CSV-Zeilen setzen
-      setImportProgress({ current: 0, total: csvData.length, phase: 'Prüfe Zeilen (Straße/Hausnummer)...' });
+      console.log('CSV Import gestartet - Edge Function Modus', { csvRows: csvData.length });
+      setImportProgress({ current: 0, total: csvData.length, phase: 'Bereite Daten vor...' });
 
-      // First, filter out invalid rows
+      // Filter invalid rows
       const { valid: validRows, invalidCount } = getValidRows();
-      console.log('CSV Import - gültige/ungültige Zeilen', { valid: validRows.length, invalid: invalidCount });
       setInvalidRowsCount(invalidCount);
-      result.skipped += invalidCount;
-
-      const totalRows = validRows.length || csvData.length;
-      setImportProgress({ current: 0, total: totalRows, phase: 'Vorbereitung...' });
-
-      // Create import log entry first to get batch ID
-      const { data: logEntry, error: logError } = await supabase
-        .from('csv_import_logs')
-        .insert({
-          import_type: 'buildings',
-          file_name: 'manual_upload',
-          records_processed: csvData.length,
-        })
-        .select('id')
-        .single();
-
-      if (logError) throw logError;
-      const batchId = logEntry.id;
-      result.batchId = batchId;
-
-      // Transform all valid rows
-      setImportProgress({ current: 0, total: totalRows, phase: 'Transformiere Daten...' });
+      
+      // Transform rows
+      setImportProgress({ current: 0, total: validRows.length, phase: 'Transformiere Daten...' });
       const buildings = validRows.map(row => transformRow(row)).filter(Boolean) as Record<string, any>[];
 
-      // Fetch all existing buildings in batches for comparison
-      setImportProgress({ current: 0, total: totalRows, phase: 'Lade existierende Daten...' });
-      const existingBuildings = new Map<string, any>();
-      
-      // Fetch existing buildings in chunks to avoid timeout
-      const uniqueKeys = buildings.map(b => `${b.street}|${b.house_number}|${b.city || 'Falkensee'}`);
-      const chunkSize = 1000;
-      
-      for (let i = 0; i < buildings.length; i += chunkSize) {
-        const chunk = buildings.slice(i, i + chunkSize);
-        const { data: existingChunk } = await supabase
-          .from('buildings')
-          .select('*')
-          .or(chunk.map(b => `and(street.eq.${b.street},house_number.eq.${b.house_number},city.eq.${b.city || 'Falkensee'})`).join(','));
-        
-        if (existingChunk) {
-          existingChunk.forEach(b => {
-            existingBuildings.set(`${b.street}|${b.house_number}|${b.city}`, b);
-          });
+      setImportProgress({ current: buildings.length, total: buildings.length, phase: 'Sende an Server...' });
+
+      // Call Edge Function for server-side import
+      const startTime = Date.now();
+      const { data, error } = await supabase.functions.invoke('csv-import', {
+        body: { 
+          buildings,
+          fileName: 'manual_upload'
         }
-        setImportProgress({ current: Math.min(i + chunkSize, buildings.length), total: totalRows, phase: 'Lade existierende Daten...' });
-      }
-
-      // Separate into updates and inserts
-      const toUpdate: { building: Record<string, any>; existing: any }[] = [];
-      const toInsert: Record<string, any>[] = [];
-
-      for (const building of buildings) {
-        const key = `${building.street}|${building.house_number}|${building.city || 'Falkensee'}`;
-        const existing = existingBuildings.get(key);
-
-        if (existing) {
-          if (existing.manual_override_active) {
-            result.skipped++;
-          } else {
-            toUpdate.push({ building, existing });
-          }
-        } else {
-          toInsert.push(building);
-        }
-      }
-
-      // Process inserts in batches
-      setImportProgress({ current: 0, total: toInsert.length + toUpdate.length, phase: 'Erstelle neue Einträge...' });
-      
-      for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
-        // Check if import was aborted
-        if (abortControllerRef.current.aborted) {
-          console.log('Import abgebrochen bei Insert-Batch', i);
-          break;
-        }
-
-        const batch = toInsert.slice(i, i + BATCH_SIZE).map(building => ({
-          street: building.street,
-          house_number: building.house_number,
-          city: building.city || 'Falkensee',
-          postal_code: building.postal_code || null,
-          residential_units: building.residential_units || 1,
-          ausbau_art: building.ausbau_art || null,
-          ausbau_status: building.ausbau_status || 'geplant',
-          tiefbau_done: building.tiefbau_done || false,
-          apl_set: building.apl_set || false,
-          kabel_tv_available: building.kabel_tv_available || false,
-          gebaeude_id_v2: building.gebaeude_id_v2 || null,
-          gebaeude_id_k7: building.gebaeude_id_k7 || null,
-          is_manual_entry: false,
-          original_csv_data: building as any,
-          last_import_batch_id: batchId,
-        }));
-
-        const { data: insertedBuildings, error } = await supabase
-          .from('buildings')
-          .insert(batch)
-          .select('id');
-
-        if (error) {
-          result.errors.push(`Batch Insert Fehler: ${error.message}`);
-        } else {
-          result.created += batch.length;
-          if (insertedBuildings) {
-            insertedBuildings.forEach(b => {
-              previousStates.push({ id: b.id, type: 'create', previous: null });
-              affectedIds.push(b.id);
-            });
-          }
-        }
-
-        setImportProgress({ 
-          current: Math.min(i + BATCH_SIZE, toInsert.length), 
-          total: toInsert.length + toUpdate.length, 
-          phase: `Erstelle neue Einträge... (${Math.min(i + BATCH_SIZE, toInsert.length)}/${toInsert.length})` 
-        });
-      }
-
-      // Process updates in batches using bulk updates
-      setImportProgress({ 
-        current: toInsert.length, 
-        total: toInsert.length + toUpdate.length, 
-        phase: 'Aktualisiere existierende Einträge...' 
       });
 
-      // First, collect all previous states for undo functionality
-      for (const { existing } of toUpdate) {
-        previousStates.push({
-          id: existing.id,
-          type: 'update',
-          previous: existing
-        });
-        affectedIds.push(existing.id);
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`CSV Import abgeschlossen in ${duration}s`, data);
+
+      if (error) {
+        throw new Error(error.message || 'Edge Function Fehler');
       }
 
-      // Process updates in parallel batches for speed
-      for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
-        // Check if import was aborted
-        if (abortControllerRef.current.aborted) {
-          console.log('Import abgebrochen bei Update-Batch', i);
-          break;
-        }
-
-        const batch = toUpdate.slice(i, i + BATCH_SIZE);
-        
-        // Execute all updates in this batch in parallel
-        const updatePromises = batch.map(({ building, existing }) => 
-          supabase
-            .from('buildings')
-            .update({
-              street: building.street,
-              house_number: building.house_number,
-              city: building.city || 'Falkensee',
-              postal_code: building.postal_code || null,
-              residential_units: building.residential_units || 1,
-              ausbau_art: building.ausbau_art || null,
-              ausbau_status: building.ausbau_status || 'geplant',
-              tiefbau_done: building.tiefbau_done || false,
-              apl_set: building.apl_set || false,
-              kabel_tv_available: building.kabel_tv_available || false,
-              gebaeude_id_v2: building.gebaeude_id_v2 || null,
-              gebaeude_id_k7: building.gebaeude_id_k7 || null,
-              original_csv_data: building as any,
-              last_import_batch_id: batchId,
-            })
-            .eq('id', existing.id)
-        );
-
-        const results = await Promise.all(updatePromises);
-        
-        let batchErrors = 0;
-        results.forEach((res, idx) => {
-          if (res.error) {
-            batchErrors++;
-            if (result.errors.length < 10) { // Limit error messages
-              result.errors.push(`${batch[idx].building.street} ${batch[idx].building.house_number}: ${res.error.message}`);
-            }
-          } else {
-            result.updated++;
-          }
-        });
-
-        setImportProgress({ 
-          current: toInsert.length + Math.min(i + BATCH_SIZE, toUpdate.length), 
-          total: toInsert.length + toUpdate.length, 
-          phase: `Aktualisiere existierende Einträge... (${Math.min(i + BATCH_SIZE, toUpdate.length)}/${toUpdate.length})` 
-        });
+      if (!data.success) {
+        throw new Error(data.error || 'Import fehlgeschlagen');
       }
 
-      // Check if aborted before final steps
-      if (abortControllerRef.current.aborted) {
-        // Still save what we have
-        await supabase
-          .from('csv_import_logs')
-          .update({
-            records_created: result.created,
-            records_updated: result.updated,
-            records_skipped: result.skipped,
-            errors: [...result.errors, 'Import wurde abgebrochen'],
-            affected_building_ids: affectedIds,
-            previous_states: previousStates,
-          })
-          .eq('id', batchId);
-        
-        setImportResult(result);
-        return;
-      }
-
-      // Update import log with results and undo data
-      await supabase
-        .from('csv_import_logs')
-        .update({
-          records_created: result.created,
-          records_updated: result.updated,
-          records_skipped: result.skipped,
-          errors: result.errors.length > 0 ? result.errors : null,
-          affected_building_ids: affectedIds,
-          previous_states: previousStates,
-        })
-        .eq('id', batchId);
+      const result = {
+        created: data.created || 0,
+        updated: data.updated || 0,
+        skipped: (data.skipped || 0) + invalidCount,
+        errors: data.errors || [],
+        batchId: data.batchId
+      };
 
       setImportResult(result);
       setStep('complete');
 
       toast({
         title: 'Import abgeschlossen',
-        description: `${result.created} erstellt, ${result.updated} aktualisiert, ${result.skipped} übersprungen${invalidCount > 0 ? ` (davon ${invalidCount} ohne Straße/Hausnummer)` : ''}.`,
+        description: `${result.created} erstellt, ${result.updated} aktualisiert, ${result.skipped} übersprungen in ${duration}s.`,
       });
 
       onImportComplete();
