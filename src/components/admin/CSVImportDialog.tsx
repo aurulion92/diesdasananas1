@@ -511,6 +511,9 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
     const BATCH_SIZE = 500;
 
     try {
+      // Initialen Fortschritt mit Gesamtzahl CSV-Zeilen setzen
+      setImportProgress({ current: 0, total: csvData.length, phase: 'Prüfe Zeilen (Straße/Hausnummer)...' });
+
       // First, filter out invalid rows
       const { valid: validRows, invalidCount } = getValidRows();
       setInvalidRowsCount(invalidCount);
