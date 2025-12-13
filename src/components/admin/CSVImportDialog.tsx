@@ -511,15 +511,17 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
     const BATCH_SIZE = 500;
 
     try {
+      console.log('CSV Import gestartet', { csvRows: csvData.length });
       // Initialen Fortschritt mit Gesamtzahl CSV-Zeilen setzen
       setImportProgress({ current: 0, total: csvData.length, phase: 'Prüfe Zeilen (Straße/Hausnummer)...' });
 
       // First, filter out invalid rows
       const { valid: validRows, invalidCount } = getValidRows();
+      console.log('CSV Import - gültige/ungültige Zeilen', { valid: validRows.length, invalid: invalidCount });
       setInvalidRowsCount(invalidCount);
       result.skipped += invalidCount;
 
-      const totalRows = validRows.length;
+      const totalRows = validRows.length || csvData.length;
       setImportProgress({ current: 0, total: totalRows, phase: 'Vorbereitung...' });
 
       // Create import log entry first to get batch ID
