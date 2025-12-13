@@ -15,7 +15,8 @@ import {
   AlertTriangle,
   RefreshCw,
   Pencil,
-  Building2
+  Building2,
+  Link
 } from 'lucide-react';
 import {
   Table,
@@ -26,6 +27,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ProductBuildingAssignment } from './ProductBuildingAssignment';
+import { ProductOptionAssignment } from './ProductOptionAssignment';
 
 interface Product {
   id: string;
@@ -57,6 +59,7 @@ export const ProductsManager = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [assignmentProduct, setAssignmentProduct] = useState<{ id: string; name: string } | null>(null);
+  const [optionAssignmentProduct, setOptionAssignmentProduct] = useState<{ id: string; name: string } | null>(null);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -521,6 +524,14 @@ export const ProductsManager = () => {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => setOptionAssignmentProduct({ id: product.id, name: product.name })}
+                            title="Optionen zuweisen"
+                          >
+                            <Link className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setAssignmentProduct({ id: product.id, name: product.name })}
                             title="Gebäude zuweisen"
                           >
@@ -551,6 +562,17 @@ export const ProductsManager = () => {
             entityName={assignmentProduct.name}
             open={!!assignmentProduct}
             onOpenChange={(open) => !open && setAssignmentProduct(null)}
+            onUpdate={fetchProducts}
+          />
+        )}
+
+        {/* Product-Option Assignment Dialog */}
+        {optionAssignmentProduct && (
+          <ProductOptionAssignment
+            productId={optionAssignmentProduct.id}
+            productName={optionAssignmentProduct.name}
+            open={!!optionAssignmentProduct}
+            onOpenChange={(open) => !open && setOptionAssignmentProduct(null)}
             onUpdate={fetchProducts}
           />
         )}
