@@ -9,12 +9,14 @@ import { CustomerForm } from '@/components/order/CustomerForm';
 import { OrderSummary } from '@/components/order/OrderSummary';
 import { ExistingCustomerPortal } from '@/components/order/ExistingCustomerPortal';
 import { GustavChatbot } from '@/components/chat/GustavChatbot';
-import { Button } from '@/components/ui/button';
 import { User, Rocket } from 'lucide-react';
+import { useBranding } from '@/hooks/useBranding';
 
 const steps = ['Adresse', 'Tarif', 'Daten', 'Abschluss'];
 
 const LandingChoice = ({ onNewCustomer, onExistingCustomer, onLogoClick }: { onNewCustomer: () => void; onExistingCustomer: () => void; onLogoClick: () => void }) => {
+  const { branding } = useBranding();
+
   return (
     <div className="min-h-screen bg-background">
       <Header onLogoClick={onLogoClick} />
@@ -24,10 +26,10 @@ const LandingChoice = ({ onNewCustomer, onExistingCustomer, onLogoClick }: { onN
             <Rocket className="w-12 h-12 md:w-16 md:h-16 text-primary" strokeWidth={1.5} />
           </div>
           <h1 className="text-2xl md:text-4xl font-bold text-primary mb-2 md:mb-3">
-            Willkommen bei COM-IN
+            {branding.welcome_title}
           </h1>
           <p className="text-muted-foreground text-base md:text-lg mb-6 md:mb-10">
-            Glasfaser-Internet für Ingolstadt
+            {branding.welcome_subtitle}
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
@@ -38,9 +40,9 @@ const LandingChoice = ({ onNewCustomer, onExistingCustomer, onLogoClick }: { onN
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-accent/10 flex items-center justify-center mb-3 md:mb-4 group-hover:bg-accent/20 transition-colors">
                 <Rocket className="w-6 h-6 md:w-7 md:h-7 text-accent" />
               </div>
-              <h2 className="text-lg md:text-xl font-bold text-primary mb-1.5 md:mb-2">Neukunde</h2>
+              <h2 className="text-lg md:text-xl font-bold text-primary mb-1.5 md:mb-2">{branding.new_customer_title}</h2>
               <p className="text-sm md:text-base text-muted-foreground">
-                Jetzt Verfügbarkeit prüfen und einen neuen Anschluss bestellen
+                {branding.new_customer_description}
               </p>
             </button>
 
@@ -51,9 +53,9 @@ const LandingChoice = ({ onNewCustomer, onExistingCustomer, onLogoClick }: { onN
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-primary/10 flex items-center justify-center mb-3 md:mb-4 group-hover:bg-primary/20 transition-colors">
                 <User className="w-6 h-6 md:w-7 md:h-7 text-primary" />
               </div>
-              <h2 className="text-lg md:text-xl font-bold text-primary mb-1.5 md:mb-2">Bestandskunde?</h2>
+              <h2 className="text-lg md:text-xl font-bold text-primary mb-1.5 md:mb-2">{branding.existing_customer_title}</h2>
               <p className="text-sm md:text-base text-muted-foreground">
-                Vertragsänderung, Umzug, Daten ändern oder Tarif-Upgrade
+                {branding.existing_customer_description}
               </p>
             </button>
           </div>
