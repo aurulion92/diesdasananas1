@@ -11,7 +11,8 @@ import {
   LogOut,
   Shield,
   ShoppingCart,
-  FileText
+  FileText,
+  Cog
 } from 'lucide-react';
 import { BuildingsManager } from './BuildingsManager';
 import { ProductsManager } from './ProductsManager';
@@ -20,6 +21,7 @@ import { PromotionsManager } from './PromotionsManager';
 import { CustomersManager } from './CustomersManager';
 import { OrdersManager } from './OrdersManager';
 import { DocumentTemplatesManager } from './DocumentTemplatesManager';
+import { SettingsManager } from './SettingsManager';
 
 interface AdminDashboardProps {
   user: User;
@@ -63,7 +65,7 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 md:grid-cols-7 lg:w-auto lg:inline-grid gap-1">
+          <TabsList className="grid w-full grid-cols-4 md:grid-cols-8 lg:w-auto lg:inline-grid gap-1">
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <ShoppingCart className="w-4 h-4" />
               <span className="hidden sm:inline">Bestellungen</span>
@@ -91,6 +93,10 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
             <TabsTrigger value="documents" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Vorlagen</span>
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Cog className="w-4 h-4" />
+              <span className="hidden sm:inline">Einstellungen</span>
             </TabsTrigger>
           </TabsList>
 
@@ -120,6 +126,10 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
 
           <TabsContent value="documents">
             <DocumentTemplatesManager />
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <SettingsManager />
           </TabsContent>
         </Tabs>
       </main>
