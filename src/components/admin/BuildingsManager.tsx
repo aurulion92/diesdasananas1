@@ -49,6 +49,7 @@ interface Building {
   ausbau_art: 'ftth' | 'fttb' | 'ftth_limited' | null;
   ausbau_status: 'abgeschlossen' | 'im_ausbau' | 'geplant';
   kabel_tv_available: boolean;
+  gnv_vorhanden: boolean;
   gebaeude_id_v2: string | null;
   gebaeude_id_k7: string | null;
   is_manual_entry: boolean;
@@ -89,6 +90,7 @@ export const BuildingsManager = () => {
     ausbau_art: '' as 'ftth' | 'fttb' | 'ftth_limited' | '',
     ausbau_status: 'geplant' as 'abgeschlossen' | 'im_ausbau' | 'geplant',
     kabel_tv_available: false,
+    gnv_vorhanden: false,
     gebaeude_id_v2: '',
     gebaeude_id_k7: '',
   });
@@ -190,6 +192,7 @@ export const BuildingsManager = () => {
       ausbau_art: '',
       ausbau_status: 'geplant',
       kabel_tv_available: false,
+      gnv_vorhanden: false,
       gebaeude_id_v2: '',
       gebaeude_id_k7: '',
     });
@@ -209,6 +212,7 @@ export const BuildingsManager = () => {
       ausbau_art: building.ausbau_art || '',
       ausbau_status: building.ausbau_status,
       kabel_tv_available: building.kabel_tv_available,
+      gnv_vorhanden: building.gnv_vorhanden,
       gebaeude_id_v2: building.gebaeude_id_v2 || '',
       gebaeude_id_k7: building.gebaeude_id_k7 || '',
     });
@@ -458,6 +462,14 @@ export const BuildingsManager = () => {
                           onCheckedChange={(checked) => setFormData({...formData, kabel_tv_available: checked})}
                         />
                       </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="gnv_vorhanden">GNV vorhanden</Label>
+                        <Switch
+                          id="gnv_vorhanden"
+                          checked={formData.gnv_vorhanden}
+                          onCheckedChange={(checked) => setFormData({...formData, gnv_vorhanden: checked})}
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -566,6 +578,7 @@ export const BuildingsManager = () => {
                           <StatusIndicator active={building.tiefbau_done} label="Tiefbau" />
                           <StatusIndicator active={building.apl_set} label="APL" />
                           <StatusIndicator active={building.kabel_tv_available} label="Kabel TV" />
+                          <StatusIndicator active={building.gnv_vorhanden} label="GNV" />
                         </div>
                       </TableCell>
                       <TableCell>
