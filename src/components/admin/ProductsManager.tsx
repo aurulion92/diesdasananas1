@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -16,7 +16,13 @@ import {
   RefreshCw,
   Pencil,
   Building2,
-  Link
+  Link,
+  Copy,
+  Trash2,
+  Archive,
+  ArchiveRestore,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import {
   Table,
@@ -28,6 +34,17 @@ import {
 } from '@/components/ui/table';
 import { ProductBuildingAssignment } from './ProductBuildingAssignment';
 import { ProductOptionAssignment } from './ProductOptionAssignment';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface Product {
   id: string;
@@ -49,6 +66,8 @@ interface Product {
   includes_fiber_tv: boolean;
   hide_for_ftth: boolean;
   is_building_restricted: boolean;
+  is_archived: boolean;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -60,6 +79,22 @@ export const ProductsManager = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [assignmentProduct, setAssignmentProduct] = useState<{ id: string; name: string } | null>(null);
   const [optionAssignmentProduct, setOptionAssignmentProduct] = useState<{ id: string; name: string } | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  
+  // Copy dialog state
+  const [copyProduct, setCopyProduct] = useState<Product | null>(null);
+  const [copyOptions, setCopyOptions] = useState({
+    copyAvailability: true,
+    copyProductOptions: true,
+    copyBuildingAssignments: true
+  });
+  const [copying, setCopying] = useState(false);
+  
+  // Delete dialog state
+  const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -84,15 +119,21 @@ export const ProductsManager = () => {
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [showArchived]);
 
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('products')
         .select('*')
         .order('display_order', { ascending: true });
+      
+      if (!showArchived) {
+        query = query.or('is_archived.is.null,is_archived.eq.false');
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setProducts((data as Product[]) || []);
@@ -216,6 +257,189 @@ export const ProductsManager = () => {
       .replace(/(^-|-$)/g, '');
   };
 
+  // Copy product functionality
+  const handleCopyProduct = async () => {
+    if (!copyProduct) return;
+    setCopying(true);
+    
+    try {
+      // Create new product
+      const newProductData = {
+        name: `Kopie von ${copyProduct.name}`,
+        slug: `${copyProduct.slug}-copy-${Date.now()}`,
+        description: copyProduct.description,
+        monthly_price: copyProduct.monthly_price,
+        setup_fee: copyProduct.setup_fee,
+        download_speed: copyProduct.download_speed,
+        upload_speed: copyProduct.upload_speed,
+        is_ftth: copyOptions.copyAvailability ? copyProduct.is_ftth : true,
+        is_fttb: copyOptions.copyAvailability ? copyProduct.is_fttb : true,
+        is_ftth_limited: copyOptions.copyAvailability ? copyProduct.is_ftth_limited : true,
+        is_active: false, // New copies start inactive
+        display_order: copyProduct.display_order + 1,
+        product_id_k7: null, // K7 ID should be unique, so don't copy
+        contract_months: copyProduct.contract_months,
+        includes_phone: copyProduct.includes_phone,
+        includes_fiber_tv: copyProduct.includes_fiber_tv,
+        hide_for_ftth: copyProduct.hide_for_ftth,
+        is_building_restricted: copyOptions.copyBuildingAssignments ? copyProduct.is_building_restricted : false,
+      };
+
+      const { data: newProduct, error: insertError } = await supabase
+        .from('products')
+        .insert([newProductData])
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Copy product options if requested
+      if (copyOptions.copyProductOptions && newProduct) {
+        const { data: existingMappings } = await supabase
+          .from('product_option_mappings')
+          .select('*')
+          .eq('product_id', copyProduct.id);
+
+        if (existingMappings && existingMappings.length > 0) {
+          const newMappings = existingMappings.map(mapping => ({
+            product_id: newProduct.id,
+            option_id: mapping.option_id,
+            discount_amount: mapping.discount_amount,
+            is_included: mapping.is_included,
+            option_id_k7: null, // Don't copy K7 ID
+          }));
+
+          await supabase.from('product_option_mappings').insert(newMappings);
+        }
+      }
+
+      // Copy building assignments if requested
+      if (copyOptions.copyBuildingAssignments && newProduct) {
+        const { data: existingAssignments } = await supabase
+          .from('product_buildings')
+          .select('*')
+          .eq('product_id', copyProduct.id);
+
+        if (existingAssignments && existingAssignments.length > 0) {
+          const newAssignments = existingAssignments.map(assignment => ({
+            product_id: newProduct.id,
+            building_id: assignment.building_id,
+          }));
+
+          await supabase.from('product_buildings').insert(newAssignments);
+        }
+      }
+
+      toast({ title: 'Erfolg', description: 'Produkt wurde kopiert.' });
+      setCopyProduct(null);
+      setCopyOptions({ copyAvailability: true, copyProductOptions: true, copyBuildingAssignments: true });
+      fetchProducts();
+    } catch (error: any) {
+      console.error('Error copying product:', error);
+      toast({
+        title: 'Fehler',
+        description: error.message || 'Produkt konnte nicht kopiert werden.',
+        variant: 'destructive',
+      });
+    } finally {
+      setCopying(false);
+    }
+  };
+
+  // Delete product functionality
+  const handleDeleteProduct = async () => {
+    if (!deleteProduct || deleteConfirmText !== 'LÖSCHEN') return;
+    setDeleting(true);
+    
+    try {
+      // Delete related mappings first
+      await supabase.from('product_option_mappings').delete().eq('product_id', deleteProduct.id);
+      await supabase.from('product_buildings').delete().eq('product_id', deleteProduct.id);
+      
+      // Delete the product
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', deleteProduct.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Erfolg', description: 'Produkt wurde gelöscht.' });
+      setDeleteProduct(null);
+      setDeleteConfirmText('');
+      fetchProducts();
+    } catch (error: any) {
+      console.error('Error deleting product:', error);
+      toast({
+        title: 'Fehler',
+        description: error.message || 'Produkt konnte nicht gelöscht werden.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Archive/Unarchive product functionality
+  const handleArchiveProduct = async (product: Product) => {
+    try {
+      const isArchiving = !product.is_archived;
+      const { error } = await supabase
+        .from('products')
+        .update({ 
+          is_archived: isArchiving,
+          archived_at: isArchiving ? new Date().toISOString() : null,
+          is_active: isArchiving ? false : product.is_active // Deactivate when archiving
+        })
+        .eq('id', product.id);
+
+      if (error) throw error;
+
+      toast({ 
+        title: 'Erfolg', 
+        description: isArchiving ? 'Produkt wurde archiviert.' : 'Produkt wurde wiederhergestellt.' 
+      });
+      fetchProducts();
+    } catch (error: any) {
+      console.error('Error archiving product:', error);
+      toast({
+        title: 'Fehler',
+        description: error.message || 'Aktion konnte nicht durchgeführt werden.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Check if product has options or building assignments
+  const [productExtras, setProductExtras] = useState<Record<string, { hasOptions: boolean; hasBuildings: boolean }>>({});
+
+  useEffect(() => {
+    const fetchExtras = async () => {
+      if (products.length === 0) return;
+      
+      const productIds = products.map(p => p.id);
+      
+      const [optionsResult, buildingsResult] = await Promise.all([
+        supabase.from('product_option_mappings').select('product_id').in('product_id', productIds),
+        supabase.from('product_buildings').select('product_id').in('product_id', productIds)
+      ]);
+
+      const extras: Record<string, { hasOptions: boolean; hasBuildings: boolean }> = {};
+      productIds.forEach(id => {
+        extras[id] = {
+          hasOptions: optionsResult.data?.some(m => m.product_id === id) || false,
+          hasBuildings: buildingsResult.data?.some(b => b.product_id === id) || false
+        };
+      });
+      setProductExtras(extras);
+    };
+
+    fetchExtras();
+  }, [products]);
+
+  const activeProducts = products.filter(p => !p.is_archived);
+  const archivedProducts = products.filter(p => p.is_archived);
+
   return (
     <Card>
       <CardHeader>
@@ -229,7 +453,15 @@ export const ProductsManager = () => {
               Verwalten Sie alle Internet-Tarife.
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <Button
+              variant={showArchived ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowArchived(!showArchived)}
+            >
+              {showArchived ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+              {showArchived ? 'Archiv ausblenden' : 'Archiv anzeigen'}
+            </Button>
             <Button variant="outline" size="sm" onClick={fetchProducts}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Aktualisieren
@@ -452,105 +684,194 @@ export const ProductsManager = () => {
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Produkt</TableHead>
-                  <TableHead>Geschwindigkeit</TableHead>
-                  <TableHead>Preis</TableHead>
-                  <TableHead>Verfügbarkeit</TableHead>
-                  <TableHead>K7 ID</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Aktionen</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {products.length === 0 ? (
+          <div className="space-y-6">
+            {/* Active Products */}
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      Keine Produkte gefunden.
-                    </TableCell>
+                    <TableHead>Produkt</TableHead>
+                    <TableHead>Geschwindigkeit</TableHead>
+                    <TableHead>Preis</TableHead>
+                    <TableHead>Verfügbarkeit</TableHead>
+                    <TableHead>K7 ID</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Aktionen</TableHead>
                   </TableRow>
-                ) : (
-                  products.map((product) => (
-                    <TableRow key={product.id} className={!product.is_active ? 'opacity-50' : ''}>
-                      <TableCell>
-                        <div>
-                          <span className="font-medium">{product.name}</span>
-                          <br />
-                          <span className="text-xs text-muted-foreground">{product.slug}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {product.download_speed && product.upload_speed ? (
-                          <span>{product.download_speed}/{product.upload_speed} Mbit/s</span>
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <span className="font-medium">{product.monthly_price.toFixed(2)} €/Monat</span>
-                          <br />
-                          <span className="text-xs text-muted-foreground">
-                            {product.setup_fee > 0 ? `+ ${product.setup_fee.toFixed(2)} € einmalig` : 'Keine Einrichtung'}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {product.is_ftth && <Badge variant="default">FTTH</Badge>}
-                          {product.is_ftth_limited && <Badge variant="outline" className="border-accent text-accent">Limited</Badge>}
-                          {product.is_fttb && <Badge variant="secondary">FTTB</Badge>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {product.product_id_k7 ? (
-                          <span className="text-sm">{product.product_id_k7}</span>
-                        ) : (
-                          <div className="flex items-center gap-1 text-warning">
-                            <AlertTriangle className="w-3 h-3" />
-                            <span className="text-xs">Fehlt</span>
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={product.is_active}
-                          onCheckedChange={() => toggleActive(product)}
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setOptionAssignmentProduct({ id: product.id, name: product.name })}
-                            title="Optionen zuweisen"
-                          >
-                            <Link className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setAssignmentProduct({ id: product.id, name: product.name })}
-                            title="Gebäude zuweisen"
-                          >
-                            <Building2 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditDialog(product)}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {activeProducts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        Keine aktiven Produkte gefunden.
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    activeProducts.map((product) => (
+                      <TableRow key={product.id} className={!product.is_active ? 'opacity-50' : ''}>
+                        <TableCell>
+                          <div>
+                            <span className="font-medium">{product.name}</span>
+                            <br />
+                            <span className="text-xs text-muted-foreground">{product.slug}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {product.download_speed && product.upload_speed ? (
+                            <span>{product.download_speed}/{product.upload_speed} Mbit/s</span>
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <span className="font-medium">{product.monthly_price.toFixed(2)} €/Monat</span>
+                            <br />
+                            <span className="text-xs text-muted-foreground">
+                              {product.setup_fee > 0 ? `+ ${product.setup_fee.toFixed(2)} € einmalig` : 'Keine Einrichtung'}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {product.is_ftth && <Badge variant="default">FTTH</Badge>}
+                            {product.is_ftth_limited && <Badge variant="outline" className="border-accent text-accent">Limited</Badge>}
+                            {product.is_fttb && <Badge variant="secondary">FTTB</Badge>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {product.product_id_k7 ? (
+                            <span className="text-sm">{product.product_id_k7}</span>
+                          ) : (
+                            <div className="flex items-center gap-1 text-warning">
+                              <AlertTriangle className="w-3 h-3" />
+                              <span className="text-xs">Fehlt</span>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={product.is_active}
+                            onCheckedChange={() => toggleActive(product)}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setCopyProduct(product)}
+                              title="Kopieren"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setOptionAssignmentProduct({ id: product.id, name: product.name })}
+                              title="Optionen zuweisen"
+                            >
+                              <Link className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setAssignmentProduct({ id: product.id, name: product.name })}
+                              title="Gebäude zuweisen"
+                            >
+                              <Building2 className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditDialog(product)}
+                              title="Bearbeiten"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleArchiveProduct(product)}
+                              title="Archivieren"
+                            >
+                              <Archive className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeleteProduct(product)}
+                              title="Löschen"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Archived Products */}
+            {showArchived && archivedProducts.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Archive className="w-4 h-4" />
+                  Archivierte Produkte ({archivedProducts.length})
+                </h3>
+                <div className="border rounded-lg overflow-hidden bg-muted/30">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Produkt</TableHead>
+                        <TableHead>Preis</TableHead>
+                        <TableHead>Archiviert am</TableHead>
+                        <TableHead className="text-right">Aktionen</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {archivedProducts.map((product) => (
+                        <TableRow key={product.id} className="opacity-60">
+                          <TableCell>
+                            <div>
+                              <span className="font-medium">{product.name}</span>
+                              <br />
+                              <span className="text-xs text-muted-foreground">{product.slug}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{product.monthly_price.toFixed(2)} €/Monat</TableCell>
+                          <TableCell>
+                            {product.archived_at ? new Date(product.archived_at).toLocaleDateString('de-DE') : '-'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleArchiveProduct(product)}
+                                title="Wiederherstellen"
+                              >
+                                <ArchiveRestore className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDeleteProduct(product)}
+                                title="Endgültig löschen"
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -576,6 +897,132 @@ export const ProductsManager = () => {
             onUpdate={fetchProducts}
           />
         )}
+
+        {/* Copy Product Dialog */}
+        <Dialog open={!!copyProduct} onOpenChange={(open) => !open && setCopyProduct(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Produkt kopieren</DialogTitle>
+              <DialogDescription>
+                Erstelle eine Kopie von "{copyProduct?.name}"
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="copyAvailability"
+                  checked={copyOptions.copyAvailability}
+                  onCheckedChange={(checked) => 
+                    setCopyOptions({ ...copyOptions, copyAvailability: checked === true })
+                  }
+                />
+                <Label htmlFor="copyAvailability">Verfügbarkeit kopieren (FTTH/FTTB/Limited)</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="copyProductOptions"
+                  checked={copyOptions.copyProductOptions}
+                  disabled={!productExtras[copyProduct?.id || '']?.hasOptions}
+                  onCheckedChange={(checked) => 
+                    setCopyOptions({ ...copyOptions, copyProductOptions: checked === true })
+                  }
+                />
+                <Label 
+                  htmlFor="copyProductOptions"
+                  className={!productExtras[copyProduct?.id || '']?.hasOptions ? 'text-muted-foreground' : ''}
+                >
+                  Optionen kopieren 
+                  {!productExtras[copyProduct?.id || '']?.hasOptions && ' (keine vorhanden)'}
+                </Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="copyBuildingAssignments"
+                  checked={copyOptions.copyBuildingAssignments}
+                  disabled={!productExtras[copyProduct?.id || '']?.hasBuildings}
+                  onCheckedChange={(checked) => 
+                    setCopyOptions({ ...copyOptions, copyBuildingAssignments: checked === true })
+                  }
+                />
+                <Label 
+                  htmlFor="copyBuildingAssignments"
+                  className={!productExtras[copyProduct?.id || '']?.hasBuildings ? 'text-muted-foreground' : ''}
+                >
+                  Gebäudezuweisungen kopieren
+                  {!productExtras[copyProduct?.id || '']?.hasBuildings && ' (keine vorhanden)'}
+                </Label>
+              </div>
+              
+              <p className="text-sm text-muted-foreground">
+                Die K7-IDs werden nicht kopiert und müssen manuell vergeben werden.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCopyProduct(null)}>
+                Abbrechen
+              </Button>
+              <Button onClick={handleCopyProduct} disabled={copying}>
+                {copying && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Kopieren
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Product Dialog */}
+        <AlertDialog open={!!deleteProduct} onOpenChange={(open) => {
+          if (!open) {
+            setDeleteProduct(null);
+            setDeleteConfirmText('');
+          }
+        }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="w-5 h-5" />
+                Produkt endgültig löschen?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-4">
+                <p>
+                  Möchtest du das Produkt <strong>"{deleteProduct?.name}"</strong> wirklich endgültig löschen?
+                </p>
+                <p className="text-destructive font-medium">
+                  Diese Aktion kann nicht rückgängig gemacht werden! Alle zugehörigen Optionen und Gebäudezuweisungen werden ebenfalls gelöscht.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="deleteConfirm">
+                    Gib <span className="font-mono font-bold">LÖSCHEN</span> ein, um zu bestätigen:
+                  </Label>
+                  <Input
+                    id="deleteConfirm"
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    placeholder="LÖSCHEN"
+                    className="font-mono"
+                  />
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setDeleteProduct(null);
+                setDeleteConfirmText('');
+              }}>
+                Abbrechen
+              </AlertDialogCancel>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteProduct}
+                disabled={deleteConfirmText !== 'LÖSCHEN' || deleting}
+              >
+                {deleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Endgültig löschen
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );

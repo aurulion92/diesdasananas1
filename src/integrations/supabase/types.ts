@@ -545,6 +545,7 @@ export type Database = {
       }
       products: {
         Row: {
+          archived_at: string | null
           contract_months: number | null
           created_at: string
           description: string | null
@@ -555,6 +556,7 @@ export type Database = {
           includes_fiber_tv: boolean | null
           includes_phone: boolean | null
           is_active: boolean | null
+          is_archived: boolean | null
           is_building_restricted: boolean | null
           is_fttb: boolean | null
           is_ftth: boolean | null
@@ -568,6 +570,7 @@ export type Database = {
           upload_speed: number | null
         }
         Insert: {
+          archived_at?: string | null
           contract_months?: number | null
           created_at?: string
           description?: string | null
@@ -578,6 +581,7 @@ export type Database = {
           includes_fiber_tv?: boolean | null
           includes_phone?: boolean | null
           is_active?: boolean | null
+          is_archived?: boolean | null
           is_building_restricted?: boolean | null
           is_fttb?: boolean | null
           is_ftth?: boolean | null
@@ -591,6 +595,7 @@ export type Database = {
           upload_speed?: number | null
         }
         Update: {
+          archived_at?: string | null
           contract_months?: number | null
           created_at?: string
           description?: string | null
@@ -601,6 +606,7 @@ export type Database = {
           includes_fiber_tv?: boolean | null
           includes_phone?: boolean | null
           is_active?: boolean | null
+          is_archived?: boolean | null
           is_building_restricted?: boolean | null
           is_fttb?: boolean | null
           is_ftth?: boolean | null
