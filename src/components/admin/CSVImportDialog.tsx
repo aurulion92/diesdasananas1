@@ -1134,31 +1134,30 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
             <div className="text-center">
               <Loader2 className="w-12 h-12 mx-auto animate-spin text-primary" />
               <p className="mt-4 text-lg font-medium">Import läuft...</p>
-              <p className="text-sm text-muted-foreground">{importProgress.phase || 'Bitte warten Sie, dies kann einen Moment dauern.'}</p>
+              <p className="text-sm text-muted-foreground">{importProgress.phase || 'Initialisiere...'}</p>
             </div>
             
-            {importProgress.total > 0 && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Fortschritt</span>
-                  <span className="font-medium">
-                    {importProgress.current.toLocaleString()} / {importProgress.total.toLocaleString()} 
-                    ({Math.round((importProgress.current / importProgress.total) * 100)}%)
-                  </span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
-                  <div 
-                    className="bg-primary h-full transition-all duration-300 ease-out"
-                    style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground text-center">
-                  Geschätzte Restzeit: {importProgress.total > 0 && importProgress.current > 0 
-                    ? `~${Math.ceil(((importProgress.total - importProgress.current) / importProgress.current) * 0.5)} Minuten`
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Fortschritt</span>
+                <span className="font-medium">
+                  {importProgress.total > 0 
+                    ? `${importProgress.current.toLocaleString()} / ${importProgress.total.toLocaleString()} (${Math.round((importProgress.current / importProgress.total) * 100)}%)`
                     : 'Berechne...'}
-                </p>
+                </span>
               </div>
-            )}
+              <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                <div 
+                  className="bg-primary h-full transition-all duration-300 ease-out"
+                  style={{ width: importProgress.total > 0 ? `${(importProgress.current / importProgress.total) * 100}%` : '0%' }}
+                />
+              </div>
+              {importProgress.total > 0 && importProgress.current > 0 && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Geschätzte Restzeit: ~{Math.max(1, Math.ceil(((importProgress.total - importProgress.current) / Math.max(1, importProgress.current)) * 0.3))} Minuten
+                </p>
+              )}
+            </div>
           </div>
         )}
 
