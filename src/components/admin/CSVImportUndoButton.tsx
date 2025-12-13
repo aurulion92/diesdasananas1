@@ -36,63 +36,25 @@ export const CSVImportUndoButton = ({ onUndoComplete }: CSVImportUndoButtonProps
   const { toast } = useToast();
 
   const checkLastImport = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('csv_import_logs')
-      .select(
-        'id, created_at, records_created, records_updated, affected_building_ids, previous_states, is_reverted'
-      )
+      .select('id, created_at, records_created, records_updated, affected_building_ids, previous_states, is_reverted')
       .eq('import_type', 'buildings')
       .eq('is_reverted', false)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (error) {
-      console.error('Error loading last import log:', error);
-      toast({
-        title: 'Fehler beim Laden',
-        description: 'Der letzte Import konnte nicht geprüft werden.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!data) {
+    if (data && (data.affected_building_ids?.length || 0) > 0) {
+      setLastImport(data as ImportLog);
+      setDialogOpen(true);
+    } else {
       toast({
         title: 'Kein Import vorhanden',
         description: 'Es gibt keinen rückgängig zu machenden Import.',
         variant: 'destructive',
       });
-      return;
     }
-
-    const hasPreviousStates = Array.isArray((data as any).previous_states) &&
-      (data as any).previous_states.length > 0;
-    const hasAffectedIds = Array.isArray(data.affected_building_ids) &&
-      data.affected_building_ids.length > 0;
-
-    if (hasPreviousStates) {
-      setLastImport(data as ImportLog);
-      setDialogOpen(true);
-      return;
-    }
-
-    if (hasAffectedIds) {
-      // Import aus dem neuen schnellen Server-Import ohne gespeicherte Detailzustände
-      toast({
-        title: 'Import kann nicht rückgängig gemacht werden',
-        description:
-          'Dieser letzte Import wurde ohne Detail-Undo-Daten gespeichert und kann daher hier nicht zurückgerollt werden. Du kannst das Projekt stattdessen über die Verlaufansicht auf einen früheren Stand zurücksetzen.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    toast({
-      title: 'Kein Import vorhanden',
-      description: 'Es gibt keinen rückgängig zu machenden Import.',
-      variant: 'destructive',
-    });
   };
 
   const handleUndo = async () => {
