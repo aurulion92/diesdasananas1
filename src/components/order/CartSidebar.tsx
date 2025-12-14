@@ -21,15 +21,19 @@ export function CartSidebar() {
   // Use promotions from database
   const { 
     totalRouterDiscount,
+    totalRouterOneTimeDiscount,
     getPromotedRouterPrice,
+    getPromotedRouterOneTimePrice,
     isSetupFeeWaivedByPromotions,
     getApplicablePromotionNames,
   } = useOrderPromotions();
 
   const routerDiscount = totalRouterDiscount;
+  const routerOneTimeDiscount = totalRouterOneTimeDiscount;
   const routerPrice = getPromotedRouterPrice();
+  const routerOneTimePrice = getPromotedRouterOneTimePrice();
   const setupFeeWaived = isSetupFeeWaivedByPromotions() || appliedPromoCode?.setupFeeWaived === true;
-  const setupFee = setupFeeWaived ? 0 : (selectedTariff?.setupFee || 99);
+  const setupFee = setupFeeWaived ? 0 : (selectedTariff?.setupFee ?? 99);
   
   // Check for FiberBasic by name since id is now UUID
   const isFiberBasic = selectedTariff?.name?.toLowerCase().includes('fiberbasic') || 
@@ -77,9 +81,8 @@ export function CartSidebar() {
   const calculateOneTimeTotal = () => {
     let total = setupFee;
     
-    if (selectedRouter) {
-      total += selectedRouter.oneTimePrice;
-    }
+    // Router one-time price with promotion discount
+    total += routerOneTimePrice;
     
     tvSelection.hardware.forEach(hw => {
       total += hw.oneTimePrice;

@@ -763,6 +763,7 @@ export type Database = {
           k7_product_id: string | null
           k7_template_id: string | null
           k7_template_type: string | null
+          price_type: string
           promotion_id: string
           target_option_id: string | null
           target_product_id: string | null
@@ -776,6 +777,7 @@ export type Database = {
           k7_product_id?: string | null
           k7_template_id?: string | null
           k7_template_type?: string | null
+          price_type?: string
           promotion_id: string
           target_option_id?: string | null
           target_product_id?: string | null
@@ -789,6 +791,7 @@ export type Database = {
           k7_product_id?: string | null
           k7_template_id?: string | null
           k7_template_type?: string | null
+          price_type?: string
           promotion_id?: string
           target_option_id?: string | null
           target_product_id?: string | null

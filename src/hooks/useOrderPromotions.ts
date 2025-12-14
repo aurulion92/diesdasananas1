@@ -4,6 +4,7 @@ import { usePromotionsContext } from '@/context/PromotionsContext';
 /**
  * Hook that combines order context with promotions context
  * to calculate dynamic discounts based on active database promotions
+ * Supports separate monthly and one-time discounts
  */
 export function useOrderPromotions() {
   const { 
@@ -14,7 +15,7 @@ export function useOrderPromotions() {
   } = useOrder();
   
   const { 
-    getRouterDiscountForTariff, 
+    getOptionDiscountForTariff, 
     isSetupFeeWaived: isSetupFeeWaivedByPromotion,
     promotions,
     loading 
@@ -27,31 +28,56 @@ export function useOrderPromotions() {
   // The databaseId is set when the router is created from database options
   const routerOptionId = selectedRouter?.databaseId || null;
 
-  // Get router discount from database promotions (e.g., FTTH-Aktion)
-  // Uses tariff UUID for matching
-  const promotionRouterDiscount = selectedTariff 
-    ? getRouterDiscountForTariff(selectedTariff.id, buildingId, routerOptionId)
+  // Get MONTHLY router discount from database promotions (e.g., FTTH-Aktion)
+  const promotionRouterMonthlyDiscount = selectedTariff 
+    ? getOptionDiscountForTariff(selectedTariff.id, buildingId, routerOptionId, 'monthly')
     : 0;
 
-  // Get router discount from manual promo code
+  // Get ONE-TIME router discount from database promotions
+  const promotionRouterOneTimeDiscount = selectedTariff 
+    ? getOptionDiscountForTariff(selectedTariff.id, buildingId, routerOptionId, 'one_time')
+    : 0;
+
+  // Get router discount from manual promo code (legacy - treated as monthly)
   const promoCodeRouterDiscount = appliedPromoCode?.routerDiscount || 0;
 
-  // Total router discount (don't double-apply)
-  const totalRouterDiscount = Math.max(promotionRouterDiscount, promoCodeRouterDiscount);
+  // Total monthly router discount (don't double-apply with promo code)
+  const totalRouterMonthlyDiscount = Math.max(promotionRouterMonthlyDiscount, promoCodeRouterDiscount);
+  
+  // Total one-time router discount
+  const totalRouterOneTimeDiscount = promotionRouterOneTimeDiscount;
 
-  // Calculate actual router price with promotion discount
+  // Legacy alias for backward compatibility
+  const totalRouterDiscount = totalRouterMonthlyDiscount;
+
+  // Calculate actual router monthly price with promotion discount
   const getPromotedRouterPrice = (): number => {
     if (!selectedRouter || selectedRouter.id === 'router-none') return 0;
     
     const basePrice = selectedRouter.monthlyPrice;
-    const discountedPrice = Math.max(0, basePrice - totalRouterDiscount);
+    const discountedPrice = Math.max(0, basePrice - totalRouterMonthlyDiscount);
     
     return discountedPrice;
   };
 
-  // Check if there's an active discount on router
+  // Calculate actual router one-time price with promotion discount
+  const getPromotedRouterOneTimePrice = (): number => {
+    if (!selectedRouter || selectedRouter.id === 'router-none') return 0;
+    
+    const basePrice = selectedRouter.oneTimePrice;
+    const discountedPrice = Math.max(0, basePrice - totalRouterOneTimeDiscount);
+    
+    return discountedPrice;
+  };
+
+  // Check if there's an active monthly discount on router
   const hasRouterDiscount = (): boolean => {
-    return totalRouterDiscount > 0 && selectedRouter?.id !== 'router-none';
+    return totalRouterMonthlyDiscount > 0 && selectedRouter?.id !== 'router-none';
+  };
+
+  // Check if there's an active one-time discount on router
+  const hasRouterOneTimeDiscount = (): boolean => {
+    return totalRouterOneTimeDiscount > 0 && selectedRouter?.id !== 'router-none';
   };
 
   // Check if setup fee is waived by any promotion
@@ -80,11 +106,21 @@ export function useOrderPromotions() {
   };
 
   return {
-    promotionRouterDiscount,
-    promoCodeRouterDiscount,
-    totalRouterDiscount,
+    // Monthly discounts
+    promotionRouterMonthlyDiscount,
+    totalRouterMonthlyDiscount,
+    totalRouterDiscount, // Legacy alias
     getPromotedRouterPrice,
     hasRouterDiscount,
+    
+    // One-time discounts
+    promotionRouterOneTimeDiscount,
+    totalRouterOneTimeDiscount,
+    getPromotedRouterOneTimePrice,
+    hasRouterOneTimeDiscount,
+    
+    // Other
+    promoCodeRouterDiscount,
     isSetupFeeWaivedByPromotions,
     getApplicablePromotionNames,
     promotionsLoading: loading,
