@@ -34,7 +34,7 @@ import { format, subHours, startOfDay, endOfDay, startOfWeek, startOfMonth, star
 import { de } from 'date-fns/locale';
 import { renderVZFFromTemplate, VZFRenderData } from '@/utils/renderVZFTemplate';
 import { generateVZFContent, VZFData } from '@/utils/generateVZF';
-import { openVZFAsPDF } from '@/services/pdfService';
+import { openVZFAsPDF, VZFPdfData } from '@/services/pdfService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface Order {
@@ -268,51 +268,99 @@ export const OrdersManager = () => {
         vzfTimestamp: format(new Date(order.vzf_generated_at), 'dd.MM.yyyy HH:mm', { locale: de }),
       };
 
-      let content: string;
-      
-      if (order.vzf_data?.tariff) {
-        const serviceAddons = (order.selected_options as any[] || [])
-          .filter(opt => opt.type === 'service' || opt.category === 'service' || opt.category === 'installation')
-          .map(opt => ({
-            id: opt.id || opt.name,
-            name: opt.name,
-            description: opt.description || '',
-            monthlyPrice: opt.monthlyPrice || opt.monthly_price || 0,
-            oneTimePrice: opt.oneTimePrice || opt.one_time_price || 0,
-            category: opt.category || 'service',
-          }));
-
-        const vzfData: VZFData = {
-          tariff: order.vzf_data.tariff,
-          router: order.vzf_data.router || null,
-          tvType: order.vzf_data.tvSelection?.type || 'none',
-          tvPackage: order.vzf_data.tvSelection?.package || null,
-          tvHdAddon: order.vzf_data.tvSelection?.hdAddon || null,
-          tvHardware: order.vzf_data.tvSelection?.hardware || [],
-          waipuStick: order.vzf_data.tvSelection?.waipuStick || false,
-          phoneEnabled: order.vzf_data.phoneSelection?.enabled || false,
-          phoneLines: order.vzf_data.phoneSelection?.lines || 0,
-          routerDiscount: order.vzf_data.routerDiscount || 0,
-          setupFee: order.vzf_data.setupFee || order.setup_fee,
-          setupFeeWaived: order.vzf_data.setupFeeWaived || false,
-          contractDuration: order.vzf_data.contractDuration || order.contract_months,
-          expressActivation: order.vzf_data.expressActivation || false,
-          promoCode: order.vzf_data.promoCode || order.promo_code,
-          isFiberBasic: order.vzf_data.isFiberBasic || false,
-          referralBonus: order.vzf_data.referralBonus || 0,
-          serviceAddons: serviceAddons,
-        };
-        
-        renderData.serviceAddons = serviceAddons;
-        content = await renderVZFFromTemplate(vzfData, renderData);
-      } else {
-        content = generateFallbackVZFHTML(order, renderData);
-      }
-
+      // Build VZF PDF data for the edge function
       const orderNumber = `COM-${order.id.slice(0, 8).toUpperCase()}`;
-      const success = await openVZFAsPDF(content, orderNumber);
+      
+      // Get router and TV info from vzf_data
+      const routerData = order.vzf_data?.router;
+      const tvData = order.vzf_data?.tvSelection;
+      const phoneData = order.vzf_data?.phoneSelection;
+      
+      const vzfPdfData: VZFPdfData = {
+        orderNumber: orderNumber,
+        date: format(new Date(order.vzf_generated_at), 'dd.MM.yyyy HH:mm', { locale: de }),
+        // Customer
+        customerName: order.customer_name,
+        customerFirstName: order.customer_first_name || undefined,
+        customerLastName: order.customer_last_name || undefined,
+        customerEmail: order.customer_email,
+        customerPhone: order.customer_phone || undefined,
+        // Address
+        street: order.street,
+        houseNumber: order.house_number,
+        city: order.city,
+        // Tariff
+        tariffName: order.product_name,
+        tariffPrice: order.product_monthly_price,
+        contractDuration: order.contract_months,
+        // Router
+        routerName: routerData?.name,
+        routerMonthlyPrice: routerData?.monthlyPrice,
+        routerOneTimePrice: routerData?.oneTimePrice,
+        // TV
+        tvName: tvData?.type === 'comin' ? 'COM-IN TV' : tvData?.package?.name,
+        tvMonthlyPrice: tvData?.package?.monthlyPrice,
+        // Phone
+        phoneName: phoneData?.enabled ? 'Telefonie' : undefined,
+        phoneLines: phoneData?.lines,
+        // Totals
+        monthlyTotal: order.monthly_total,
+        oneTimeTotal: order.one_time_total + order.setup_fee,
+        setupFee: order.setup_fee,
+        // Service options
+        selectedOptions: (order.selected_options as any[] || [])
+          .filter(opt => opt.type === 'service')
+          .map(opt => ({
+            name: opt.name,
+            monthlyPrice: opt.monthlyPrice || 0,
+            oneTimePrice: opt.oneTimePrice || 0,
+          })),
+      };
+
+      const success = await openVZFAsPDF(vzfPdfData);
       
       if (!success) {
+        // Fallback: Generate HTML and open in new window
+        let content: string;
+        if (order.vzf_data?.tariff) {
+          const serviceAddons = (order.selected_options as any[] || [])
+            .filter(opt => opt.type === 'service' || opt.category === 'service' || opt.category === 'installation')
+            .map(opt => ({
+              id: opt.id || opt.name,
+              name: opt.name,
+              description: opt.description || '',
+              monthlyPrice: opt.monthlyPrice || opt.monthly_price || 0,
+              oneTimePrice: opt.oneTimePrice || opt.one_time_price || 0,
+              category: opt.category || 'service',
+            }));
+
+          const vzfData: VZFData = {
+            tariff: order.vzf_data.tariff,
+            router: order.vzf_data.router || null,
+            tvType: order.vzf_data.tvSelection?.type || 'none',
+            tvPackage: order.vzf_data.tvSelection?.package || null,
+            tvHdAddon: order.vzf_data.tvSelection?.hdAddon || null,
+            tvHardware: order.vzf_data.tvSelection?.hardware || [],
+            waipuStick: order.vzf_data.tvSelection?.waipuStick || false,
+            phoneEnabled: order.vzf_data.phoneSelection?.enabled || false,
+            phoneLines: order.vzf_data.phoneSelection?.lines || 0,
+            routerDiscount: order.vzf_data.routerDiscount || 0,
+            setupFee: order.vzf_data.setupFee || order.setup_fee,
+            setupFeeWaived: order.vzf_data.setupFeeWaived || false,
+            contractDuration: order.vzf_data.contractDuration || order.contract_months,
+            expressActivation: order.vzf_data.expressActivation || false,
+            promoCode: order.vzf_data.promoCode || order.promo_code,
+            isFiberBasic: order.vzf_data.isFiberBasic || false,
+            referralBonus: order.vzf_data.referralBonus || 0,
+            serviceAddons: serviceAddons,
+          };
+          
+          renderData.serviceAddons = serviceAddons;
+          content = await renderVZFFromTemplate(vzfData, renderData);
+        } else {
+          content = generateFallbackVZFHTML(order, renderData);
+        }
+        
         const vzfWindow = window.open('', '_blank');
         if (vzfWindow) {
           vzfWindow.document.open();

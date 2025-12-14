@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { generateVZFContent, VZFData } from '@/utils/generateVZF';
 import { renderVZFFromTemplate, VZFRenderData } from '@/utils/renderVZFTemplate';
-import { downloadVZFAsPDF } from '@/services/pdfService';
+import { downloadVZFAsPDF, VZFPdfData, openHTMLForPrint } from '@/services/pdfService';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -135,35 +135,72 @@ export function OrderSummary() {
     };
 
     try {
-      // Build VZF data for content generation
-      const vzfDataForContent: VZFData = {
-        tariff: selectedTariff,
-        router: selectedRouter,
-        tvType: tvSelection.type,
-        tvPackage: tvSelection.package,
-        tvHdAddon: tvSelection.hdAddon,
-        tvHardware: tvSelection.hardware,
-        waipuStick: tvSelection.waipuStick,
-        waipuStickPrice: tvSelection.waipuStickPrice,
-        phoneEnabled: phoneIsBooked,
-        phoneLines: phoneSelection.lines || (hasPhoneAddon ? 1 : 0),
-        routerDiscount: routerDiscount,
-        setupFee: getSetupFee(),
-        setupFeeWaived: isSetupFeeWaived(),
+      const orderNumber = renderData.orderNumber;
+      
+      // Build VZF PDF data for the edge function
+      const vzfPdfData: VZFPdfData = {
+        orderNumber: orderNumber,
+        date: format(new Date(), 'dd.MM.yyyy HH:mm', { locale: de }),
+        // Customer
+        customerName: `${customerData.firstName} ${customerData.lastName}`,
+        customerFirstName: customerData.firstName,
+        customerLastName: customerData.lastName,
+        customerEmail: customerData.email,
+        customerPhone: customerData.phone,
+        salutation: customerData.salutation === 'herr' ? 'Herr' : 'Frau',
+        // Address
+        street: address?.street || '',
+        houseNumber: address?.houseNumber || '',
+        apartment: apartmentData?.apartment,
+        floor: apartmentData?.floor,
+        city: address?.city || 'Ingolstadt',
+        // Tariff
+        tariffName: selectedTariff.name,
+        tariffPrice: isFiberBasic && contractDuration === 12 
+          ? (selectedTariff.monthlyPrice12 || selectedTariff.monthlyPrice) 
+          : selectedTariff.monthlyPrice,
+        downloadSpeed: `${selectedTariff.downloadSpeed} Mbit/s`,
+        uploadSpeed: `${selectedTariff.uploadSpeed} Mbit/s`,
         contractDuration: isFiberBasic ? contractDuration : 24,
-        expressActivation: expressActivation,
-        promoCode: appliedPromoCode?.code,
-        isFiberBasic: isFiberBasic,
-        referralBonus: getReferralBonus(),
-        serviceAddons: selectedAddons,
+        // Router
+        routerName: selectedRouter?.id !== 'router-none' ? selectedRouter?.name : undefined,
+        routerMonthlyPrice: selectedRouter?.monthlyPrice ? getRouterPrice() : undefined,
+        routerOneTimePrice: selectedRouter?.oneTimePrice,
+        // TV
+        tvName: tvSelection.type === 'comin' ? 'COM-IN TV' : tvSelection.package?.name,
+        tvMonthlyPrice: tvSelection.package?.monthlyPrice,
+        // Phone
+        phoneName: phoneIsBooked ? 'Telefonie' : undefined,
+        phoneMonthlyPrice: phoneSelection.enabled && !isFiberBasic ? phoneSelection.lines * 2.95 : undefined,
+        phoneLines: phoneSelection.lines,
+        // Totals
+        monthlyTotal: getTotalMonthly(),
+        oneTimeTotal: getTotalOneTime(),
+        setupFee: getSetupFee(),
+        // Phone options
+        phonePorting: phoneSelection.portingRequired,
+        phonePortingProvider: phoneSelection.portingData?.previousProvider,
+        phonePortingNumbers: phoneSelection.portingData?.phoneNumbers,
+        phoneBookEntry: phoneSelection.phoneBookEntryType !== 'none' ? phoneSelection.phoneBookEntryType : undefined,
+        phoneEvn: phoneSelection.evn,
+        // Bank
+        bankAccountHolder: bankData?.accountHolder,
+        bankIban: bankData?.iban,
+        // Provider
+        previousProvider: providerCancellationData?.providerName,
+        cancelPreviousProvider: cancelPreviousProvider,
+        // Service options
+        selectedOptions: selectedAddons.map(addon => ({
+          name: addon.name,
+          monthlyPrice: addon.monthlyPrice,
+          oneTimePrice: addon.oneTimePrice,
+        })),
+        // Discounts
+        discounts: routerDiscount > 0 ? [{ name: 'Router-Rabatt', amount: routerDiscount, type: 'monthly' as const }] : undefined,
       };
 
-      // Get the HTML content
-      const htmlContent = await renderVZFFromTemplate(vzfDataForContent, renderData);
-      const orderNumber = renderData.orderNumber;
-
       // Try to generate and download as PDF
-      const success = await downloadVZFAsPDF(htmlContent, orderNumber);
+      const success = await downloadVZFAsPDF(vzfPdfData);
       
       if (success) {
         setVzfDownloaded(true);
@@ -176,7 +213,7 @@ export function OrderSummary() {
       }
     } catch (error) {
       console.error('VZF download error:', error);
-      // Fallback: Open in new window for printing
+      // Fallback: Generate HTML and open for printing
       const vzfDataForContent: VZFData = {
         tariff: selectedTariff,
         router: selectedRouter,
@@ -199,11 +236,7 @@ export function OrderSummary() {
         serviceAddons: selectedAddons,
       };
       const htmlContent = generateVZFContent(vzfDataForContent);
-      const newWindow = window.open('', '_blank');
-      if (newWindow) {
-        newWindow.document.write(htmlContent);
-        newWindow.document.close();
-      }
+      openHTMLForPrint(htmlContent);
       setVzfDownloaded(true);
       toast({
         title: "VZF geöffnet",
