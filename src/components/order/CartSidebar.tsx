@@ -15,6 +15,7 @@ export function CartSidebar() {
     referralData,
     appliedPromoCode,
     expressActivation,
+    expressOption,
     getTotalOneTime,
     isMFH,
   } = useOrder();
@@ -94,8 +95,10 @@ export function CartSidebar() {
       total += tvSelection.waipuStickPrice ?? 59.99;
     }
     
-    if (expressActivation) {
-      total += 200.00;
+    if (expressActivation && expressOption) {
+      total += expressOption.oneTimePrice;
+    } else if (expressActivation) {
+      total += 200.00; // Fallback if no option loaded
     }
     
     // Service/Installation addons one-time prices
@@ -344,8 +347,10 @@ export function CartSidebar() {
           <div className="flex items-center gap-3 p-3 bg-accent/10 rounded-lg border border-accent/20">
             <Zap className="w-4 h-4 text-accent" />
             <div className="flex-1 flex justify-between items-center">
-              <p className="text-sm font-medium">Express-Anschaltung</p>
-              <p className="text-sm font-medium text-muted-foreground">200,00 € einm.</p>
+              <p className="text-sm font-medium">{expressOption?.name || 'Express-Anschaltung'}</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                {(expressOption?.oneTimePrice || 200).toFixed(2).replace('.', ',')} € einm.
+              </p>
             </div>
           </div>
         )}
@@ -491,8 +496,8 @@ export function CartSidebar() {
               {/* Express activation */}
               {expressActivation && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Express-Anschaltung</span>
-                  <span>200,00 €</span>
+                  <span>{expressOption?.name || 'Express-Anschaltung'}</span>
+                  <span>{(expressOption?.oneTimePrice || 200).toFixed(2).replace('.', ',')} €</span>
                 </div>
               )}
               

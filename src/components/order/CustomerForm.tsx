@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useOrder } from '@/context/OrderContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,10 +8,12 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { User, ArrowRight, ArrowLeft, CalendarIcon, CreditCard, Clock, Building, Phone, Zap, AlertCircle } from 'lucide-react';
+import { User, ArrowRight, ArrowLeft, CalendarIcon, CreditCard, Clock, Building, Phone, Zap, AlertCircle, Loader2 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 
 export function CustomerForm() {
   const { 
@@ -26,10 +28,52 @@ export function CustomerForm() {
     cancelPreviousProvider,
     providerCancellationData,
     expressActivation,
+    expressOption,
     connectionType,
     isMFH,
     setStep 
   } = useOrder();
+  
+  const [expressOptionFromDb, setExpressOptionFromDb] = useState<{
+    id: string;
+    slug: string;
+    name: string;
+    description: string;
+    oneTimePrice: number;
+    infoText?: string;
+  } | null>(null);
+  const [loadingExpressOption, setLoadingExpressOption] = useState(true);
+  
+  // Load express option from database
+  useEffect(() => {
+    const fetchExpressOption = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('product_options')
+          .select('id, slug, name, description, one_time_price, info_text')
+          .eq('category', 'express')
+          .eq('is_active', true)
+          .single();
+        
+        if (!error && data) {
+          setExpressOptionFromDb({
+            id: data.id,
+            slug: data.slug,
+            name: data.name,
+            description: data.description || '',
+            oneTimePrice: data.one_time_price || 0,
+            infoText: data.info_text || undefined,
+          });
+        }
+      } catch (err) {
+        console.error('Error loading express option:', err);
+      } finally {
+        setLoadingExpressOption(false);
+      }
+    };
+    
+    fetchExpressOption();
+  }, []);
   
   const [formData, setFormData] = useState({
     salutation: '',
@@ -381,8 +425,8 @@ export function CustomerForm() {
                     </p>
                   </div>
                   
-                  {/* Express-Anschaltung als Unterpunkt */}
-                  {canHaveExpress && (
+                  {/* Express-Anschaltung als Unterpunkt - aus DB geladen */}
+                  {canHaveExpress && expressOptionFromDb && (
                     <div className={cn(
                       "ml-6 p-4 rounded-xl border-2 transition-all",
                       expressActivation ? "border-accent bg-accent/10" : "border-dashed border-accent/40 hover:border-accent/60"
@@ -391,20 +435,36 @@ export function CustomerForm() {
                         <Checkbox 
                           id="express-activation" 
                           checked={expressActivation}
-                          onCheckedChange={(checked) => setExpressActivation(checked === true)}
+                          onCheckedChange={(checked) => {
+                            const isChecked = checked === true;
+                            setExpressActivation(isChecked, isChecked ? expressOptionFromDb : null);
+                          }}
                         />
                         <Label htmlFor="express-activation" className="cursor-pointer flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <Zap className="w-4 h-4 text-accent" />
                             <span className="font-semibold text-accent">2-3 Wochen sind Ihnen zu lange?</span>
+                            {expressOptionFromDb.infoText && (
+                              <InfoTooltip text={expressOptionFromDb.infoText} />
+                            )}
                           </div>
                           <span className="block text-sm font-medium mt-1">
-                            Express-Anschaltung: Aktivierung innerhalb von 3 Werktagen
+                            {expressOptionFromDb.name}: {expressOptionFromDb.description}
                           </span>
                           <span className="inline-block mt-2 bg-accent text-accent-foreground text-xs px-3 py-1 rounded-full font-medium">
-                            +200,00 € einmalig
+                            +{expressOptionFromDb.oneTimePrice.toFixed(2).replace('.', ',')} € einmalig
                           </span>
                         </Label>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Loading state */}
+                  {canHaveExpress && loadingExpressOption && (
+                    <div className="ml-6 p-4 rounded-xl border-2 border-dashed border-border">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-sm">Express-Option wird geladen...</span>
                       </div>
                     </div>
                   )}

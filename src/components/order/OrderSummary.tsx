@@ -52,6 +52,7 @@ export function OrderSummary() {
     cancelPreviousProvider,
     providerCancellationData,
     expressActivation,
+    expressOption,
     referralData,
     appliedPromoCode,
     vzfDownloaded,

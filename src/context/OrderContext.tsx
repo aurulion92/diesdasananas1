@@ -74,6 +74,15 @@ interface ConsentData {
   agb: boolean;
 }
 
+interface ExpressOption {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  oneTimePrice: number;
+  infoText?: string;
+}
+
 interface OrderState {
   step: number;
   address: AddressData | null;
@@ -92,6 +101,7 @@ interface OrderState {
   cancelPreviousProvider: boolean;
   providerCancellationData: ProviderCancellationData | null;
   expressActivation: boolean;
+  expressOption: ExpressOption | null;
   referralData: ReferralData;
   appliedPromoCode: PromoCode | null;
   promoCodeError: string | null;
@@ -118,7 +128,7 @@ interface OrderContextType extends OrderState {
   setPreferredDateType: (type: 'asap' | 'specific' | null) => void;
   setCancelPreviousProvider: (cancel: boolean) => void;
   setProviderCancellationData: (data: ProviderCancellationData | null) => void;
-  setExpressActivation: (express: boolean) => void;
+  setExpressActivation: (express: boolean, option?: ExpressOption | null) => void;
   setReferralData: (data: ReferralData) => void;
   validateReferralCustomerId: (customerId: string) => boolean;
   applyPromoCode: (code: string) => boolean;
@@ -191,6 +201,7 @@ const initialState: OrderState = {
   cancelPreviousProvider: false,
   providerCancellationData: null,
   expressActivation: false,
+  expressOption: null,
   referralData: initialReferralData,
   appliedPromoCode: null,
   promoCodeError: null,
@@ -327,8 +338,13 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
   const setProviderCancellationData = (providerCancellationData: ProviderCancellationData | null) =>
     setState(prev => ({ ...prev, providerCancellationData }));
 
-  const setExpressActivation = (expressActivation: boolean) =>
-    setState(prev => ({ ...prev, expressActivation, ...resetVzfStatus(prev) }));
+  const setExpressActivation = (expressActivation: boolean, expressOption?: ExpressOption | null) =>
+    setState(prev => ({ 
+      ...prev, 
+      expressActivation, 
+      expressOption: expressOption !== undefined ? expressOption : prev.expressOption,
+      ...resetVzfStatus(prev) 
+    }));
 
   const setReferralData = (referralData: ReferralData) =>
     setState(prev => ({ ...prev, referralData }));
@@ -542,9 +558,9 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
       total += state.tvSelection.waipuStickPrice ?? 59.99;
     }
     
-    // Express activation
+    // Express activation - use option price if available
     if (state.expressActivation) {
-      total += 200.00;
+      total += state.expressOption?.oneTimePrice || 200.00;
     }
     
     // Other addons
