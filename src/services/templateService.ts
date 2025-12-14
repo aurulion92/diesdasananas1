@@ -65,12 +65,48 @@ export function renderTemplate(content: string, placeholders: Record<string, str
  * Available use cases for templates
  */
 export const TEMPLATE_USE_CASES = [
-  { value: 'order_vzf', label: 'VZF bei Bestellung', description: 'Wird bei Bestellabschluss und VZF-Rekonstruktion verwendet' },
-  { value: 'order_confirmation_email', label: 'Bestellbestätigung E-Mail', description: 'E-Mail nach erfolgreicher Bestellung' },
-  { value: 'contact_form_response', label: 'Kontaktformular Antwort', description: 'Automatische Antwort auf Kontaktanfragen' },
-  { value: 'move_request_confirmation', label: 'Umzugsanfrage Bestätigung', description: 'Bestätigung für Umzugsmeldungen' },
-  { value: 'issue_report_confirmation', label: 'Störungsmeldung Bestätigung', description: 'Bestätigung für gemeldete Störungen' },
-  { value: 'upgrade_vzf', label: 'VZF bei Tarifwechsel', description: 'VZF für Bestandskunden-Upgrades' },
+  { 
+    value: 'order_vzf', 
+    label: 'VZF bei Bestellung', 
+    description: 'VZF-Download im Bestellworkflow + Rekonstruktion im Admin-Panel',
+    usedIn: ['VZF-Download Button bei Bestellung', 'VZF regenerieren in Bestellübersicht (Admin)'],
+    attachmentInfo: 'Wird auch als PDF-Anhang in Bestätigungs-E-Mail verwendet'
+  },
+  { 
+    value: 'order_confirmation_email', 
+    label: 'Bestellbestätigung E-Mail', 
+    description: 'E-Mail-Text nach erfolgreicher Bestellung',
+    usedIn: ['Automatischer E-Mail-Versand nach Bestellabschluss'],
+    attachmentInfo: 'VZF wird als PDF-Anhang beigefügt (aus order_vzf Template)'
+  },
+  { 
+    value: 'contact_form_response', 
+    label: 'Kontaktformular Antwort', 
+    description: 'Automatische Antwort auf Kontaktanfragen',
+    usedIn: ['Kontaktformular-Bestätigung'],
+    attachmentInfo: null
+  },
+  { 
+    value: 'move_request_confirmation', 
+    label: 'Umzugsanfrage Bestätigung', 
+    description: 'Bestätigung für Umzugsmeldungen',
+    usedIn: ['Umzugsformular im Kundenportal'],
+    attachmentInfo: null
+  },
+  { 
+    value: 'issue_report_confirmation', 
+    label: 'Störungsmeldung Bestätigung', 
+    description: 'Bestätigung für gemeldete Störungen',
+    usedIn: ['Störungsformular im Kundenportal'],
+    attachmentInfo: null
+  },
+  { 
+    value: 'upgrade_vzf', 
+    label: 'VZF bei Tarifwechsel', 
+    description: 'VZF für Bestandskunden-Upgrades',
+    usedIn: ['Upgrade-Prozess im Kundenportal'],
+    attachmentInfo: null
+  },
 ] as const;
 
 export type TemplateUseCase = typeof TEMPLATE_USE_CASES[number]['value'];

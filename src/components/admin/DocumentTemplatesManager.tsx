@@ -310,6 +310,31 @@ export function DocumentTemplatesManager() {
         </Button>
       </div>
 
+      {/* Template Usage Info */}
+      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <FileText className="w-4 h-4 text-blue-600" />
+          <span className="font-medium text-blue-900 dark:text-blue-100">Template-Verwendung</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="bg-white dark:bg-background/50 rounded p-3">
+            <div className="font-medium text-primary mb-1">VZF bei Bestellung (order_vzf)</div>
+            <ul className="text-muted-foreground text-xs space-y-1">
+              <li>• VZF-Download im Bestellworkflow</li>
+              <li>• VZF regenerieren im Admin-Panel</li>
+              <li>• <span className="text-orange-600 font-medium">PDF-Anhang in Bestätigungs-E-Mail</span></li>
+            </ul>
+          </div>
+          <div className="bg-white dark:bg-background/50 rounded p-3">
+            <div className="font-medium text-primary mb-1">Bestellbestätigung E-Mail (order_confirmation_email)</div>
+            <ul className="text-muted-foreground text-xs space-y-1">
+              <li>• E-Mail-Text nach Bestellabschluss</li>
+              <li>• <span className="text-orange-600 font-medium">VZF wird als PDF beigefügt</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       {/* Available Placeholders Info */}
       <div className="bg-muted/30 rounded-lg p-4">
         <div className="flex items-center gap-2 mb-2">
