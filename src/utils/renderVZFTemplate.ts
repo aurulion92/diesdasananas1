@@ -136,6 +136,7 @@ export function buildVZFPlaceholders(data: VZFRenderData): Record<string, string
     router_monatlich: data.routerPrice,
     router_einmalig: data.routerOneTime || '0 €',
     router_aktion: data.routerAktion || '',
+    router_beschreibung: data.routerName === 'Kein Router' ? '' : `WLAN-Router für Glasfaser-Anschluss mit Mesh-Unterstützung und DECT-Basis.`,
     
     // TV
     tv_name: data.tvName,
