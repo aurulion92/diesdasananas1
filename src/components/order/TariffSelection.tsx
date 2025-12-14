@@ -474,11 +474,11 @@ export function TariffSelection() {
                   +49 841 88511-0
                 </a>
                 <a 
-                  href="mailto:info@comin.de" 
+                  href="mailto:kontakt@comin-glasfaser.de" 
                   className="inline-flex items-center gap-2 text-primary font-semibold hover:underline"
                 >
                   <Mail className="w-4 h-4" />
-                  info@comin.de
+                  kontakt@comin-glasfaser.de
                 </a>
               </div>
             </div>
