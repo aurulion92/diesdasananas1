@@ -12,6 +12,7 @@ export interface TariffOption {
   features: string[];
   recommended?: boolean;
   includesPhone?: boolean;
+  contractMonths?: number; // Contract duration in months (default 24)
 }
 
 export interface TariffAddon {
