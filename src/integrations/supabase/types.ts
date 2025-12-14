@@ -646,6 +646,8 @@ export type Database = {
           download_speed: number | null
           download_speed_min: number | null
           download_speed_normal: number | null
+          external_link_label: string | null
+          external_link_url: string | null
           hide_for_ftth: boolean | null
           id: string
           includes_fiber_tv: boolean | null
@@ -677,6 +679,8 @@ export type Database = {
           download_speed?: number | null
           download_speed_min?: number | null
           download_speed_normal?: number | null
+          external_link_label?: string | null
+          external_link_url?: string | null
           hide_for_ftth?: boolean | null
           id?: string
           includes_fiber_tv?: boolean | null
@@ -708,6 +712,8 @@ export type Database = {
           download_speed?: number | null
           download_speed_min?: number | null
           download_speed_normal?: number | null
+          external_link_label?: string | null
+          external_link_url?: string | null
           hide_for_ftth?: boolean | null
           id?: string
           includes_fiber_tv?: boolean | null

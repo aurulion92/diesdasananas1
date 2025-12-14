@@ -53,6 +53,8 @@ interface Product {
   description: string | null;
   info_text: string | null;
   phone_terms_text: string | null;
+  external_link_url: string | null;
+  external_link_label: string | null;
   monthly_price: number;
   setup_fee: number;
   download_speed: number | null;
@@ -109,6 +111,8 @@ export const ProductsManager = () => {
     description: '',
     info_text: '',
     phone_terms_text: '',
+    external_link_url: '',
+    external_link_label: '',
     monthly_price: 0,
     setup_fee: 99,
     download_speed: 0,
@@ -171,6 +175,8 @@ export const ProductsManager = () => {
         description: formData.description || null,
         info_text: formData.info_text || null,
         phone_terms_text: formData.phone_terms_text || null,
+        external_link_url: formData.external_link_url || null,
+        external_link_label: formData.external_link_label || null,
       };
 
       if (editingProduct) {
@@ -210,6 +216,8 @@ export const ProductsManager = () => {
       description: '',
       info_text: '',
       phone_terms_text: '',
+      external_link_url: '',
+      external_link_label: '',
       monthly_price: 0,
       setup_fee: 99,
       download_speed: 0,
@@ -240,6 +248,8 @@ export const ProductsManager = () => {
       description: product.description || '',
       info_text: product.info_text || '',
       phone_terms_text: product.phone_terms_text || '',
+      external_link_url: product.external_link_url || '',
+      external_link_label: product.external_link_label || '',
       monthly_price: product.monthly_price,
       setup_fee: product.setup_fee,
       download_speed: product.download_speed || 0,
@@ -560,6 +570,27 @@ export const ProductsManager = () => {
                     <p className="text-xs text-muted-foreground">
                       Wenn ausgefüllt, erscheint ein "i"-Icon neben dem Produkt.
                     </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="external_link_url">Externer Link (URL)</Label>
+                      <Input
+                        id="external_link_url"
+                        value={formData.external_link_url}
+                        onChange={(e) => setFormData({...formData, external_link_url: e.target.value})}
+                        placeholder="https://comin-glasfaser.de/privatkunden/#produkthinweise"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="external_link_label">Link-Beschriftung</Label>
+                      <Input
+                        id="external_link_label"
+                        value={formData.external_link_label}
+                        onChange={(e) => setFormData({...formData, external_link_label: e.target.value})}
+                        placeholder="Produkthinweise"
+                      />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">

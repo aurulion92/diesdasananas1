@@ -20,6 +20,8 @@ export interface DatabaseProduct {
   is_building_restricted: boolean;
   hide_for_ftth: boolean;
   info_text: string | null;
+  external_link_url: string | null;
+  external_link_label: string | null;
 }
 
 interface UseBuildingProductsResult {
@@ -56,7 +58,8 @@ export function useBuildingProducts(
                 id, name, slug, description, monthly_price, setup_fee,
                 download_speed, upload_speed, is_ftth, is_fttb, is_ftth_limited,
                 is_active, display_order, contract_months, includes_phone,
-                is_building_restricted, hide_for_ftth, info_text
+                is_building_restricted, hide_for_ftth, info_text,
+                external_link_url, external_link_label
               )
             `)
             .eq('building_id', buildingId);
