@@ -51,6 +51,9 @@ interface ProductOption {
   image_url: string | null;
   external_link_url: string | null;
   external_link_label: string | null;
+  is_quantitative: boolean;
+  max_quantity: number;
+  quantity_label: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -112,6 +115,9 @@ export const OptionsManager = () => {
     image_url: '',
     external_link_url: '',
     external_link_label: '',
+    is_quantitative: false,
+    max_quantity: 10,
+    quantity_label: 'Anzahl',
   });
 
   useEffect(() => {
@@ -229,6 +235,9 @@ export const OptionsManager = () => {
         image_url: formData.image_url || null,
         external_link_url: formData.external_link_url || null,
         external_link_label: formData.external_link_label || null,
+        is_quantitative: formData.is_quantitative,
+        max_quantity: formData.max_quantity,
+        quantity_label: formData.quantity_label || null,
       };
 
       if (editingOption) {
@@ -325,6 +334,9 @@ export const OptionsManager = () => {
       image_url: '',
       external_link_url: '',
       external_link_label: '',
+      is_quantitative: false,
+      max_quantity: 10,
+      quantity_label: 'Anzahl',
     });
     setEditingOption(null);
   };
@@ -350,6 +362,9 @@ export const OptionsManager = () => {
       image_url: option.image_url || '',
       external_link_url: option.external_link_url || '',
       external_link_label: option.external_link_label || '',
+      is_quantitative: option.is_quantitative || false,
+      max_quantity: option.max_quantity || 10,
+      quantity_label: option.quantity_label || 'Anzahl',
     });
     setIsDialogOpen(true);
   };
@@ -724,6 +739,48 @@ export const OptionsManager = () => {
                           Optionen mit der gleichen Gruppe sind gegenseitig ausschließend (entweder/oder).
                         </p>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 border-t pt-4">
+                    <h4 className="font-medium">Quantität</h4>
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="is_quantitative"
+                          checked={formData.is_quantitative}
+                          onCheckedChange={(checked) => setFormData({...formData, is_quantitative: checked})}
+                        />
+                        <Label htmlFor="is_quantitative">Mehrfach buchbar (Quantitativ)</Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Wenn aktiviert, kann der Kunde diese Option mehrfach auswählen (z.B. mehrere Telefonleitungen).
+                      </p>
+                      
+                      {formData.is_quantitative && (
+                        <div className="grid grid-cols-2 gap-4 pl-4 border-l-2 border-accent/20">
+                          <div className="space-y-2">
+                            <Label htmlFor="quantity_label">Bezeichnung</Label>
+                            <Input
+                              id="quantity_label"
+                              value={formData.quantity_label}
+                              onChange={(e) => setFormData({...formData, quantity_label: e.target.value})}
+                              placeholder="z.B. Anzahl Leitungen"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="max_quantity">Maximale Anzahl</Label>
+                            <Input
+                              id="max_quantity"
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={formData.max_quantity}
+                              onChange={(e) => setFormData({...formData, max_quantity: parseInt(e.target.value) || 10})}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
