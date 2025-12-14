@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60">
+  <style>
+    .text { font-family: Arial, Helvetica, sans-serif; font-weight: bold; font-size: 40px; }
+    .com { fill: #003366; }
+    .in-text { fill: #fff; }
+  </style>
+  <!-- COM text -->
+  <text x="5" y="42" class="text com">COM</text>
+  <!-- Orange box with IN -->
+  <rect x="97" y="8" width="55" height="45" fill="#f57c00" rx="3"/>
+  <text x="103" y="43" class="text in-text">IN</text>
+  <!-- Tagline -->
+  <text x="5" y="55" style="font-family: Arial; font-size: 8px; fill: #003366;">Ein Unternehmen der Stadt Ingolstadt</text>
+</svg>
