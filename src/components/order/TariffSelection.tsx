@@ -205,12 +205,20 @@ export function TariffSelection() {
   const hasTvDbOptions = tvCominOptions.length > 0 || tvWaipuOptions.length > 0;
   const hasPhoneDbOptions = dbPhoneOptions.length > 0;
 
-  // Build available routers list: ONLY from database options
+  // Build available routers list: ONLY from database options, filtered by connection type
   let availableRouters: TariffAddon[] = [];
 
-  if (hasRouterDbOptions) {
+  if (hasRouterDbOptions && connectionType && connectionType !== 'not-connected') {
+    // FTTH and ftth_limited both use FTTH routers
+    const isFtthConnection = connectionType === 'ftth' || connectionType === 'limited';
+
     const dbRouters = routerOptions
-      // Admin legt die Zuordnung fest – keine zusätzliche Filterlogik nach Anschlussart hier
+      .filter(({ option }) => {
+        // Filter routers by infrastructure flags from database
+        // Router must have the matching flag set to true
+        if (isFtthConnection) return option.is_ftth === true;
+        return option.is_fttb === true;
+      })
       .map(dbRouterOptionToAddon);
 
     if (dbRouters.length > 0) {
