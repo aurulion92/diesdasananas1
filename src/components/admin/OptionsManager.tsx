@@ -56,6 +56,7 @@ interface ProductOption {
   is_quantitative: boolean;
   max_quantity: number;
   quantity_label: string | null;
+  vzf_text: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -122,6 +123,7 @@ export const OptionsManager = () => {
     is_quantitative: false,
     max_quantity: 10,
     quantity_label: 'Anzahl',
+    vzf_text: '',
   });
 
   useEffect(() => {
@@ -243,6 +245,7 @@ export const OptionsManager = () => {
         is_quantitative: formData.is_quantitative,
         max_quantity: formData.max_quantity,
         quantity_label: formData.quantity_label || null,
+        vzf_text: formData.vzf_text || null,
       };
 
       if (editingOption) {
@@ -343,6 +346,7 @@ export const OptionsManager = () => {
       is_quantitative: false,
       max_quantity: 10,
       quantity_label: 'Anzahl',
+      vzf_text: '',
     });
     setEditingOption(null);
   };
@@ -372,6 +376,7 @@ export const OptionsManager = () => {
       is_quantitative: option.is_quantitative || false,
       max_quantity: option.max_quantity || 10,
       quantity_label: option.quantity_label || 'Anzahl',
+      vzf_text: option.vzf_text || '',
     });
     setIsDialogOpen(true);
   };
@@ -749,47 +754,66 @@ export const OptionsManager = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-4 border-t pt-4">
-                    <h4 className="font-medium">Quantität</h4>
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          id="is_quantitative"
-                          checked={formData.is_quantitative}
-                          onCheckedChange={(checked) => setFormData({...formData, is_quantitative: checked})}
-                        />
-                        <Label htmlFor="is_quantitative">Mehrfach buchbar (Quantitativ)</Label>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Wenn aktiviert, kann der Kunde diese Option mehrfach auswählen (z.B. mehrere Telefonleitungen).
-                      </p>
+                  {/* Telefon-spezifische Optionen - nur bei Kategorie "phone" */}
+                  {formData.category === 'phone' && (
+                    <div className="space-y-4 border-t pt-4">
+                      <h4 className="font-medium">Telefon-Optionen</h4>
                       
-                      {formData.is_quantitative && (
-                        <div className="grid grid-cols-2 gap-4 pl-4 border-l-2 border-accent/20">
-                          <div className="space-y-2">
-                            <Label htmlFor="quantity_label">Bezeichnung</Label>
-                            <Input
-                              id="quantity_label"
-                              value={formData.quantity_label}
-                              onChange={(e) => setFormData({...formData, quantity_label: e.target.value})}
-                              placeholder="z.B. Anzahl Leitungen"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="max_quantity">Maximale Anzahl</Label>
-                            <Input
-                              id="max_quantity"
-                              type="number"
-                              min={1}
-                              max={100}
-                              value={formData.max_quantity}
-                              onChange={(e) => setFormData({...formData, max_quantity: parseInt(e.target.value) || 10})}
-                            />
-                          </div>
+                      {/* VZF Text */}
+                      <div className="space-y-2">
+                        <Label htmlFor="vzf_text">VZF-Text</Label>
+                        <Input
+                          id="vzf_text"
+                          value={formData.vzf_text}
+                          onChange={(e) => setFormData({...formData, vzf_text: e.target.value})}
+                          placeholder="Text für die Vertragszusammenfassung"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Dieser Text erscheint in der VZF (Vertragszusammenfassung) für diese Option.
+                        </p>
+                      </div>
+
+                      {/* Quantität */}
+                      <div className="space-y-4">
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="is_quantitative"
+                            checked={formData.is_quantitative}
+                            onCheckedChange={(checked) => setFormData({...formData, is_quantitative: checked})}
+                          />
+                          <Label htmlFor="is_quantitative">Mehrfach buchbar (Quantitativ)</Label>
                         </div>
-                      )}
+                        <p className="text-xs text-muted-foreground">
+                          Wenn aktiviert, kann der Kunde diese Option mehrfach auswählen (z.B. mehrere Telefonleitungen).
+                        </p>
+                        
+                        {formData.is_quantitative && (
+                          <div className="grid grid-cols-2 gap-4 pl-4 border-l-2 border-accent/20">
+                            <div className="space-y-2">
+                              <Label htmlFor="quantity_label">Bezeichnung</Label>
+                              <Input
+                                id="quantity_label"
+                                value={formData.quantity_label}
+                                onChange={(e) => setFormData({...formData, quantity_label: e.target.value})}
+                                placeholder="z.B. Anzahl Leitungen"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="max_quantity">Maximale Anzahl</Label>
+                              <Input
+                                id="max_quantity"
+                                type="number"
+                                min={1}
+                                max={100}
+                                value={formData.max_quantity}
+                                onChange={(e) => setFormData({...formData, max_quantity: parseInt(e.target.value) || 10})}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <div className="space-y-4 border-t pt-4">
                     <h4 className="font-medium">Zusätzliche Informationen</h4>
