@@ -147,6 +147,7 @@ export function TariffSelection() {
   const { products: dbProducts, loading: productsLoading, hasManualAssignment } = useBuildingProducts(buildingId, ausbauart);
 
   // Fetch options assigned to the selected product
+  // Pass buildingId to filter building-restricted options
   const { 
     hasOptionsAssigned,
     routerOptions,
@@ -155,7 +156,7 @@ export function TariffSelection() {
     tvWaipuOptions,
     tvHardwareOptions,
     serviceOptions,
-  } = useProductOptions(selectedTariff?.id || null);
+  } = useProductOptions(selectedTariff?.id || null, buildingId);
 
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [referralInput, setReferralInput] = useState('');

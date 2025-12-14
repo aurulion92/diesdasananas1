@@ -11,6 +11,7 @@ export interface ProductOption {
   one_time_price: number | null;
   is_ftth: boolean;
   is_fttb: boolean;
+  is_building_restricted: boolean;
   parent_option_slug: string[] | null;
   auto_include_option_slug: string[] | null;
   exclusive_group: string | null;
@@ -33,12 +34,10 @@ export interface ProductOptionMapping {
 /**
  * Hook to fetch product options assigned to a specific product
  * Returns only the options that are mapped to the product via product_option_mappings
- */
-/**
- * Hook to fetch product options assigned to a specific product
  * @param productId - The UUID of the product (not the slug!)
+ * @param buildingId - Optional building UUID for filtering building-restricted options
  */
-export function useProductOptions(productId: string | null) {
+export function useProductOptions(productId: string | null, buildingId?: string | null) {
   const [options, setOptions] = useState<ProductOptionMapping[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasOptionsAssigned, setHasOptionsAssigned] = useState(false);
@@ -74,6 +73,7 @@ export function useProductOptions(productId: string | null) {
               one_time_price,
               is_ftth,
               is_fttb,
+              is_building_restricted,
               parent_option_slug,
               auto_include_option_slug,
               exclusive_group,
@@ -94,8 +94,32 @@ export function useProductOptions(productId: string | null) {
           return;
         }
 
+        // Fetch building-option assignments if we have a buildingId
+        let allowedOptionIds: Set<string> | null = null;
+        if (buildingId) {
+          const { data: optionBuildings } = await supabase
+            .from('option_buildings')
+            .select('option_id')
+            .eq('building_id', buildingId);
+          
+          if (optionBuildings) {
+            allowedOptionIds = new Set(optionBuildings.map(ob => ob.option_id));
+          }
+        }
+
         const mappings: ProductOptionMapping[] = (data || [])
           .filter(d => d.product_options)
+          .filter(d => {
+            const opt = d.product_options as any;
+            // If option is building-restricted, check if building is in allowed list
+            if (opt.is_building_restricted) {
+              // If no buildingId provided or option not in allowed list, filter out
+              if (!buildingId || !allowedOptionIds?.has(opt.id)) {
+                return false;
+              }
+            }
+            return true;
+          })
           .map(d => ({
             option_id: d.option_id,
             option_id_k7: d.option_id_k7,
@@ -111,6 +135,7 @@ export function useProductOptions(productId: string | null) {
               one_time_price: (d.product_options as any).one_time_price,
               is_ftth: (d.product_options as any).is_ftth,
               is_fttb: (d.product_options as any).is_fttb,
+              is_building_restricted: (d.product_options as any).is_building_restricted || false,
               parent_option_slug: (d.product_options as any).parent_option_slug,
               auto_include_option_slug: (d.product_options as any).auto_include_option_slug,
               exclusive_group: (d.product_options as any).exclusive_group,
@@ -136,7 +161,7 @@ export function useProductOptions(productId: string | null) {
     };
 
     fetchOptions();
-  }, [productId]);
+  }, [productId, buildingId]);
 
   // Helper functions to get options by category
   const getOptionsByCategory = (category: string) => 
