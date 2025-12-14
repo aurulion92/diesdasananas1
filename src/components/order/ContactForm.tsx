@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Phone, Mail, Send, CheckCircle2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ContactFormProps {
   reason: 'limited-tariff' | 'not-connected' | 'general';
@@ -183,15 +184,22 @@ export function ContactForm({ reason, address }: ContactFormProps) {
         </div>
         
         <div>
-          <Label htmlFor="phone">Telefon</Label>
+          <Label htmlFor="phone">Telefon *</Label>
           <Input
             id="phone"
             type="tel"
+            required
             value={formData.phone}
             onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-            placeholder="+49 841 123456"
-            className="mt-1"
+            placeholder="0841/123456"
+            className={cn(
+              "mt-1",
+              formData.phone && !(formData.phone.startsWith('0') && formData.phone.includes('/')) && "border-destructive"
+            )}
           />
+          {formData.phone && !(formData.phone.startsWith('0') && formData.phone.includes('/')) && (
+            <p className="text-sm text-destructive mt-1">Telefonnummer muss mit 0 beginnen und / enthalten</p>
+          )}
         </div>
         
         <div>

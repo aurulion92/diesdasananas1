@@ -137,7 +137,9 @@ export function CustomerForm() {
   };
 
   const isValidPhone = (phone: string) => {
-    return phone.replace(/\s/g, '').length >= 6;
+    const cleaned = phone.replace(/\s/g, '');
+    // Must start with 0 and contain /
+    return cleaned.startsWith('0') && cleaned.includes('/') && cleaned.length >= 6;
   };
 
   const isApartmentValid = !isMFHBuilding || (apartmentLocal.floor && apartmentLocal.apartment);
@@ -330,7 +332,7 @@ export function CustomerForm() {
             <Input
               id="phone"
               type="tel"
-              placeholder="+49 841 12345"
+              placeholder="0841/12345"
               value={formData.phone}
               onChange={(e) => handleChange('phone', e.target.value)}
               className={cn(
@@ -339,7 +341,7 @@ export function CustomerForm() {
               )}
             />
             {formData.phone && !isValidPhone(formData.phone) && (
-              <p className="text-sm text-destructive mt-1">Bitte geben Sie eine gültige Telefonnummer ein</p>
+              <p className="text-sm text-destructive mt-1">Telefonnummer muss mit 0 beginnen und / enthalten (z.B. 0841/12345)</p>
             )}
           </div>
         </div>
