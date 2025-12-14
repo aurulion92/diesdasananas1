@@ -308,8 +308,8 @@ export function TariffSelection() {
         hardware: [],
       });
     } else {
-      // Find HD addon from database TV hardware options (they have parent dependency)
-      const addonMapping = tvHardwareOptions.find(m => m.option.slug === addonId);
+      // Find HD addon from database TV COM-IN options (Basis HD, Family HD have parent comin-tv)
+      const addonMapping = tvCominOptions.find(m => m.option.slug === addonId);
       // Find smartcard from hardware options
       const smartcardMapping = tvHardwareOptions.find(m => m.option.slug.includes('smartcard'));
       
@@ -609,8 +609,8 @@ export function TariffSelection() {
                   
                     {tvSelection.type === 'comin' && (
                       <div className="mt-4 ml-6 space-y-4">
-                        {/* HD Addon - from database */}
-                        {tvHardwareOptions.filter(m => m.option.parent_option_slug?.includes('comin-tv')).length > 0 && (
+                        {/* HD Addon - from database (Basis HD, Family HD are in tv_comin category with parent comin-tv) */}
+                        {tvCominOptions.filter(m => m.option.parent_option_slug?.includes('comin-tv')).length > 0 && (
                           <div>
                             <Label className="text-sm text-muted-foreground">HD-Paket (optional)</Label>
                             <Select 
@@ -622,8 +622,8 @@ export function TariffSelection() {
                               </SelectTrigger>
                               <SelectContent className="bg-card border border-border z-50">
                                 <SelectItem value="none">Kein HD-Paket</SelectItem>
-                                {tvHardwareOptions
-                                  .filter(m => m.option.parent_option_slug?.includes('comin-tv') && !m.option.slug.includes('smartcard'))
+                                {tvCominOptions
+                                  .filter(m => m.option.parent_option_slug?.includes('comin-tv'))
                                   .map((mapping) => (
                                     <SelectItem key={mapping.option.slug} value={mapping.option.slug}>
                                       <div className="flex justify-between items-center w-full gap-4">
