@@ -1469,7 +1469,7 @@ function TariffCard({
           <span className="text-accent font-bold text-xl">{tariff.monthlyPrice.toFixed(2).replace('.', ',')} €</span>
           <span className="text-muted-foreground text-sm"> / Monat</span>
           <div className="text-xs text-muted-foreground mt-1">
-            Mindestvertragslaufzeit: {contractMonths} Monate
+            {contractMonths} Monate
           </div>
         </div>
 
