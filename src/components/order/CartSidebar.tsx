@@ -20,16 +20,17 @@ export function CartSidebar() {
 
   // Use promotions from database
   const { 
-    totalRouterDiscount,
-    totalRouterOneTimeDiscount,
     getPromotedRouterPrice,
     getPromotedRouterOneTimePrice,
     isSetupFeeWaivedByPromotions,
     getApplicablePromotionNames,
+    getEffectiveRouterMonthlyDiscount,
+    getEffectiveRouterOneTimeDiscount,
   } = useOrderPromotions();
 
-  const routerDiscount = totalRouterDiscount;
-  const routerOneTimeDiscount = totalRouterOneTimeDiscount;
+  // Use effective discounts (capped to not exceed base price)
+  const routerDiscount = getEffectiveRouterMonthlyDiscount();
+  const routerOneTimeDiscount = getEffectiveRouterOneTimeDiscount();
   const routerPrice = getPromotedRouterPrice();
   const routerOneTimePrice = getPromotedRouterOneTimePrice();
   const setupFeeWaived = isSetupFeeWaivedByPromotions() || appliedPromoCode?.setupFeeWaived === true;
@@ -180,18 +181,35 @@ export function CartSidebar() {
               <div className="flex justify-between items-center">
                 <p className="text-sm font-medium">{selectedRouter.name}</p>
                 <div className="text-right">
-                  {routerDiscount > 0 && (
+                  {/* Monthly price with discount */}
+                  {routerDiscount > 0 && selectedRouter.monthlyPrice > 0 && (
                     <p className="text-xs line-through text-muted-foreground">
-                      {selectedRouter.monthlyPrice.toFixed(2).replace('.', ',')} €
+                      {selectedRouter.monthlyPrice.toFixed(2).replace('.', ',')} €/mtl.
                     </p>
                   )}
-                  <p className="text-sm font-medium text-accent">
-                    {routerPrice.toFixed(2).replace('.', ',')} €
-                  </p>
+                  {selectedRouter.monthlyPrice > 0 && (
+                    <p className="text-sm font-medium text-accent">
+                      {routerPrice.toFixed(2).replace('.', ',')} €/mtl.
+                    </p>
+                  )}
+                  {/* One-time price with discount */}
+                  {routerOneTimeDiscount > 0 && selectedRouter.oneTimePrice > 0 && (
+                    <p className="text-xs line-through text-muted-foreground">
+                      {selectedRouter.oneTimePrice.toFixed(2).replace('.', ',')} € einm.
+                    </p>
+                  )}
+                  {selectedRouter.oneTimePrice > 0 && (
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {routerOneTimePrice.toFixed(2).replace('.', ',')} € einm.
+                    </p>
+                  )}
                 </div>
               </div>
               {routerDiscount > 0 && (
-                <p className="text-xs text-success">-{routerDiscount.toFixed(2).replace('.', ',')} € Rabatt</p>
+                <p className="text-xs text-success">-{routerDiscount.toFixed(2).replace('.', ',')} € mtl. Rabatt</p>
+              )}
+              {routerOneTimeDiscount > 0 && (
+                <p className="text-xs text-success">-{routerOneTimeDiscount.toFixed(2).replace('.', ',')} € einm. Rabatt</p>
               )}
             </div>
           </div>
@@ -354,18 +372,18 @@ export function CartSidebar() {
                 </span>
               </div>
               
-              {/* Router - show ORIGINAL price, discount shown separately */}
-              {selectedRouter && selectedRouter.id !== 'router-none' && (
+              {/* Router - show ORIGINAL monthly price, discount shown separately */}
+              {selectedRouter && selectedRouter.id !== 'router-none' && selectedRouter.monthlyPrice > 0 && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>{selectedRouter.name}</span>
+                  <span>{selectedRouter.name} (mtl.)</span>
                   <span>{selectedRouter.monthlyPrice.toFixed(2).replace('.', ',')} €</span>
                 </div>
               )}
               
-              {/* Router Discount - show as separate line (this reduces the total) */}
+              {/* Router Monthly Discount - show as separate line */}
               {routerDiscount > 0 && selectedRouter && selectedRouter.id !== 'router-none' && (
                 <div className="flex justify-between text-success">
-                  <span>Router-Rabatt</span>
+                  <span>Router-Rabatt (mtl.)</span>
                   <span>-{routerDiscount.toFixed(2).replace('.', ',')} €</span>
                 </div>
               )}
@@ -426,6 +444,22 @@ export function CartSidebar() {
                   <span>{setupFee.toFixed(2).replace('.', ',')} €</span>
                 )}
               </div>
+              
+              {/* Router one-time price */}
+              {selectedRouter && selectedRouter.id !== 'router-none' && selectedRouter.oneTimePrice > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>{selectedRouter.name} (einm.)</span>
+                  <span>{selectedRouter.oneTimePrice.toFixed(2).replace('.', ',')} €</span>
+                </div>
+              )}
+              
+              {/* Router One-time Discount */}
+              {routerOneTimeDiscount > 0 && selectedRouter && selectedRouter.id !== 'router-none' && (
+                <div className="flex justify-between text-success">
+                  <span>Router-Rabatt (einm.)</span>
+                  <span>-{routerOneTimeDiscount.toFixed(2).replace('.', ',')} €</span>
+                </div>
+              )}
               
               {/* Express activation */}
               {expressActivation && (

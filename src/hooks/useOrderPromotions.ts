@@ -50,14 +50,27 @@ export function useOrderPromotions() {
   // Legacy alias for backward compatibility
   const totalRouterDiscount = totalRouterMonthlyDiscount;
 
+  // Calculate effective discount (cannot exceed base price)
+  const getEffectiveRouterMonthlyDiscount = (): number => {
+    if (!selectedRouter || selectedRouter.id === 'router-none') return 0;
+    // Discount cannot exceed the base price (no negative prices)
+    return Math.min(totalRouterMonthlyDiscount, selectedRouter.monthlyPrice);
+  };
+
+  const getEffectiveRouterOneTimeDiscount = (): number => {
+    if (!selectedRouter || selectedRouter.id === 'router-none') return 0;
+    // Discount cannot exceed the base price (no negative prices)
+    return Math.min(totalRouterOneTimeDiscount, selectedRouter.oneTimePrice);
+  };
+
   // Calculate actual router monthly price with promotion discount
   const getPromotedRouterPrice = (): number => {
     if (!selectedRouter || selectedRouter.id === 'router-none') return 0;
     
     const basePrice = selectedRouter.monthlyPrice;
-    const discountedPrice = Math.max(0, basePrice - totalRouterMonthlyDiscount);
+    const effectiveDiscount = getEffectiveRouterMonthlyDiscount();
     
-    return discountedPrice;
+    return Math.max(0, basePrice - effectiveDiscount);
   };
 
   // Calculate actual router one-time price with promotion discount
@@ -65,9 +78,9 @@ export function useOrderPromotions() {
     if (!selectedRouter || selectedRouter.id === 'router-none') return 0;
     
     const basePrice = selectedRouter.oneTimePrice;
-    const discountedPrice = Math.max(0, basePrice - totalRouterOneTimeDiscount);
+    const effectiveDiscount = getEffectiveRouterOneTimeDiscount();
     
-    return discountedPrice;
+    return Math.max(0, basePrice - effectiveDiscount);
   };
 
   // Check if there's an active monthly discount on router
@@ -112,12 +125,14 @@ export function useOrderPromotions() {
     totalRouterDiscount, // Legacy alias
     getPromotedRouterPrice,
     hasRouterDiscount,
+    getEffectiveRouterMonthlyDiscount,
     
     // One-time discounts
     promotionRouterOneTimeDiscount,
     totalRouterOneTimeDiscount,
     getPromotedRouterOneTimePrice,
     hasRouterOneTimeDiscount,
+    getEffectiveRouterOneTimeDiscount,
     
     // Other
     promoCodeRouterDiscount,
