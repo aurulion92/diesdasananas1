@@ -74,13 +74,118 @@ async function htmlToPdf(html: string): Promise<Uint8Array | null> {
   }
 }
 
-// Fallback: Generate simple PDF from VZF data using text-based approach
-function generateFallbackPdf(vzfData: OrderEmailRequest['vzfData'], customerName: string, orderId: string): Uint8Array {
-  // Create a simple text-based PDF structure
-  // This is a minimal PDF that should work as fallback
+// Fallback: Generate a proper PDF from HTML content
+async function generateFallbackPdfFromHtml(html: string, vzfData: OrderEmailRequest['vzfData'], customerName: string, orderId: string): Promise<Uint8Array> {
+  // Try alternative PDF generation via pdflayer API (free tier available)
+  try {
+    console.log("Trying pdflayer.com for PDF generation...");
+    
+    // Note: pdflayer requires URL-based content or direct HTML
+    const response = await fetch("https://api.pdflayer.com/api/convert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        access_key: "free", // Will likely fail, but worth trying
+        document_html: html,
+        page_size: "A4",
+      }),
+    });
+    
+    if (response.ok) {
+      const pdfBuffer = await response.arrayBuffer();
+      if (pdfBuffer.byteLength > 1000) {
+        console.log("pdflayer succeeded, size:", pdfBuffer.byteLength);
+        return new Uint8Array(pdfBuffer);
+      }
+    }
+  } catch (e) {
+    console.log("pdflayer failed:", e);
+  }
+  
+  // Final fallback: Create a simple text PDF with more complete VZF data
   const date = new Date().toLocaleDateString('de-DE');
-  const content = `
-%PDF-1.4
+  const orderIdShort = orderId.substring(0, 8).toUpperCase();
+  
+  // Build option list
+  const optionLines: string[] = [];
+  if (vzfData?.selectedOptions) {
+    for (const opt of vzfData.selectedOptions) {
+      const monthly = opt.monthlyPrice ? `${opt.monthlyPrice.toFixed(2)} EUR/Monat` : '';
+      const oneTime = opt.oneTimePrice ? `${opt.oneTimePrice.toFixed(2)} EUR einmalig` : '';
+      const priceStr = [monthly, oneTime].filter(Boolean).join(', ') || 'inkl.';
+      optionLines.push(`  - ${opt.name}: ${priceStr}`);
+    }
+  }
+  
+  // Build address
+  const address = [vzfData?.street, vzfData?.houseNumber].filter(Boolean).join(' ');
+  const fullAddress = [address, vzfData?.city].filter(Boolean).join(', ');
+  
+  // Build complete VZF content
+  const textLines = [
+    'VERTRAGSZUSAMMENFASSUNG',
+    '========================',
+    '',
+    `Bestellnummer: ${orderIdShort}`,
+    `Datum: ${date}`,
+    '',
+    'KUNDENDATEN',
+    '------------',
+    `Name: ${customerName}`,
+    `Adresse: ${fullAddress || 'Nicht angegeben'}`,
+    '',
+    'TARIFDETAILS',
+    '-------------',
+    `Tarif: ${vzfData?.tariffName || 'N/A'}`,
+    `Monatlicher Grundpreis: ${vzfData?.tariffPrice?.toFixed(2) || '0.00'} EUR`,
+    `Vertragslaufzeit: ${vzfData?.contractDuration || 24} Monate`,
+    '',
+    'GEWAEHLTE OPTIONEN',
+    '------------------',
+    ...(optionLines.length > 0 ? optionLines : ['  Keine zusaetzlichen Optionen']),
+    '',
+    'KOSTEN',
+    '-------',
+    `Monatliche Gesamtkosten: ${vzfData?.monthlyTotal?.toFixed(2) || '0.00'} EUR`,
+    `Einmalige Kosten: ${vzfData?.oneTimeTotal?.toFixed(2) || '0.00'} EUR`,
+    `  davon Bereitstellung: ${vzfData?.setupFee?.toFixed(2) || '99.00'} EUR`,
+    '',
+    '========================',
+    'Diese Vertragszusammenfassung wurde automatisch erstellt.',
+    'COM-IN Telekommunikations GmbH',
+    'Tel: 0841 88511-0',
+    'kontakt@comin-glasfaser.de',
+  ];
+  
+  // Create minimal PDF with all text
+  const textContent = textLines.join('\n');
+  const lines = textContent.split('\n');
+  
+  // Build PDF stream content
+  let streamContent = 'BT\n/F1 11 Tf\n50 800 Td\n';
+  for (const line of lines) {
+    // Escape special PDF characters and use ASCII-safe characters
+    const safeLine = line
+      .replace(/\\/g, '\\\\')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)')
+      .replace(/ä/g, 'ae')
+      .replace(/ö/g, 'oe')
+      .replace(/ü/g, 'ue')
+      .replace(/Ä/g, 'Ae')
+      .replace(/Ö/g, 'Oe')
+      .replace(/Ü/g, 'Ue')
+      .replace(/ß/g, 'ss')
+      .replace(/€/g, 'EUR');
+    streamContent += `(${safeLine}) Tj\n0 -14 Td\n`;
+  }
+  streamContent += 'ET';
+  
+  const streamLength = streamContent.length;
+  
+  const pdfContent = `%PDF-1.4
 1 0 obj
 << /Type /Catalog /Pages 2 0 R >>
 endobj
@@ -91,28 +196,9 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
 endobj
 4 0 obj
-<< /Length 500 >>
+<< /Length ${streamLength} >>
 stream
-BT
-/F1 16 Tf
-50 780 Td
-(Vertragszusammenfassung - VZF) Tj
-/F1 12 Tf
-0 -30 Td
-(Bestellnummer: ${orderId.substring(0, 8).toUpperCase()}) Tj
-0 -20 Td
-(Datum: ${date}) Tj
-0 -30 Td
-(Kunde: ${customerName}) Tj
-0 -20 Td
-(Tarif: ${vzfData?.tariffName || 'N/A'}) Tj
-0 -20 Td
-(Monatlich: ${vzfData?.monthlyTotal?.toFixed(2) || '0.00'} EUR) Tj
-0 -20 Td
-(Einmalig: ${vzfData?.oneTimeTotal?.toFixed(2) || '0.00'} EUR) Tj
-0 -40 Td
-(Diese Vertragszusammenfassung wurde automatisch erstellt.) Tj
-ET
+${streamContent}
 endstream
 endobj
 5 0 obj
@@ -125,14 +211,15 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000266 00000 n 
-0000000818 00000 n 
+0000000${(300 + streamLength).toString().padStart(3, '0')} 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-895
+${350 + streamLength}
 %%EOF
 `;
-  return new TextEncoder().encode(content);
+  
+  return new TextEncoder().encode(pdfContent);
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -267,16 +354,16 @@ serve(async (req: Request): Promise<Response> => {
       // Try to convert the VZF HTML template to PDF
       const convertedPdf = await htmlToPdf(vzfHtml);
       
-      if (convertedPdf && convertedPdf.length > 100) {
+      if (convertedPdf && convertedPdf.length > 500) {
         pdfBytes = convertedPdf;
         console.log("Successfully converted VZF template to PDF, size:", pdfBytes.length);
       } else {
-        console.log("PDF conversion failed, using fallback");
-        pdfBytes = generateFallbackPdf(vzfData, customerName, orderId);
+        console.log("PDF conversion failed, using enhanced fallback with full VZF data");
+        pdfBytes = await generateFallbackPdfFromHtml(vzfHtml, vzfData, customerName, orderId);
       }
     } else {
-      console.log("No VZF HTML provided, using fallback PDF");
-      pdfBytes = generateFallbackPdf(vzfData, customerName, orderId);
+      console.log("No VZF HTML provided, using enhanced fallback PDF");
+      pdfBytes = await generateFallbackPdfFromHtml("", vzfData, customerName, orderId);
     }
 
     // Base64 encode PDF
