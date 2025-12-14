@@ -130,7 +130,7 @@ export function generateVZFContent(data: VZFData): string {
   <style>
     @page {
       size: A4;
-      margin: 15mm;
+      margin: 0;
     }
     * { 
       margin: 0; 
@@ -145,11 +145,10 @@ export function generateVZFContent(data: VZFData): string {
       background: white;
       width: 210mm;
       min-height: 297mm;
-      padding: 15mm;
     }
     .page {
       width: 100%;
-      min-height: 267mm;
+      min-height: 297mm;
       position: relative;
       page-break-after: always;
     }
@@ -157,11 +156,49 @@ export function generateVZFContent(data: VZFData): string {
       page-break-after: auto;
     }
     
-    /* Header with Company Info */
-    .header {
+    /* Blue Header Bar */
+    .header-bar {
+      background: #003366;
+      height: 12mm;
+      width: 100%;
+    }
+    
+    /* Page Content */
+    .page-content {
+      padding: 8mm 15mm 15mm 15mm;
+    }
+    
+    /* Letterhead */
+    .letterhead {
       display: flex;
-      justify-content: flex-end;
-      margin-bottom: 10mm;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8mm;
+    }
+    .tariff-info {
+      text-align: left;
+      font-size: 11pt;
+      color: #333;
+    }
+    .tariff-name {
+      font-weight: bold;
+      font-size: 12pt;
+    }
+    .tariff-id {
+      font-size: 9pt;
+      color: #666;
+    }
+    .company-block {
+      display: flex;
+      align-items: flex-start;
+      gap: 10mm;
+    }
+    .logo-container {
+      width: 50mm;
+    }
+    .logo-container svg {
+      width: 100%;
+      height: auto;
     }
     .company-info {
       text-align: right;
@@ -181,9 +218,10 @@ export function generateVZFContent(data: VZFData): string {
     /* Main Title */
     h1 {
       font-size: 22pt;
-      font-weight: bold;
-      color: #003366;
+      font-weight: normal;
+      color: #333;
       margin-bottom: 5mm;
+      margin-top: 5mm;
     }
     
     /* Section Headers - Blue Bar */
@@ -291,17 +329,33 @@ export function generateVZFContent(data: VZFData): string {
 <body>
   <!-- PAGE 1 -->
   <div class="page">
-    <div class="header">
-      <div class="company-info">
-        <div class="company-name">COM-IN Telekommunikations GmbH</div>
-        Erni-Singerl-Straße 2b<br>
-        85053 Ingolstadt<br>
-        Tel: 0841 88511-0<br>
-        E-Mail: <a href="mailto:kontakt@comin-glasfaser.de">kontakt@comin-glasfaser.de</a>
+    <div class="header-bar"></div>
+    <div class="page-content">
+      <div class="letterhead">
+        <div class="tariff-info">
+          <div class="tariff-name">${tariff.name}</div>
+          <div class="tariff-id">ID:${Date.now().toString().slice(-7)}</div>
+        </div>
+        <div class="company-block">
+          <div class="logo-container">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60">
+              <style>.text { font-family: Arial, Helvetica, sans-serif; font-weight: bold; font-size: 40px; }.com { fill: #003366; }.in-text { fill: #fff; }</style>
+              <text x="5" y="42" class="text com">COM</text>
+              <rect x="97" y="8" width="55" height="45" fill="#f57c00" rx="3"/>
+              <text x="103" y="43" class="text in-text">IN</text>
+            </svg>
+          </div>
+          <div class="company-info">
+            <div class="company-name">COM-IN Telekommunikations GmbH</div>
+            Erni-Singerl-Straße 2b<br>
+            85053 Ingolstadt<br>
+            Tel.: 0841 88511-0<br>
+            E-Mail: <a href="mailto:kontakt@comin-glasfaser.de">kontakt@comin-glasfaser.de</a>
+          </div>
+        </div>
       </div>
-    </div>
-    
-    <h1>Vertragszusammenfassung</h1>
+      
+      <h1>Vertragszusammenfassung</h1>
     
     ${isUpgrade ? `
     <div class="upgrade-notice">
@@ -334,19 +388,36 @@ export function generateVZFContent(data: VZFData): string {
     </table>
     
     <p class="footnote"><sup>(1)</sup> Artikel 102 Absatz 3 der Richtlinie (EU) 2018/1972 des Europäischen Parlaments und des Rates vom 11. Dezember 2018 über den europäischen Kodex für die elektronische Kommunikation (ABl. L 321 vom 17.12.2018, S. 36)</p>
+    </div>
   </div>
   
   <!-- PAGE 2 -->
   <div class="page">
-    <div class="header">
-      <div class="company-info">
-        <div class="company-name">COM-IN Telekommunikations GmbH</div>
-        Erni-Singerl-Straße 2b<br>
-        85053 Ingolstadt<br>
-        Tel: 0841 88511-0<br>
-        E-Mail: <a href="mailto:kontakt@comin-glasfaser.de">kontakt@comin-glasfaser.de</a>
+    <div class="header-bar"></div>
+    <div class="page-content">
+      <div class="letterhead">
+        <div class="tariff-info">
+          <div class="tariff-name">${tariff.name}</div>
+          <div class="tariff-id">ID:${Date.now().toString().slice(-7)}</div>
+        </div>
+        <div class="company-block">
+          <div class="logo-container">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60">
+              <style>.text { font-family: Arial, Helvetica, sans-serif; font-weight: bold; font-size: 40px; }.com { fill: #003366; }.in-text { fill: #fff; }</style>
+              <text x="5" y="42" class="text com">COM</text>
+              <rect x="97" y="8" width="55" height="45" fill="#f57c00" rx="3"/>
+              <text x="103" y="43" class="text in-text">IN</text>
+            </svg>
+          </div>
+          <div class="company-info">
+            <div class="company-name">COM-IN Telekommunikations GmbH</div>
+            Erni-Singerl-Straße 2b<br>
+            85053 Ingolstadt<br>
+            Tel.: 0841 88511-0<br>
+            E-Mail: <a href="mailto:kontakt@comin-glasfaser.de">kontakt@comin-glasfaser.de</a>
+          </div>
+        </div>
       </div>
-    </div>
     
     <div class="section-header">Geschwindigkeiten des Internetdienstes und Abhilfen bei Problemen</div>
     <table>
@@ -443,19 +514,36 @@ export function generateVZFContent(data: VZFData): string {
       * Die Aktion „Glasfaserboxen" gilt für Vertragsabschlüsse von Neukunden und Upgrades von Bestandskunden auf einfach 150, einfach 300, einfach 600 oder einfach 1000 in dem Aktionszeitraum 01.09.2025 – 31.12.2025. Keine Kombination mit anderen Aktionen möglich. Für die Dauer von 24 Monaten erhält der Kunde eine monatliche Gutschrift von 4,- € für die FRITZ!Box 5690 oder FRITZ!Box 5690 Pro zur Verrechnung auf sein Kundenkonto. Eine Barauszahlung ist nicht möglich. Alle Preise inkl. gesetzl. MwSt., Mindestvertragslaufzeit 24 Monate.
     </p>
     ` : ''}
+    </div>
   </div>
   
   <!-- PAGE 3 -->
   <div class="page">
-    <div class="header">
-      <div class="company-info">
-        <div class="company-name">COM-IN Telekommunikations GmbH</div>
-        Erni-Singerl-Straße 2b<br>
-        85053 Ingolstadt<br>
-        Tel: 0841 88511-0<br>
-        E-Mail: <a href="mailto:kontakt@comin-glasfaser.de">kontakt@comin-glasfaser.de</a>
+    <div class="header-bar"></div>
+    <div class="page-content">
+      <div class="letterhead">
+        <div class="tariff-info">
+          <div class="tariff-name">${tariff.name}</div>
+          <div class="tariff-id">ID:${Date.now().toString().slice(-7)}</div>
+        </div>
+        <div class="company-block">
+          <div class="logo-container">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60">
+              <style>.text { font-family: Arial, Helvetica, sans-serif; font-weight: bold; font-size: 40px; }.com { fill: #003366; }.in-text { fill: #fff; }</style>
+              <text x="5" y="42" class="text com">COM</text>
+              <rect x="97" y="8" width="55" height="45" fill="#f57c00" rx="3"/>
+              <text x="103" y="43" class="text in-text">IN</text>
+            </svg>
+          </div>
+          <div class="company-info">
+            <div class="company-name">COM-IN Telekommunikations GmbH</div>
+            Erni-Singerl-Straße 2b<br>
+            85053 Ingolstadt<br>
+            Tel.: 0841 88511-0<br>
+            E-Mail: <a href="mailto:kontakt@comin-glasfaser.de">kontakt@comin-glasfaser.de</a>
+          </div>
+        </div>
       </div>
-    </div>
     
     <div class="section-header">Laufzeit, Verlängerung und Kündigung</div>
     <table>
@@ -508,6 +596,7 @@ export function generateVZFContent(data: VZFData): string {
         Erstellt am: ${dateStr}<br>
         Dokument-ID: VZF-${Date.now().toString().slice(-7)}
       </p>
+    </div>
     </div>
   </div>
 </body>
