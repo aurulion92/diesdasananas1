@@ -1,6 +1,6 @@
 import { useOrder } from '@/context/OrderContext';
 import { useOrderPromotions } from '@/hooks/useOrderPromotions';
-import { ShoppingCart, MapPin, Wifi, Package, Check, Globe, Router, Tv, Phone, Tag, Gift, X, Zap } from 'lucide-react';
+import { ShoppingCart, MapPin, Wifi, Package, Check, Globe, Router, Tv, Phone, Tag, Gift, X, Zap, Home, Building2, Building } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function CartSidebar() {
@@ -127,10 +127,10 @@ export function CartSidebar() {
         {address && (
           <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-xl">
             <MapPin className="w-4 h-4 text-accent mt-0.5" />
-            <div className="text-sm">
+            <div className="flex-1 text-sm">
               <p className="font-medium">{address.street} {address.houseNumber}</p>
               <p className="text-muted-foreground">{address.city}</p>
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-2 mt-2 flex-wrap">
                 <span className={cn(
                   "inline-block px-2 py-0.5 text-xs font-semibold rounded-full",
                   address.connectionType === 'ftth' && "bg-success/10 text-success",
@@ -146,6 +146,25 @@ export function CartSidebar() {
                   </span>
                 )}
               </div>
+            </div>
+            {/* Gebäudetyp Icon */}
+            <div className="flex flex-col items-center text-muted-foreground">
+              {(address.residentialUnits || 1) === 1 ? (
+                <>
+                  <Home className="w-5 h-5" />
+                  <span className="text-[10px] font-medium mt-0.5">EFH</span>
+                </>
+              ) : (address.residentialUnits || 1) === 2 ? (
+                <>
+                  <Building className="w-5 h-5" />
+                  <span className="text-[10px] font-medium mt-0.5">EFH</span>
+                </>
+              ) : (
+                <>
+                  <Building2 className="w-5 h-5" />
+                  <span className="text-[10px] font-medium mt-0.5">MFH</span>
+                </>
+              )}
             </div>
           </div>
         )}

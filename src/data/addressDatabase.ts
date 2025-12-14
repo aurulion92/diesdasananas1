@@ -10,6 +10,7 @@ export interface AddressData {
   connectionType: ConnectionType;
   kabelTvAvailable: boolean;
   buildingId?: string;
+  residentialUnits?: number; // WE - Wohneinheiten
 }
 
 // Determine connection type based on ausbau_art from database
@@ -44,10 +45,10 @@ export async function checkAddress(
   city: string
 ): Promise<AddressData | null> {
   try {
-    // First try to get from buildings table directly to get the building ID
+    // First try to get from buildings table directly to get the building ID and residential units
     const { data: buildingData, error: buildingError } = await supabase
       .from('buildings')
-      .select('id, street, house_number, city, ausbau_art, ausbau_status, kabel_tv_available')
+      .select('id, street, house_number, city, ausbau_art, ausbau_status, kabel_tv_available, residential_units')
       .ilike('street', street)
       .ilike('house_number', houseNumber)
       .ilike('city', city)
@@ -63,7 +64,8 @@ export async function checkAddress(
         ausbauart: buildingData.ausbau_art || '',
         connectionType: getConnectionType(buildingData.ausbau_art),
         kabelTvAvailable: buildingData.kabel_tv_available || false,
-        buildingId: buildingData.id
+        buildingId: buildingData.id,
+        residentialUnits: buildingData.residential_units || 1
       };
     }
 
