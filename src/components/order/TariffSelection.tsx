@@ -658,7 +658,17 @@ export function TariffSelection() {
                               className="space-y-2 mt-2"
                             >
                               {tvHardwareOptions
-                                .filter(m => m.option.exclusive_group === 'comin-hardware' && !m.option.slug.includes('smartcard'))
+                                .filter(m => {
+                                  // Filter hardware options that have selected HD addon in their parent_option_slug
+                                  const selectedHdSlug = tvSelection.hdAddon?.id;
+                                  if (!selectedHdSlug) return false;
+                                  if (m.option.slug.includes('smartcard')) return false;
+                                  // Check if parent_option_slug includes the selected HD addon
+                                  return m.option.parent_option_slug?.some(parent => 
+                                    parent.toLowerCase().includes(selectedHdSlug.toLowerCase()) ||
+                                    selectedHdSlug.toLowerCase().includes(parent.toLowerCase())
+                                  );
+                                })
                                 .map((mapping) => (
                                   <div key={mapping.option.slug} className="flex items-center space-x-3 p-2 rounded border border-border">
                                     <RadioGroupItem value={mapping.option.slug} id={mapping.option.slug} />
