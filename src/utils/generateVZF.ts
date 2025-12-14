@@ -62,12 +62,18 @@ export function generateVZFContent(data: VZFData): string {
 
   const speeds = getSpeedDetails(tariff);
 
+  // Check if tariff has phone included
+  const tariffIncludesPhone = isFiberBasic || tariff.includesPhone === true;
+  
   // Get tariff description
   const getTariffDescription = () => {
-    if (isFiberBasic) {
-      return `Das Produkt "FiberBasic 100" beinhaltet einen Glasfaser-Festnetzanschluss für Internetdienste. Im monatlichen Entgelt ist eine Flatrate für die Internetnutzung sowie Telefon-Flatrate ins deutsche Festnetz enthalten.`;
+    if (tariffIncludesPhone) {
+      return `Das Produkt "${tariff.name}" beinhaltet einen Glasfaser-Festnetzanschluss für Internetdienste. Im monatlichen Entgelt ist eine Flatrate für die Internetnutzung sowie Telefon-Flatrate ins deutsche Festnetz enthalten. Einzelheiten zum Produkt und zu buchbaren Leistungen ergeben sich aus der Leistungsbeschreibung, Preisliste und AGB (www.comin-glasfaser.de).`;
     }
-    return `Das Produkt "${tariff.name}" beinhaltet einen Glasfaser-Festnetzanschluss für Internetdienste. Im monatlichen Entgelt ist eine Flatrate für die Internetnutzung enthalten. Telefonie inkl. Flatrates in deutsche Fest- und Mobilfunknetze kann optional gebucht werden. Einzelheiten zum Produkt und zu buchbaren Leistungen ergeben sich aus der Leistungsbeschreibung, Preisliste und AGB (www.comin-glasfaser.de).`;
+    if (phoneEnabled) {
+      return `Das Produkt "${tariff.name}" beinhaltet einen Glasfaser-Festnetzanschluss für Internetdienste. Im monatlichen Entgelt ist eine Flatrate für die Internetnutzung enthalten. Telefonie inkl. Flatrates in deutsche Fest- und Mobilfunknetze wurde optional gebucht. Einzelheiten zum Produkt und zu buchbaren Leistungen ergeben sich aus der Leistungsbeschreibung, Preisliste und AGB (www.comin-glasfaser.de).`;
+    }
+    return `Das Produkt "${tariff.name}" beinhaltet einen Glasfaser-Festnetzanschluss für Internetdienste. Im monatlichen Entgelt ist eine Flatrate für die Internetnutzung enthalten. Einzelheiten zum Produkt und zu buchbaren Leistungen ergeben sich aus der Leistungsbeschreibung, Preisliste und AGB (www.comin-glasfaser.de).`;
   };
 
   // Build TV description
@@ -380,7 +386,7 @@ export function generateVZFContent(data: VZFData): string {
         <td>${formatPrice(tariffSetup)}</td>
         <td>${setupFeeWaived ? 'entfällt' : ''}</td>
         <td>${formatPrice(tariffMonthly)}</td>
-        <td>${isFiberBasic ? 'Telefon-Flatrate inklusive' : 'Unbegrenzt für 0 ct/Min. in dt. Festnetze und dt. Mobilfunknetze telefonieren'}</td>
+        <td>${tariffIncludesPhone ? 'Telefon-Flatrate inklusive' : (phoneEnabled ? 'Unbegrenzt für 0 ct/Min. in dt. Festnetze und dt. Mobilfunknetze telefonieren' : '')}</td>
       </tr>
       <tr>
         <td>${getTvName()}</td>

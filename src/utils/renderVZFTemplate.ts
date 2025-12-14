@@ -160,7 +160,7 @@ export function buildVZFPlaceholders(data: VZFRenderData): Record<string, string
     tarif_einmalig: data.setupFee,
     tarif_aktion: data.tariffAktion || '',
     tarif_monatlich: data.tariffPrice,
-    tarif_sonstiges: data.tariffSonstiges || 'Unbegrenzt für 0 ct/Min. in dt. Festnetze und dt. Mobilfunknetze telefonieren',
+    tarif_sonstiges: data.tariffSonstiges || '',
     
     // Contract
     vorzeitiges_kuendigungsrecht: data.vorzeitigesKuendigungsrecht || 'Siehe AGB unter www.comin-glasfaser.de',
