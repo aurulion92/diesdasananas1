@@ -584,12 +584,32 @@ export function TariffSelection() {
                 </SelectContent>
               </Select>
               {selectedRouter && selectedRouter.id !== 'router-none' && (
-                <p className="text-sm text-muted-foreground mt-2">{selectedRouter.description}</p>
-              )}
-              {routerDiscount > 0 && selectedRouter && selectedRouter.id !== 'router-none' && (
-                <p className="text-sm text-success mt-2 font-medium">
-                  Sie sparen {routerDiscount.toFixed(2).replace('.', ',')} €/Monat
-                </p>
+                <div className="mt-3 flex items-start gap-4">
+                  {/* Router image - find from routerOptions mapping */}
+                  {(() => {
+                    const selectedSlug = selectedRouter.id.replace('router-', '');
+                    const routerMapping = routerOptions.find(m => m.option.slug === selectedSlug);
+                    const imageUrl = routerMapping?.option.image_url;
+                    if (imageUrl) {
+                      return (
+                        <img 
+                          src={imageUrl} 
+                          alt={selectedRouter.name} 
+                          className="w-16 h-16 object-contain rounded-lg bg-muted/50 p-1 flex-shrink-0"
+                        />
+                      );
+                    }
+                    return null;
+                  })()}
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground">{selectedRouter.description}</p>
+                    {routerDiscount > 0 && (
+                      <p className="text-sm text-success mt-1 font-medium">
+                        Sie sparen {routerDiscount.toFixed(2).replace('.', ',')} €/Monat
+                      </p>
+                    )}
+                  </div>
+                </div>
               )}
               {/* Router availability hint - only show if there are actual routers (not just "Kein Router") */}
               {availableRouters.filter(r => r.id !== 'router-none').length > 0 && (
