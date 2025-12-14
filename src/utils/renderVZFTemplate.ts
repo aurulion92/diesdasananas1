@@ -3,6 +3,8 @@ import { generateVZFContent, VZFData } from './generateVZF';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
+import { TariffAddon } from '@/data/tariffs';
+
 export interface VZFRenderData {
   // Customer
   customerName: string;
@@ -58,6 +60,9 @@ export interface VZFRenderData {
   hardwarePrice?: string;
   hardwareOneTime?: string;
   hardwareAktion?: string;
+  
+  // Service addons - optional
+  serviceAddons?: TariffAddon[];
   
   // Pricing
   monthlyTotal: string;
@@ -117,6 +122,25 @@ export function buildVZFPlaceholders(data: VZFRenderData): Record<string, string
       : '';
     telefonKonditionen = quantityPrefix + data.phoneTermsText;
   }
+
+  // Build service addons list
+  const serviceAddonsList = data.serviceAddons?.map(addon => addon.name).join(', ') || '';
+  const serviceAddonsMonthly = data.serviceAddons?.reduce((sum, a) => sum + (a.monthlyPrice || 0), 0) || 0;
+  const serviceAddonsOneTime = data.serviceAddons?.reduce((sum, a) => sum + (a.oneTimePrice || 0), 0) || 0;
+  
+  // Format price helper
+  const formatPrice = (price: number) => price.toFixed(2).replace('.', ',') + ' €';
+  
+  // Build service addons HTML table rows
+  const serviceAddonsHtml = data.serviceAddons?.map(addon => `
+    <tr>
+      <td>${addon.name}</td>
+      <td>${(addon.oneTimePrice || 0) > 0 ? formatPrice(addon.oneTimePrice || 0) : '0 €'}</td>
+      <td></td>
+      <td>${(addon.monthlyPrice || 0) > 0 ? formatPrice(addon.monthlyPrice || 0) : '0,00 €'}</td>
+      <td>${addon.description || ''}</td>
+    </tr>
+  `).join('') || '';
 
   return {
     // Customer
@@ -178,6 +202,12 @@ export function buildVZFPlaceholders(data: VZFRenderData): Record<string, string
     hardware_aktion: data.hardwareAktion || '',
     hardware_beschreibung: '',
     
+    // Service addons
+    service_leistungen: serviceAddonsList,
+    service_leistungen_monatlich: formatPrice(serviceAddonsMonthly),
+    service_leistungen_einmalig: formatPrice(serviceAddonsOneTime),
+    service_leistungen_html: serviceAddonsHtml,
+    
     // Pricing
     gesamt_monatlich: data.monthlyTotal,
     gesamt_einmalig: data.oneTimeTotal,
@@ -232,11 +262,20 @@ export function createDefaultVZFRenderData(): Partial<VZFRenderData> {
 
 /**
  * Render VZF from database template if available, otherwise fall back to hardcoded version
+ * Note: If service addons are present, we always use the hardcoded version as templates may not support them
  */
 export async function renderVZFFromTemplate(
   vzfData: VZFData,
   renderData: VZFRenderData
 ): Promise<string> {
+  // If there are service addons, use the hardcoded version which supports them
+  const hasServiceAddons = vzfData.serviceAddons && vzfData.serviceAddons.length > 0;
+  
+  if (hasServiceAddons) {
+    // Use hardcoded VZF generation which includes service addons
+    return generateVZFContent(vzfData);
+  }
+  
   // Try to get template from database
   const template = await getTemplateByUseCase('order_vzf');
   
