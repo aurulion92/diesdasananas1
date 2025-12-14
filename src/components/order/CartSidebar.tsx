@@ -350,7 +350,7 @@ export function CartSidebar() {
         {selectedTariff && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Check className="w-4 h-4 text-success" />
-            <span>{isFiberBasic ? contractDuration : 24} Monate Vertragslaufzeit</span>
+            <span>{selectedTariff.contractMonths || 24} Monate Vertragslaufzeit</span>
           </div>
         )}
       </div>
