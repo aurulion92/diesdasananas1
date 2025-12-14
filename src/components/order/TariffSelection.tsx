@@ -91,17 +91,10 @@ const NO_ROUTER_ADDON: TariffAddon = {
 
 function dbRouterOptionToAddon(mapping: ProductOptionMapping): TariffAddon {
   const { option } = mapping;
-  const slug = option.slug;
-
-  // Keep existing IDs for known routers so promotion mapping continues to work
-  let id: string;
-  if (slug === 'fritzbox-5690-pro') id = 'router-fritzbox-5690-pro';
-  else if (slug === 'fritzbox-5690') id = 'router-fritzbox-5690';
-  else if (slug === 'fritzbox-7690') id = 'router-fritzbox-7690';
-  else id = `router-${slug}`;
 
   return {
-    id,
+    id: `router-${option.slug}`,
+    databaseId: option.id, // Store UUID for promotion matching
     name: option.name,
     description: option.description || '',
     monthlyPrice: option.monthly_price ?? 0,

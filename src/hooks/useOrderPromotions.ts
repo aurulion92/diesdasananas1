@@ -1,13 +1,6 @@
 import { useOrder } from '@/context/OrderContext';
 import { usePromotionsContext } from '@/context/PromotionsContext';
 
-// Map frontend router IDs (router-{slug}) to database option UUIDs
-const ROUTER_SLUG_TO_UUID: Record<string, string> = {
-  'fritzbox-5690-pro': '38da25aa-f523-4129-9000-40c175d46f7c',
-  'fritzbox-5690': '621b25df-8a9d-4e7c-85ef-608dc9c091d5',
-  'fritzbox-7690': '4c5e0fc0-1586-4aba-b91b-25530996ba01',
-};
-
 /**
  * Hook that combines order context with promotions context
  * to calculate dynamic discounts based on active database promotions
@@ -30,32 +23,9 @@ export function useOrderPromotions() {
   // Get building ID from address if available
   const buildingId = (address as any)?.buildingId || null;
 
-  // Convert frontend router ID to database option UUID
-  const getRouterOptionId = (): string | null => {
-    if (!selectedRouter || selectedRouter.id === 'router-none') return null;
-    
-    // Router ID format: "router-{slug}" -> extract slug
-    const slug = selectedRouter.id.replace('router-', '');
-    
-    // Look up UUID from known mapping
-    const uuid = ROUTER_SLUG_TO_UUID[slug];
-    if (uuid) return uuid;
-    
-    // Fallback: try to find in promotions discounts
-    for (const promo of promotions) {
-      for (const discount of promo.discounts) {
-        if (discount.target_option_id) {
-          // If we can't find a mapping, return the first router option ID we find
-          // This is a fallback for dynamically added routers
-          return discount.target_option_id;
-        }
-      }
-    }
-    
-    return null;
-  };
-
-  const routerOptionId = getRouterOptionId();
+  // Get router option UUID directly from the selected router
+  // The databaseId is set when the router is created from database options
+  const routerOptionId = selectedRouter?.databaseId || null;
 
   // Get router discount from database promotions (e.g., FTTH-Aktion)
   // Uses tariff UUID for matching
