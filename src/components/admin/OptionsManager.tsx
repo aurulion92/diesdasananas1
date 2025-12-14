@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/table';
 import { OptionBuildingAssignment } from './OptionBuildingAssignment';
 import { ImageUpload } from './ImageUpload';
+import { MultiImageUpload } from './MultiImageUpload';
 
 interface ProductOption {
   id: string;
@@ -49,6 +50,7 @@ interface ProductOption {
   exclusive_group: string | null;
   info_text: string | null;
   image_url: string | null;
+  image_urls: string[] | null;
   external_link_url: string | null;
   external_link_label: string | null;
   is_quantitative: boolean;
@@ -114,6 +116,7 @@ export const OptionsManager = () => {
     exclusive_group: '',
     info_text: '',
     image_url: '',
+    image_urls: [] as string[],
     external_link_url: '',
     external_link_label: '',
     is_quantitative: false,
@@ -233,7 +236,8 @@ export const OptionsManager = () => {
         auto_include_option_slug: formData.auto_include_option_slugs.length > 0 ? formData.auto_include_option_slugs : null,
         exclusive_group: formData.exclusive_group || null,
         info_text: formData.info_text || null,
-        image_url: formData.image_url || null,
+        image_url: formData.image_urls.length > 0 ? formData.image_urls[0] : (formData.image_url || null),
+        image_urls: formData.image_urls.length > 0 ? formData.image_urls : null,
         external_link_url: formData.external_link_url || null,
         external_link_label: formData.external_link_label || null,
         is_quantitative: formData.is_quantitative,
@@ -333,6 +337,7 @@ export const OptionsManager = () => {
       exclusive_group: '',
       info_text: '',
       image_url: '',
+      image_urls: [],
       external_link_url: '',
       external_link_label: '',
       is_quantitative: false,
@@ -361,6 +366,7 @@ export const OptionsManager = () => {
       exclusive_group: option.exclusive_group || '',
       info_text: option.info_text || '',
       image_url: option.image_url || '',
+      image_urls: option.image_urls || [],
       external_link_url: option.external_link_url || '',
       external_link_label: option.external_link_label || '',
       is_quantitative: option.is_quantitative || false,
@@ -801,11 +807,12 @@ export const OptionsManager = () => {
                         </p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="image_url">Bild</Label>
-                        <ImageUpload
-                          value={formData.image_url}
-                          onChange={(url) => setFormData({...formData, image_url: url})}
+                        <Label htmlFor="image_urls">Bilder (mehrere möglich)</Label>
+                        <MultiImageUpload
+                          values={formData.image_urls}
+                          onChange={(urls) => setFormData({...formData, image_urls: urls, image_url: urls[0] || ''})}
                           folder="options"
+                          maxImages={10}
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-4">

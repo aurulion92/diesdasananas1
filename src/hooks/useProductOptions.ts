@@ -19,6 +19,7 @@ export interface ProductOption {
   display_order: number;
   info_text: string | null;
   image_url: string | null;
+  image_urls: string[] | null;
   external_link_url: string | null;
   external_link_label: string | null;
 }
@@ -143,6 +144,7 @@ export function useProductOptions(productId: string | null, buildingId?: string 
               display_order: (d.product_options as any).display_order || 0,
               info_text: (d.product_options as any).info_text,
               image_url: (d.product_options as any).image_url,
+              image_urls: (d.product_options as any).image_urls || [],
               external_link_url: (d.product_options as any).external_link_url,
               external_link_label: (d.product_options as any).external_link_label,
             }
