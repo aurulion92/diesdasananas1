@@ -632,6 +632,8 @@ export type Database = {
           description: string | null
           display_order: number | null
           download_speed: number | null
+          download_speed_min: number | null
+          download_speed_normal: number | null
           hide_for_ftth: boolean | null
           id: string
           includes_fiber_tv: boolean | null
@@ -650,6 +652,8 @@ export type Database = {
           slug: string
           updated_at: string
           upload_speed: number | null
+          upload_speed_min: number | null
+          upload_speed_normal: number | null
         }
         Insert: {
           archived_at?: string | null
@@ -658,6 +662,8 @@ export type Database = {
           description?: string | null
           display_order?: number | null
           download_speed?: number | null
+          download_speed_min?: number | null
+          download_speed_normal?: number | null
           hide_for_ftth?: boolean | null
           id?: string
           includes_fiber_tv?: boolean | null
@@ -676,6 +682,8 @@ export type Database = {
           slug: string
           updated_at?: string
           upload_speed?: number | null
+          upload_speed_min?: number | null
+          upload_speed_normal?: number | null
         }
         Update: {
           archived_at?: string | null
@@ -684,6 +692,8 @@ export type Database = {
           description?: string | null
           display_order?: number | null
           download_speed?: number | null
+          download_speed_min?: number | null
+          download_speed_normal?: number | null
           hide_for_ftth?: boolean | null
           id?: string
           includes_fiber_tv?: boolean | null
@@ -702,6 +712,8 @@ export type Database = {
           slug?: string
           updated_at?: string
           upload_speed?: number | null
+          upload_speed_min?: number | null
+          upload_speed_normal?: number | null
         }
         Relationships: []
       }
