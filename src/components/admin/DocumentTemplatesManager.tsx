@@ -449,14 +449,14 @@ export function DocumentTemplatesManager() {
                 <div>
                   <Label>Anwendungsfall</Label>
                   <Select
-                    value={formData.use_case}
-                    onValueChange={v => setFormData(prev => ({ ...prev, use_case: v }))}
+                    value={formData.use_case || 'none'}
+                    onValueChange={v => setFormData(prev => ({ ...prev, use_case: v === 'none' ? '' : v }))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Keiner (manuell)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Keiner (manuell)</SelectItem>
+                      <SelectItem value="none">Keiner (manuell)</SelectItem>
                       {TEMPLATE_USE_CASES.map(uc => (
                         <SelectItem key={uc.value} value={uc.value}>
                           <div>
