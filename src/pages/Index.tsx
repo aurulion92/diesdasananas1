@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { OrderProvider, useOrder } from '@/context/OrderContext';
+import { OrderProvider, useOrder, CustomerType } from '@/context/OrderContext';
 import { Header } from '@/components/layout/Header';
 import { ProgressSteps } from '@/components/order/ProgressSteps';
 import { CartSidebar } from '@/components/order/CartSidebar';
@@ -9,10 +9,14 @@ import { CustomerForm } from '@/components/order/CustomerForm';
 import { OrderSummary } from '@/components/order/OrderSummary';
 import { ExistingCustomerPortal } from '@/components/order/ExistingCustomerPortal';
 import { GustavChatbot } from '@/components/chat/GustavChatbot';
+import { CustomerTypeSelection } from '@/components/order/CustomerTypeSelection';
+import { BusinessTypeSelection } from '@/components/order/BusinessTypeSelection';
 import { User, Rocket } from 'lucide-react';
 import { useBranding } from '@/hooks/useBranding';
 
 const steps = ['Adresse', 'Tarif', 'Daten', 'Abschluss'];
+
+type ViewState = 'landing' | 'customer-type' | 'business-type' | 'order-flow' | 'existing-customer';
 
 const LandingChoice = ({ onNewCustomer, onExistingCustomer, onLogoClick }: { onNewCustomer: () => void; onExistingCustomer: () => void; onLogoClick: () => void }) => {
   const { branding } = useBranding();
@@ -65,11 +69,7 @@ const LandingChoice = ({ onNewCustomer, onExistingCustomer, onLogoClick }: { onN
   );
 };
 
-interface OrderFlowProps {
-  onBackToStart: () => void;
-}
-
-const OrderFlow = ({ onBackToStart }: OrderFlowProps) => {
+const OrderFlowInner = ({ onBackToStart }: { onBackToStart: () => void }) => {
   const { step, connectionType } = useOrder();
 
   return (
@@ -79,7 +79,6 @@ const OrderFlow = ({ onBackToStart }: OrderFlowProps) => {
       <main className="container mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
-            {/* Steps oben im gleichen Content-Bereich wie der Willkommenstext */}
             <ProgressSteps currentStep={step} steps={steps} />
 
             <div className="mt-8">
@@ -99,25 +98,82 @@ const OrderFlow = ({ onBackToStart }: OrderFlowProps) => {
   );
 };
 
+interface OrderFlowProps {
+  onBackToStart: () => void;
+  customerType: CustomerType;
+}
+
+const OrderFlow = ({ onBackToStart, customerType }: OrderFlowProps) => {
+  return (
+    <OrderProvider initialCustomerType={customerType}>
+      <OrderFlowInner onBackToStart={onBackToStart} />
+    </OrderProvider>
+  );
+};
+
 const Index = () => {
-  const [showExistingCustomer, setShowExistingCustomer] = useState(false);
-  const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [viewState, setViewState] = useState<ViewState>('landing');
+  const [customerType, setCustomerType] = useState<CustomerType>('pk');
 
   const handleBackToStart = () => {
-    setShowNewCustomer(false);
-    setShowExistingCustomer(false);
+    setViewState('landing');
+    setCustomerType('pk');
+  };
+
+  const handleNewCustomer = () => {
+    setViewState('customer-type');
+  };
+
+  const handleSelectPrivate = () => {
+    setCustomerType('pk');
+    setViewState('order-flow');
+  };
+
+  const handleSelectBusiness = () => {
+    setViewState('business-type');
+  };
+
+  const handleSelectEasyBusiness = () => {
+    setCustomerType('kmu');
+    setViewState('order-flow');
   };
 
   return (
     <>
-      {!showNewCustomer && !showExistingCustomer && (
+      {viewState === 'landing' && (
         <LandingChoice 
-          onNewCustomer={() => setShowNewCustomer(true)} 
-          onExistingCustomer={() => setShowExistingCustomer(true)}
+          onNewCustomer={handleNewCustomer} 
+          onExistingCustomer={() => setViewState('existing-customer')}
           onLogoClick={handleBackToStart}
         />
       )}
-      {showExistingCustomer && (
+      
+      {viewState === 'customer-type' && (
+        <div className="min-h-screen bg-background">
+          <Header onLogoClick={handleBackToStart} />
+          <main className="container mx-auto px-4 py-6 pb-28">
+            <CustomerTypeSelection
+              onSelectPrivate={handleSelectPrivate}
+              onSelectBusiness={handleSelectBusiness}
+              onBack={handleBackToStart}
+            />
+          </main>
+        </div>
+      )}
+
+      {viewState === 'business-type' && (
+        <div className="min-h-screen bg-background">
+          <Header onLogoClick={handleBackToStart} />
+          <main className="container mx-auto px-4 py-6 pb-28">
+            <BusinessTypeSelection
+              onSelectEasyBusiness={handleSelectEasyBusiness}
+              onBack={() => setViewState('customer-type')}
+            />
+          </main>
+        </div>
+      )}
+
+      {viewState === 'existing-customer' && (
         <div className="min-h-screen bg-background">
           <Header onLogoClick={handleBackToStart} />
           <main className="container mx-auto px-4 py-8">
@@ -125,11 +181,11 @@ const Index = () => {
           </main>
         </div>
       )}
-      {showNewCustomer && (
-        <OrderProvider>
-          <OrderFlow onBackToStart={handleBackToStart} />
-        </OrderProvider>
+      
+      {viewState === 'order-flow' && (
+        <OrderFlow onBackToStart={handleBackToStart} customerType={customerType} />
       )}
+      
       <GustavChatbot />
     </>
   );

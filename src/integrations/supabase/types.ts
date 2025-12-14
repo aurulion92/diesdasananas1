@@ -554,6 +554,7 @@ export type Database = {
           auto_include_option_slug: string[] | null
           category: string
           created_at: string
+          customer_type: string
           description: string | null
           display_order: number | null
           exclusive_group: string | null
@@ -583,6 +584,7 @@ export type Database = {
           auto_include_option_slug?: string[] | null
           category: string
           created_at?: string
+          customer_type?: string
           description?: string | null
           display_order?: number | null
           exclusive_group?: string | null
@@ -612,6 +614,7 @@ export type Database = {
           auto_include_option_slug?: string[] | null
           category?: string
           created_at?: string
+          customer_type?: string
           description?: string | null
           display_order?: number | null
           exclusive_group?: string | null
@@ -644,6 +647,7 @@ export type Database = {
           archived_at: string | null
           contract_months: number | null
           created_at: string
+          customer_type: string
           description: string | null
           display_name: string | null
           display_order: number | null
@@ -678,6 +682,7 @@ export type Database = {
           archived_at?: string | null
           contract_months?: number | null
           created_at?: string
+          customer_type?: string
           description?: string | null
           display_name?: string | null
           display_order?: number | null
@@ -712,6 +717,7 @@ export type Database = {
           archived_at?: string | null
           contract_months?: number | null
           created_at?: string
+          customer_type?: string
           description?: string | null
           display_name?: string | null
           display_order?: number | null
@@ -852,6 +858,7 @@ export type Database = {
           available_text: string | null
           code: string | null
           created_at: string
+          customer_type: string
           description: string | null
           end_date: string | null
           id: string
@@ -867,6 +874,7 @@ export type Database = {
           available_text?: string | null
           code?: string | null
           created_at?: string
+          customer_type?: string
           description?: string | null
           end_date?: string | null
           id?: string
@@ -882,6 +890,7 @@ export type Database = {
           available_text?: string | null
           code?: string | null
           created_at?: string
+          customer_type?: string
           description?: string | null
           end_date?: string | null
           id?: string

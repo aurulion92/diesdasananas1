@@ -83,8 +83,11 @@ interface ExpressOption {
   infoText?: string;
 }
 
+export type CustomerType = 'pk' | 'kmu';
+
 interface OrderState {
   step: number;
+  customerType: CustomerType;
   address: AddressData | null;
   connectionType: ConnectionType | null;
   apartmentData: ApartmentData | null;
@@ -113,6 +116,7 @@ interface OrderState {
 
 interface OrderContextType extends OrderState {
   setStep: (step: number) => void;
+  setCustomerType: (type: CustomerType) => void;
   setAddress: (address: AddressData) => void;
   setConnectionType: (type: ConnectionType) => void;
   setApartmentData: (data: ApartmentData | null) => void;
@@ -185,6 +189,7 @@ const initialReferralData: ReferralData = {
 
 const initialState: OrderState = {
   step: 1,
+  customerType: 'pk',
   address: null,
   connectionType: null,
   apartmentData: null,
@@ -213,8 +218,16 @@ const initialState: OrderState = {
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
-export const OrderProvider = ({ children }: { children: ReactNode }) => {
-  const [state, setState] = useState<OrderState>(initialState);
+interface OrderProviderProps {
+  children: ReactNode;
+  initialCustomerType?: CustomerType;
+}
+
+export const OrderProvider = ({ children, initialCustomerType = 'pk' }: OrderProviderProps) => {
+  const [state, setState] = useState<OrderState>({
+    ...initialState,
+    customerType: initialCustomerType,
+  });
 
   const resetTariffSelections = () => ({
     selectedTariff: null,
@@ -243,6 +256,9 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     }
     return { ...prev, step };
   });
+
+  const setCustomerType = (customerType: CustomerType) =>
+    setState(prev => ({ ...prev, customerType }));
   
   const setAddress = (address: AddressData) => {
     setState(prev => ({ 
@@ -588,6 +604,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     <OrderContext.Provider value={{
       ...state,
       setStep,
+      setCustomerType,
       setAddress,
       setConnectionType,
       setApartmentData,
