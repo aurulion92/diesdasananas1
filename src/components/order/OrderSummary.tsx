@@ -538,13 +538,16 @@ export function OrderSummary() {
               <div className="flex-1">
                 <h4 className="font-bold text-primary">{selectedTariff?.name}</h4>
                 <p className="text-muted-foreground">{selectedTariff?.speed}</p>
-                {selectedRouter && selectedRouter.id !== 'router-none' && (
+                {selectedRouter && selectedRouter.id !== 'router-none' && selectedRouter.name && (
                   <p className="text-muted-foreground text-sm">+ {selectedRouter.name}</p>
                 )}
-                {tvSelection.type !== 'none' && (
-                  <p className="text-muted-foreground text-sm">+ {tvSelection.type === 'comin' ? 'COM-IN TV' : tvSelection.package?.name}</p>
+                {tvSelection.type !== 'none' && tvSelection.package?.name && (
+                  <p className="text-muted-foreground text-sm">+ {tvSelection.type === 'comin' ? 'COM-IN TV' : tvSelection.package.name}</p>
                 )}
-                {phoneSelection.enabled && !isFiberBasic && (
+                {tvSelection.type === 'comin' && !tvSelection.package?.name && (
+                  <p className="text-muted-foreground text-sm">+ COM-IN TV</p>
+                )}
+                {phoneSelection.enabled && !isFiberBasic && phoneSelection.lines > 0 && (
                   <p className="text-muted-foreground text-sm">+ Telefon ({phoneSelection.lines} Leitung(en))</p>
                 )}
               </div>
