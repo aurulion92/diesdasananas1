@@ -751,25 +751,33 @@ export function TariffSelection() {
                           </Select>
                         </div>
                         
-                        {/* waipu.tv 4K Stick - from database */}
-                        {tvHardwareOptions.filter(m => m.option.parent_option_slug?.some(p => p.includes('waipu'))).map((stickMapping) => (
-                          <div key={stickMapping.option.slug} className="flex items-center space-x-3">
-                            <Checkbox 
-                              id={stickMapping.option.slug}
-                              checked={tvSelection.waipuStick}
-                              onCheckedChange={(checked) => setTvSelection({
-                                ...tvSelection,
-                                waipuStick: checked === true
-                              })}
-                            />
-                            <Label htmlFor={stickMapping.option.slug} className="cursor-pointer">
-                              <div className="flex justify-between items-center gap-4">
-                                <span>{stickMapping.option.name}</span>
-                                <span className="text-accent">{(stickMapping.option.one_time_price ?? 0).toFixed(2).replace('.', ',')} € einmalig</span>
-                              </div>
-                            </Label>
-                          </div>
-                        ))}
+                        {/* waipu.tv 4K Stick - from database, only show if a waipu package is selected */}
+                        {tvSelection.package && tvHardwareOptions
+                          .filter(m => {
+                            // Check if this hardware requires a waipu parent AND if a matching parent is selected
+                            const waipuParents = m.option.parent_option_slug?.filter(p => p.includes('waipu')) || [];
+                            if (waipuParents.length === 0) return false;
+                            // Check if the selected package's slug matches one of the required parents
+                            return waipuParents.includes(tvSelection.package?.id || '');
+                          })
+                          .map((stickMapping) => (
+                            <div key={stickMapping.option.slug} className="flex items-center space-x-3">
+                              <Checkbox 
+                                id={stickMapping.option.slug}
+                                checked={tvSelection.waipuStick}
+                                onCheckedChange={(checked) => setTvSelection({
+                                  ...tvSelection,
+                                  waipuStick: checked === true
+                                })}
+                              />
+                              <Label htmlFor={stickMapping.option.slug} className="cursor-pointer">
+                                <div className="flex justify-between items-center gap-4">
+                                  <span>{stickMapping.option.name}</span>
+                                  <span className="text-accent">{(stickMapping.option.one_time_price ?? 0).toFixed(2).replace('.', ',')} € einmalig</span>
+                                </div>
+                              </Label>
+                            </div>
+                          ))}
                       </div>
                     )}
                   </div>
