@@ -669,33 +669,33 @@ export function TariffSelection() {
                     "p-3 rounded-lg border transition-all",
                     tvSelection.type === 'comin' ? "border-accent bg-accent/5" : "border-border"
                   )}>
-                    <div className="flex items-center space-x-3">
-                      <RadioGroupItem value="comin" id="tv-comin" />
-                      <Label htmlFor="tv-comin" className="flex-1 cursor-pointer">
-                        {(() => {
-                          const cominOption = tvCominOptions[0];
-                          return (
-                            <div className="flex justify-between items-center">
-                              <span>{cominOption?.option.name || 'COM-IN TV'}</span>
-                              <span className="text-accent font-medium">
-                                {(cominOption?.option.monthly_price ?? 0).toFixed(2).replace('.', ',')} €/Monat
-                              </span>
-                            </div>
-                          );
-                        })()}
-                      </Label>
-                    </div>
-                    {/* Info text displayed below like routers */}
-                    {tvCominOptions[0]?.option.info_text && (
-                      <p className="text-sm text-muted-foreground mt-1 ml-7">
-                        {tvCominOptions[0].option.info_text}
-                      </p>
-                    )}
-                    {tvCominOptions[0]?.option.description && !tvCominOptions[0]?.option.info_text && (
-                      <p className="text-sm text-muted-foreground mt-1 ml-7">
-                        {tvCominOptions[0].option.description}
-                      </p>
-                    )}
+                    {(() => {
+                      // Find the base COM-IN TV option (no parent or parent not containing 'comin-tv')
+                      const baseOption = tvCominOptions.find(m => 
+                        !m.option.parent_option_slug?.includes('comin-tv')
+                      );
+                      return (
+                        <>
+                          <div className="flex items-center space-x-3">
+                            <RadioGroupItem value="comin" id="tv-comin" />
+                            <Label htmlFor="tv-comin" className="flex-1 cursor-pointer">
+                              <div className="flex justify-between items-center">
+                                <span>{baseOption?.option.name || 'COM-IN TV'}</span>
+                                <span className="text-accent font-medium">
+                                  {(baseOption?.option.monthly_price ?? 0).toFixed(2).replace('.', ',')} €/Monat
+                                </span>
+                              </div>
+                            </Label>
+                          </div>
+                          {/* Info text displayed below from database */}
+                          {(baseOption?.option.info_text || baseOption?.option.description) && (
+                            <p className="text-sm text-muted-foreground mt-1 ml-7">
+                              {baseOption.option.info_text || baseOption.option.description}
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
                   
                     {tvSelection.type === 'comin' && (
                       <div className="mt-4 ml-6 space-y-4">
