@@ -17,7 +17,8 @@ import {
   RefreshCw,
   Pencil,
   Link,
-  AlertTriangle
+  AlertTriangle,
+  Building2
 } from 'lucide-react';
 import {
   Table,
@@ -27,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { OptionBuildingAssignment } from './OptionBuildingAssignment';
 
 interface ProductOption {
   id: string;
@@ -80,11 +82,14 @@ export const OptionsManager = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isMappingDialogOpen, setIsMappingDialogOpen] = useState(false);
+  const [isBuildingDialogOpen, setIsBuildingDialogOpen] = useState(false);
   const [editingOption, setEditingOption] = useState<ProductOption | null>(null);
   const [selectedOptionForMapping, setSelectedOptionForMapping] = useState<ProductOption | null>(null);
+  const [selectedOptionForBuildings, setSelectedOptionForBuildings] = useState<ProductOption | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [productMappings, setProductMappings] = useState<Record<string, ProductMapping>>({});
   const [optionMappingsCount, setOptionMappingsCount] = useState<Record<string, number>>({});
+  const [optionBuildingsCount, setOptionBuildingsCount] = useState<Record<string, number>>({});
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -136,6 +141,19 @@ export const OptionsManager = () => {
           counts[m.option_id] = (counts[m.option_id] || 0) + 1;
         });
         setOptionMappingsCount(counts);
+      }
+
+      // Fetch building assignment counts for each option
+      const { data: buildingAssignments, error: buildingsError } = await supabase
+        .from('option_buildings')
+        .select('option_id');
+      
+      if (!buildingsError && buildingAssignments) {
+        const buildingCounts: Record<string, number> = {};
+        buildingAssignments.forEach((b: { option_id: string }) => {
+          buildingCounts[b.option_id] = (buildingCounts[b.option_id] || 0) + 1;
+        });
+        setOptionBuildingsCount(buildingCounts);
       }
     } catch (error) {
       console.error('Error fetching options:', error);
@@ -871,6 +889,21 @@ export const OptionsManager = () => {
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => {
+                              setSelectedOptionForBuildings(option);
+                              setIsBuildingDialogOpen(true);
+                            }}
+                            title="Gebäude zuweisen"
+                            className={optionBuildingsCount[option.id] ? 'border-primary' : ''}
+                          >
+                            <Building2 className="w-4 h-4" />
+                            {optionBuildingsCount[option.id] && (
+                              <span className="ml-1 text-xs">{optionBuildingsCount[option.id]}</span>
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => openMappingDialog(option)}
                             title="Produkt-Zuordnungen"
                           >
@@ -992,6 +1025,20 @@ export const OptionsManager = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Option Building Assignment Dialog */}
+      {selectedOptionForBuildings && (
+        <OptionBuildingAssignment
+          optionId={selectedOptionForBuildings.id}
+          optionName={selectedOptionForBuildings.name}
+          open={isBuildingDialogOpen}
+          onOpenChange={(open) => {
+            setIsBuildingDialogOpen(open);
+            if (!open) setSelectedOptionForBuildings(null);
+          }}
+          onUpdate={fetchOptions}
+        />
+      )}
     </Card>
   );
 };
