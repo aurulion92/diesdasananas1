@@ -56,6 +56,10 @@ interface Product {
   setup_fee: number;
   download_speed: number | null;
   upload_speed: number | null;
+  download_speed_normal: number | null;
+  download_speed_min: number | null;
+  upload_speed_normal: number | null;
+  upload_speed_min: number | null;
   is_ftth: boolean;
   is_fttb: boolean;
   is_ftth_limited: boolean;
@@ -107,6 +111,10 @@ export const ProductsManager = () => {
     setup_fee: 99,
     download_speed: 0,
     upload_speed: 0,
+    download_speed_normal: 0,
+    download_speed_min: 0,
+    upload_speed_normal: 0,
+    upload_speed_min: 0,
     is_ftth: true,
     is_fttb: true,
     is_ftth_limited: true,
@@ -202,6 +210,10 @@ export const ProductsManager = () => {
       setup_fee: 99,
       download_speed: 0,
       upload_speed: 0,
+      download_speed_normal: 0,
+      download_speed_min: 0,
+      upload_speed_normal: 0,
+      upload_speed_min: 0,
       is_ftth: true,
       is_fttb: true,
       is_ftth_limited: true,
@@ -227,6 +239,10 @@ export const ProductsManager = () => {
       setup_fee: product.setup_fee,
       download_speed: product.download_speed || 0,
       upload_speed: product.upload_speed || 0,
+      download_speed_normal: product.download_speed_normal || 0,
+      download_speed_min: product.download_speed_min || 0,
+      upload_speed_normal: product.upload_speed_normal || 0,
+      upload_speed_min: product.upload_speed_min || 0,
       is_ftth: product.is_ftth,
       is_fttb: product.is_fttb,
       is_ftth_limited: product.is_ftth_limited,
@@ -574,25 +590,75 @@ export const ProductsManager = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="download_speed">Download (Mbit/s)</Label>
-                      <Input
-                        id="download_speed"
-                        type="number"
-                        value={formData.download_speed}
-                        onChange={(e) => setFormData({...formData, download_speed: parseInt(e.target.value) || 0})}
-                      />
+                  <div className="space-y-4 border-t pt-4">
+                    <h4 className="font-medium">Geschwindigkeiten (Transparenzverordnung)</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="download_speed">Download Max (Mbit/s)</Label>
+                        <Input
+                          id="download_speed"
+                          type="number"
+                          value={formData.download_speed}
+                          onChange={(e) => setFormData({...formData, download_speed: parseInt(e.target.value) || 0})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="upload_speed">Upload Max (Mbit/s)</Label>
+                        <Input
+                          id="upload_speed"
+                          type="number"
+                          value={formData.upload_speed}
+                          onChange={(e) => setFormData({...formData, upload_speed: parseInt(e.target.value) || 0})}
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="upload_speed">Upload (Mbit/s)</Label>
-                      <Input
-                        id="upload_speed"
-                        type="number"
-                        value={formData.upload_speed}
-                        onChange={(e) => setFormData({...formData, upload_speed: parseInt(e.target.value) || 0})}
-                      />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="download_speed_normal">Download Normal (Mbit/s)</Label>
+                        <Input
+                          id="download_speed_normal"
+                          type="number"
+                          value={formData.download_speed_normal}
+                          onChange={(e) => setFormData({...formData, download_speed_normal: parseInt(e.target.value) || 0})}
+                          placeholder="Normalerweise zur Verfügung stehend"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="upload_speed_normal">Upload Normal (Mbit/s)</Label>
+                        <Input
+                          id="upload_speed_normal"
+                          type="number"
+                          value={formData.upload_speed_normal}
+                          onChange={(e) => setFormData({...formData, upload_speed_normal: parseInt(e.target.value) || 0})}
+                          placeholder="Normalerweise zur Verfügung stehend"
+                        />
+                      </div>
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="download_speed_min">Download Min (Mbit/s)</Label>
+                        <Input
+                          id="download_speed_min"
+                          type="number"
+                          value={formData.download_speed_min}
+                          onChange={(e) => setFormData({...formData, download_speed_min: parseInt(e.target.value) || 0})}
+                          placeholder="Mindestgeschwindigkeit"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="upload_speed_min">Upload Min (Mbit/s)</Label>
+                        <Input
+                          id="upload_speed_min"
+                          type="number"
+                          value={formData.upload_speed_min}
+                          onChange={(e) => setFormData({...formData, upload_speed_min: parseInt(e.target.value) || 0})}
+                          placeholder="Mindestgeschwindigkeit"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Diese Werte werden in der Vertragszusammenfassung (VZF) gemäß EU-Transparenzverordnung angezeigt.
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
