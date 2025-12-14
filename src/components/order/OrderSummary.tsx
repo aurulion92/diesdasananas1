@@ -396,6 +396,7 @@ export function OrderSummary() {
           setupFee: `${getSetupFee().toFixed(2).replace('.', ',')} €`,
           orderNumber: getOrderNumber() || `COM-${insertedOrder.id.substring(0, 8).toUpperCase()}`,
           vzfTimestamp: format(new Date(), 'dd.MM.yyyy HH:mm', { locale: de }),
+          serviceAddons: selectedAddons,
         };
 
         // Generate VZF HTML for email attachment (fallback)
