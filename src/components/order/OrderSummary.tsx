@@ -261,6 +261,19 @@ export function OrderSummary() {
           portingData: phoneSelection.portingData
         });
       }
+      
+      // Add service addons to selected options for reconstruction
+      selectedAddons.forEach(addon => {
+        selectedOptions.push({
+          type: 'service',
+          id: addon.id,
+          name: addon.name,
+          description: addon.description,
+          monthlyPrice: addon.monthlyPrice || 0,
+          oneTimePrice: addon.oneTimePrice || 0,
+          category: addon.category,
+        });
+      });
 
       // Build applied promotions
       const appliedPromotions = [];
