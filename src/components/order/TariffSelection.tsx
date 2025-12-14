@@ -44,6 +44,7 @@ import { useState, useEffect } from 'react';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { PhoneBookOptions } from '@/components/order/PhoneBookOptions';
 import { ContactForm } from '@/components/order/ContactForm';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 
 interface ReferralData {
   type: 'none' | 'internet' | 'social-media' | 'referral' | 'promo-code';
@@ -592,11 +593,24 @@ export function TariffSelection() {
                     const imageUrl = routerMapping?.option.image_url;
                     if (imageUrl) {
                       return (
-                        <img 
-                          src={imageUrl} 
-                          alt={selectedRouter.name} 
-                          className="w-16 h-16 object-contain rounded-lg bg-muted/50 p-1 flex-shrink-0"
-                        />
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <img 
+                              src={imageUrl} 
+                              alt={selectedRouter.name} 
+                              className="w-24 h-24 object-contain rounded-lg bg-muted/50 p-2 flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-accent transition-all"
+                              title="Klicken zum Vergrößern"
+                            />
+                          </DialogTrigger>
+                          <DialogContent className="max-w-md p-4">
+                            <img 
+                              src={imageUrl} 
+                              alt={selectedRouter.name} 
+                              className="w-full h-auto object-contain"
+                            />
+                            <p className="text-center text-sm text-muted-foreground mt-2">{selectedRouter.name}</p>
+                          </DialogContent>
+                        </Dialog>
                       );
                     }
                     return null;
