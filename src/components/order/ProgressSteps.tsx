@@ -24,7 +24,8 @@ export function ProgressSteps({ currentStep, steps }: ProgressStepsProps) {
 
   return (
     <div className="w-full py-6">
-      <div className="flex items-center justify-center max-w-2xl mx-auto px-4">
+      {/* gleiche Breite wie der Hero-Block (AddressCheck: max-w-3xl mx-auto) */}
+      <div className="flex items-center justify-center max-w-3xl mx-auto">
         {steps.map((step, index) => {
           const stepNumber = index + 1;
           const isCompleted = stepNumber < currentStep;
