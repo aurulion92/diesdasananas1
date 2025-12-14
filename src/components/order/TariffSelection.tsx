@@ -1411,10 +1411,16 @@ function TariffCard({
   onSelect: () => void;
 }) {
   const contractMonths = tariff.contractMonths || 24;
-  // Detect if this is a "einfach" product (shows "einfach" header + number)
-  // or a custom product (shows just the displayName)
-  const isEinfachStyle = tariff.name.toLowerCase().startsWith('einfach') && !tariff.name.includes('FiberBasic');
-  const isFiberBasic = tariff.name.includes('FiberBasic');
+  
+  // Split display_name into text part (letters) and number part
+  // e.g. "einfach 150" -> textPart: "einfach", numberPart: "150"
+  // e.g. "FiberBasic 100" -> textPart: "FiberBasic", numberPart: "100"
+  // e.g. "Lebenshilfe Tarif" -> textPart: "Lebenshilfe Tarif", numberPart: null
+  const displayName = tariff.displayName || tariff.name;
+  const match = displayName.match(/^(.+?)\s+(\d+)$/);
+  const textPart = match ? match[1] : null;
+  const numberPart = match ? match[2] : null;
+  const hasTextAndNumber = textPart && numberPart;
   
   return (
     <button
@@ -1430,18 +1436,13 @@ function TariffCard({
       {/* Orange Header */}
       <div className="bg-accent p-5 text-center">
         <Globe className="w-6 h-6 text-accent-foreground mx-auto mb-2" />
-        {isEinfachStyle ? (
+        {hasTextAndNumber ? (
           <>
-            <p className="text-accent-foreground font-medium text-lg">einfach</p>
-            <p className="text-accent-foreground font-bold text-4xl">{tariff.displayName}</p>
-          </>
-        ) : isFiberBasic ? (
-          <>
-            <p className="text-accent-foreground font-medium text-lg">FiberBasic</p>
-            <p className="text-accent-foreground font-bold text-4xl">{tariff.displayName}</p>
+            <p className="text-accent-foreground font-medium text-lg">{textPart}</p>
+            <p className="text-accent-foreground font-bold text-4xl">{numberPart}</p>
           </>
         ) : (
-          <p className="text-accent-foreground font-bold text-2xl">{tariff.displayName}</p>
+          <p className="text-accent-foreground font-bold text-2xl">{displayName}</p>
         )}
       </div>
 
