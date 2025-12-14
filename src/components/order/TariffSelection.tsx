@@ -727,14 +727,29 @@ export function TariffSelection() {
                                   ))}
                               </SelectContent>
                             </Select>
-                            {/* Info text for selected HD package */}
+                            {/* Info text and external link for selected HD package */}
                             {tvSelection.hdAddon && (() => {
                               const selectedHd = tvCominOptions.find(m => m.option.slug === tvSelection.hdAddon?.id);
-                              if (!selectedHd?.option.info_text && !selectedHd?.option.description) return null;
+                              if (!selectedHd) return null;
                               return (
-                                <p className="text-sm text-muted-foreground mt-2">
-                                  {selectedHd.option.info_text || selectedHd.option.description}
-                                </p>
+                                <div className="mt-2 space-y-1">
+                                  {(selectedHd.option.info_text || selectedHd.option.description) && (
+                                    <p className="text-sm text-muted-foreground">
+                                      {selectedHd.option.info_text || selectedHd.option.description}
+                                    </p>
+                                  )}
+                                  {selectedHd.option.external_link_url && (
+                                    <a 
+                                      href={selectedHd.option.external_link_url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                                    >
+                                      {selectedHd.option.external_link_label || 'Mehr Info'}
+                                      <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                  )}
+                                </div>
                               );
                             })()}
                           </div>
