@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { PhoneBookOptions } from '@/components/order/PhoneBookOptions';
+import { ContactForm } from '@/components/order/ContactForm';
 
 interface ReferralData {
   type: 'none' | 'internet' | 'social-media' | 'referral' | 'promo-code';
@@ -154,6 +155,7 @@ export function TariffSelection() {
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [referralInput, setReferralInput] = useState('');
   const [showFiberBasic, setShowFiberBasic] = useState(false);
+  const [showLimitedContactForm, setShowLimitedContactForm] = useState(false);
 
   // Convert database products to TariffOption format
   const databaseTariffs = dbProducts.map(dbProductToTariffOption);
@@ -457,32 +459,52 @@ export function TariffSelection() {
 
       {/* Hinweis bei eingeschränkter Verfügbarkeit */}
       {isLimited && (
-        <div className="bg-accent/10 border border-accent/20 rounded-2xl p-6">
-          <div className="flex items-start gap-4">
-            <Phone className="w-6 h-6 text-accent flex-shrink-0 mt-0.5" />
-            <div>
-              <h4 className="font-bold text-accent mb-2">Passender Tarif nicht dabei?</h4>
-              <p className="text-muted-foreground text-sm mb-4">
-                Kontaktieren Sie uns für weitere Optionen. Wir prüfen gerne, welche Möglichkeiten an Ihrer Adresse bestehen.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <a 
-                  href="tel:+49841885110" 
-                  className="inline-flex items-center gap-2 text-primary font-semibold hover:underline"
-                >
-                  <Phone className="w-4 h-4" />
-                  +49 841 88511-0
-                </a>
-                <a 
-                  href="mailto:kontakt@comin-glasfaser.de" 
-                  className="inline-flex items-center gap-2 text-primary font-semibold hover:underline"
-                >
-                  <Mail className="w-4 h-4" />
-                  kontakt@comin-glasfaser.de
-                </a>
+        <div className="space-y-4">
+          <div className="bg-accent/10 border border-accent/20 rounded-2xl p-6">
+            <div className="flex items-start gap-4">
+              <Phone className="w-6 h-6 text-accent flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-bold text-accent mb-2">Passender Tarif nicht dabei?</h4>
+                <p className="text-muted-foreground text-sm mb-4">
+                  Kontaktieren Sie uns für weitere Optionen. Wir prüfen gerne, welche Möglichkeiten an Ihrer Adresse bestehen.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <a 
+                    href="tel:+49841885110" 
+                    className="inline-flex items-center gap-2 text-primary font-semibold hover:underline"
+                  >
+                    <Phone className="w-4 h-4" />
+                    +49 841 88511-0
+                  </a>
+                  <a 
+                    href="mailto:kontakt@comin-glasfaser.de" 
+                    className="inline-flex items-center gap-2 text-primary font-semibold hover:underline"
+                  >
+                    <Mail className="w-4 h-4" />
+                    kontakt@comin-glasfaser.de
+                  </a>
+                  <button 
+                    onClick={() => setShowLimitedContactForm(!showLimitedContactForm)}
+                    className="inline-flex items-center gap-2 text-primary font-semibold hover:underline"
+                  >
+                    <Mail className="w-4 h-4" />
+                    {showLimitedContactForm ? 'Formular schließen' : 'Kontaktformular öffnen'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
+          
+          {showLimitedContactForm && address && (
+            <ContactForm 
+              reason="limited-tariff" 
+              address={{ 
+                street: address.street, 
+                houseNumber: address.houseNumber, 
+                city: address.city || 'Falkensee' 
+              }} 
+            />
+          )}
         </div>
       )}
 
