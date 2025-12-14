@@ -72,7 +72,7 @@ function dbProductToTariffOption(product: DatabaseProduct): TariffOption {
       `${product.upload_speed} Mbit/s Upload`,
       'Flatrate',
       'IPv4 & IPv6',
-      ...(product.includes_phone ? ['Telefon inklusive'] : [])
+      ...(product.includes_phone ? ['Telefonie-Flat ins dt. Festnetz'] : [])
     ] : [product.description || 'Spezialtarif'],
     includesPhone: product.includes_phone
   };
