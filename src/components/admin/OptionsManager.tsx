@@ -57,6 +57,7 @@ interface ProductOption {
   max_quantity: number;
   quantity_label: string | null;
   vzf_text: string | null;
+  customer_type: string;
   created_at: string;
   updated_at: string;
 }
@@ -95,6 +96,7 @@ export const OptionsManager = () => {
   const [selectedOptionForMapping, setSelectedOptionForMapping] = useState<ProductOption | null>(null);
   const [selectedOptionForBuildings, setSelectedOptionForBuildings] = useState<ProductOption | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [customerTypeFilter, setCustomerTypeFilter] = useState<'all' | 'pk' | 'kmu'>('all');
   const [productMappings, setProductMappings] = useState<Record<string, ProductMapping>>({});
   const [optionMappingsCount, setOptionMappingsCount] = useState<Record<string, number>>({});
   const [optionBuildingsCount, setOptionBuildingsCount] = useState<Record<string, number>>({});
@@ -124,6 +126,7 @@ export const OptionsManager = () => {
     max_quantity: 10,
     quantity_label: 'Anzahl',
     vzf_text: '',
+    customer_type: 'pk',
   });
 
   useEffect(() => {
@@ -246,6 +249,7 @@ export const OptionsManager = () => {
         max_quantity: formData.max_quantity,
         quantity_label: formData.quantity_label || null,
         vzf_text: formData.vzf_text || null,
+        customer_type: formData.customer_type,
       };
 
       if (editingOption) {
@@ -347,6 +351,7 @@ export const OptionsManager = () => {
       max_quantity: 10,
       quantity_label: 'Anzahl',
       vzf_text: '',
+      customer_type: 'pk',
     });
     setEditingOption(null);
   };
@@ -377,6 +382,7 @@ export const OptionsManager = () => {
       max_quantity: option.max_quantity || 10,
       quantity_label: option.quantity_label || 'Anzahl',
       vzf_text: option.vzf_text || '',
+      customer_type: option.customer_type || 'pk',
     });
     setIsDialogOpen(true);
   };
@@ -442,9 +448,11 @@ export const OptionsManager = () => {
     return CATEGORIES.find(c => c.value === category)?.label || category;
   };
 
-  const filteredOptions = filterCategory === 'all' 
-    ? options 
-    : options.filter(o => o.category === filterCategory);
+  // Filter by category and customer type, then sort alphabetically
+  const filteredOptions = options
+    .filter(o => filterCategory === 'all' || o.category === filterCategory)
+    .filter(o => customerTypeFilter === 'all' || o.customer_type === customerTypeFilter)
+    .sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true }));
 
   const hasMissingK7Ids = (optionId: string) => {
     // Check if option has mappings but any of them are missing K7 IDs

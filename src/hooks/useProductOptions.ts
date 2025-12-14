@@ -22,6 +22,7 @@ export interface ProductOption {
   image_urls: string[] | null;
   external_link_url: string | null;
   external_link_label: string | null;
+  customer_type: string;
 }
 
 export interface ProductOptionMapping {
@@ -37,8 +38,13 @@ export interface ProductOptionMapping {
  * Returns only the options that are mapped to the product via product_option_mappings
  * @param productId - The UUID of the product (not the slug!)
  * @param buildingId - Optional building UUID for filtering building-restricted options
+ * @param customerType - Customer type filter ('pk' or 'kmu')
  */
-export function useProductOptions(productId: string | null, buildingId?: string | null) {
+export function useProductOptions(
+  productId: string | null, 
+  buildingId?: string | null,
+  customerType: 'pk' | 'kmu' = 'pk'
+) {
   const [options, setOptions] = useState<ProductOptionMapping[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasOptionsAssigned, setHasOptionsAssigned] = useState(false);
@@ -53,7 +59,6 @@ export function useProductOptions(productId: string | null, buildingId?: string 
     const fetchOptions = async () => {
       setLoading(true);
       try {
-        // productId is now the UUID directly, no need to look it up
         const productUuid = productId;
 
         // Fetch options mapped to this product
@@ -84,7 +89,8 @@ export function useProductOptions(productId: string | null, buildingId?: string 
               image_url,
               image_urls,
               external_link_url,
-              external_link_label
+              external_link_label,
+              customer_type
             )
           `)
           .eq('product_id', productUuid);
@@ -113,9 +119,12 @@ export function useProductOptions(productId: string | null, buildingId?: string 
           .filter(d => d.product_options)
           .filter(d => {
             const opt = d.product_options as any;
+            // Filter by customer_type
+            if (opt.customer_type !== customerType) {
+              return false;
+            }
             // If option is building-restricted, check if building is in allowed list
             if (opt.is_building_restricted) {
-              // If no buildingId provided or option not in allowed list, filter out
               if (!buildingId || !allowedOptionIds?.has(opt.id)) {
                 return false;
               }
@@ -148,6 +157,7 @@ export function useProductOptions(productId: string | null, buildingId?: string 
               image_urls: (d.product_options as any).image_urls || [],
               external_link_url: (d.product_options as any).external_link_url,
               external_link_label: (d.product_options as any).external_link_label,
+              customer_type: (d.product_options as any).customer_type || 'pk',
             }
           }))
           .sort((a, b) => a.option.display_order - b.option.display_order);
@@ -164,7 +174,7 @@ export function useProductOptions(productId: string | null, buildingId?: string 
     };
 
     fetchOptions();
-  }, [productId, buildingId]);
+  }, [productId, buildingId, customerType]);
 
   // Helper functions to get options by category
   const getOptionsByCategory = (category: string) => 

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -77,6 +78,7 @@ interface Product {
   is_building_restricted: boolean;
   is_archived: boolean;
   archived_at: string | null;
+  customer_type: string;
   created_at: string;
   updated_at: string;
 }
@@ -89,6 +91,7 @@ export const ProductsManager = () => {
   const [assignmentProduct, setAssignmentProduct] = useState<{ id: string; name: string } | null>(null);
   const [optionAssignmentProduct, setOptionAssignmentProduct] = useState<{ id: string; name: string } | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [customerTypeFilter, setCustomerTypeFilter] = useState<'all' | 'pk' | 'kmu'>('all');
   
   // Copy dialog state
   const [copyProduct, setCopyProduct] = useState<Product | null>(null);
@@ -133,6 +136,7 @@ export const ProductsManager = () => {
     includes_phone: false,
     includes_fiber_tv: false,
     hide_for_ftth: false,
+    customer_type: 'pk',
   });
 
   useEffect(() => {
@@ -240,6 +244,7 @@ export const ProductsManager = () => {
       includes_phone: false,
       includes_fiber_tv: false,
       hide_for_ftth: false,
+      customer_type: 'pk',
     });
     setEditingProduct(null);
   };
@@ -273,6 +278,7 @@ export const ProductsManager = () => {
       includes_phone: product.includes_phone,
       includes_fiber_tv: product.includes_fiber_tv ?? false,
       hide_for_ftth: product.hide_for_ftth || false,
+      customer_type: product.customer_type || 'pk',
     });
     setIsDialogOpen(true);
   };
@@ -478,8 +484,13 @@ export const ProductsManager = () => {
     fetchExtras();
   }, [products]);
 
-  const activeProducts = products.filter(p => !p.is_archived);
-  const archivedProducts = products.filter(p => p.is_archived);
+  // Filter by customer type
+  const filteredProducts = customerTypeFilter === 'all' 
+    ? products 
+    : products.filter(p => p.customer_type === customerTypeFilter);
+  
+  const activeProducts = filteredProducts.filter(p => !p.is_archived);
+  const archivedProducts = filteredProducts.filter(p => p.is_archived);
 
   return (
     <Card>
@@ -494,7 +505,17 @@ export const ProductsManager = () => {
               Verwalten Sie alle Internet-Tarife.
             </CardDescription>
           </div>
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
+            <Select value={customerTypeFilter} onValueChange={(v) => setCustomerTypeFilter(v as 'all' | 'pk' | 'kmu')}>
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Alle Typen" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle Typen</SelectItem>
+                <SelectItem value="pk">PK (Privat)</SelectItem>
+                <SelectItem value="kmu">KMU (Business)</SelectItem>
+              </SelectContent>
+            </Select>
             <Button
               variant={showArchived ? "default" : "outline"}
               size="sm"
@@ -552,6 +573,18 @@ export const ProductsManager = () => {
                         onChange={(e) => setFormData({...formData, slug: e.target.value})}
                         required
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="customer_type">Kundentyp *</Label>
+                      <Select value={formData.customer_type} onValueChange={(v) => setFormData({...formData, customer_type: v})}>
+                        <SelectTrigger id="customer_type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pk">PK (Privatkunde)</SelectItem>
+                          <SelectItem value="kmu">KMU (Geschäftskunde)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
@@ -846,6 +879,7 @@ export const ProductsManager = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Produkt</TableHead>
+                    <TableHead>Typ</TableHead>
                     <TableHead>Geschwindigkeit</TableHead>
                     <TableHead>Preis</TableHead>
                     <TableHead>Verfügbarkeit</TableHead>
@@ -857,7 +891,7 @@ export const ProductsManager = () => {
                 <TableBody>
                   {activeProducts.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         Keine aktiven Produkte gefunden.
                       </TableCell>
                     </TableRow>
@@ -870,6 +904,11 @@ export const ProductsManager = () => {
                             <br />
                             <span className="text-xs text-muted-foreground">{product.slug}</span>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={product.customer_type === 'kmu' ? 'secondary' : 'outline'}>
+                            {product.customer_type === 'kmu' ? 'KMU' : 'PK'}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           {product.download_speed && product.upload_speed ? (

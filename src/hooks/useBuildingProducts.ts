@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface DatabaseProduct {
-  id: string;  // This is now the UUID from the database
+  id: string;
   name: string;
   slug: string;
   display_name: string | null;
@@ -23,6 +23,7 @@ export interface DatabaseProduct {
   info_text: string | null;
   external_link_url: string | null;
   external_link_label: string | null;
+  customer_type: string;
 }
 
 interface UseBuildingProductsResult {
@@ -35,10 +36,14 @@ interface UseBuildingProductsResult {
  * Hook to fetch products available for a specific building.
  * If the building has manual product assignments, only those products are returned.
  * Otherwise, returns all products matching the infrastructure type.
+ * @param buildingId - The building UUID
+ * @param ausbauart - Infrastructure type (ftth, fttb, ftth_limited)
+ * @param customerType - Customer type filter ('pk' or 'kmu')
  */
 export function useBuildingProducts(
   buildingId: string | null | undefined, 
-  ausbauart: string | null | undefined
+  ausbauart: string | null | undefined,
+  customerType: 'pk' | 'kmu' = 'pk'
 ): UseBuildingProductsResult {
   const [products, setProducts] = useState<DatabaseProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,17 +65,17 @@ export function useBuildingProducts(
                 download_speed, upload_speed, is_ftth, is_fttb, is_ftth_limited,
                 is_active, display_order, contract_months, includes_phone,
                 is_building_restricted, hide_for_ftth, info_text,
-                external_link_url, external_link_label
+                external_link_url, external_link_label, customer_type
               )
             `)
             .eq('building_id', buildingId);
 
           if (!assignError && assignedProducts && assignedProducts.length > 0) {
             // Building has manual assignments - use only these products
-            // Keep hide_for_ftth value from database!
+            // Filter by customer_type
             const manualProducts = assignedProducts
               .map((ap: any) => ap.products)
-              .filter((p: any) => p && p.is_active)
+              .filter((p: any) => p && p.is_active && p.customer_type === customerType)
               .map((p: any) => ({ ...p, hide_for_ftth: p.hide_for_ftth ?? false }))
               .sort((a: DatabaseProduct, b: DatabaseProduct) => 
                 (a.display_order || 0) - (b.display_order || 0)
@@ -90,6 +95,7 @@ export function useBuildingProducts(
           .from('products')
           .select('*')
           .eq('is_active', true)
+          .eq('customer_type', customerType)
           .order('display_order', { ascending: true });
 
         // Filter by infrastructure type
@@ -127,7 +133,7 @@ export function useBuildingProducts(
     }
 
     fetchProducts();
-  }, [buildingId, ausbauart]);
+  }, [buildingId, ausbauart, customerType]);
 
   return { products, loading, hasManualAssignment };
 }
