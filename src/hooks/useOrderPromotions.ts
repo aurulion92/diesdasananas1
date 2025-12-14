@@ -1,11 +1,11 @@
 import { useOrder } from '@/context/OrderContext';
 import { usePromotionsContext } from '@/context/PromotionsContext';
 
-// Map frontend router IDs to database option slugs
-const ROUTER_ID_TO_SLUG: Record<string, string> = {
-  'router-fritzbox-5690-pro': 'fritzbox-5690-pro',
-  'router-fritzbox-5690': 'fritzbox-5690',
-  'router-fritzbox-7690': 'fritzbox-7690',
+// Map frontend router IDs (router-{slug}) to database option UUIDs
+const ROUTER_SLUG_TO_UUID: Record<string, string> = {
+  'fritzbox-5690-pro': '38da25aa-f523-4129-9000-40c175d46f7c',
+  'fritzbox-5690': '621b25df-8a9d-4e7c-85ef-608dc9c091d5',
+  'fritzbox-7690': '4c5e0fc0-1586-4aba-b91b-25530996ba01',
 };
 
 /**
@@ -30,29 +30,24 @@ export function useOrderPromotions() {
   // Get building ID from address if available
   const buildingId = (address as any)?.buildingId || null;
 
-  // Convert frontend router ID to database option ID by looking up in promotions
+  // Convert frontend router ID to database option UUID
   const getRouterOptionId = (): string | null => {
     if (!selectedRouter || selectedRouter.id === 'router-none') return null;
     
-    const slug = ROUTER_ID_TO_SLUG[selectedRouter.id];
-    if (!slug) return null;
-
-    // Find the option ID from promotions discounts
+    // Router ID format: "router-{slug}" -> extract slug
+    const slug = selectedRouter.id.replace('router-', '');
+    
+    // Look up UUID from known mapping
+    const uuid = ROUTER_SLUG_TO_UUID[slug];
+    if (uuid) return uuid;
+    
+    // Fallback: try to find in promotions discounts
     for (const promo of promotions) {
       for (const discount of promo.discounts) {
         if (discount.target_option_id) {
-          // We need to match by looking at what's in the database
-          // The target_option_id is the database ID we need
-          // We match based on the known router slugs from the database
-          if (slug === 'fritzbox-5690-pro' && discount.target_option_id === '38da25aa-f523-4129-9000-40c175d46f7c') {
-            return discount.target_option_id;
-          }
-          if (slug === 'fritzbox-5690' && discount.target_option_id === '621b25df-8a9d-4e7c-85ef-608dc9c091d5') {
-            return discount.target_option_id;
-          }
-          if (slug === 'fritzbox-7690' && discount.target_option_id === '4c5e0fc0-1586-4aba-b91b-25530996ba01') {
-            return discount.target_option_id;
-          }
+          // If we can't find a mapping, return the first router option ID we find
+          // This is a fallback for dynamically added routers
+          return discount.target_option_id;
         }
       }
     }
@@ -63,6 +58,7 @@ export function useOrderPromotions() {
   const routerOptionId = getRouterOptionId();
 
   // Get router discount from database promotions (e.g., FTTH-Aktion)
+  // Uses tariff UUID for matching
   const promotionRouterDiscount = selectedTariff 
     ? getRouterDiscountForTariff(selectedTariff.id, buildingId, routerOptionId)
     : 0;
@@ -90,7 +86,7 @@ export function useOrderPromotions() {
 
   // Check if setup fee is waived by any promotion
   const isSetupFeeWaivedByPromotions = (): boolean => {
-    // First check database promotions
+    // First check database promotions (uses tariff UUID)
     if (selectedTariff && isSetupFeeWaivedByPromotion(selectedTariff.id, buildingId)) {
       return true;
     }
@@ -104,14 +100,9 @@ export function useOrderPromotions() {
     
     return promotions
       .filter(promo => {
-        // Check if this promotion applies based on product targeting
-        if (promo.target_product_slugs.length > 0) {
-          const tariffId = selectedTariff.id;
-          return promo.target_product_slugs.some(slug => {
-            if (tariffId === slug) return true;
-            if (tariffId.startsWith('einfach-') && slug.startsWith('einfach-')) return true;
-            return false;
-          });
+        // Check if this promotion applies based on product UUID targeting
+        if (promo.target_product_ids.length > 0) {
+          return promo.target_product_ids.includes(selectedTariff.id);
         }
         return promo.is_global;
       })
