@@ -69,7 +69,7 @@ export async function checkAddress(
       };
     }
 
-    // Fallback to RPC if direct query fails
+    // Fallback to RPC if direct query fails (also gets residential_units now)
     const { data, error } = await supabase.rpc('check_address_availability', {
       p_street: street,
       p_house_number: houseNumber,
@@ -89,7 +89,9 @@ export async function checkAddress(
         city: result.city,
         ausbauart: result.ausbau_art || '',
         connectionType: getConnectionType(result.ausbau_art),
-        kabelTvAvailable: result.kabel_tv_available || false
+        kabelTvAvailable: result.kabel_tv_available || false,
+        buildingId: result.building_id,
+        residentialUnits: result.residential_units || 1
       };
     }
 

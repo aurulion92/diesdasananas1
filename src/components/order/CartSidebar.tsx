@@ -150,7 +150,7 @@ export function CartSidebar() {
                 )}
               </div>
             </div>
-            {/* Gebäudetyp Icon */}
+            {/* Gebäudetyp Icon - EFH: 1 WE, MFH: 2 WE, WoWi: 3+ WE */}
             <div className="flex flex-col items-center text-muted-foreground">
               {(address.residentialUnits || 1) === 1 ? (
                 <>
@@ -160,12 +160,12 @@ export function CartSidebar() {
               ) : (address.residentialUnits || 1) === 2 ? (
                 <>
                   <Building className="w-5 h-5" />
-                  <span className="text-[10px] font-medium mt-0.5">EFH</span>
+                  <span className="text-[10px] font-medium mt-0.5">MFH</span>
                 </>
               ) : (
                 <>
                   <Building2 className="w-5 h-5" />
-                  <span className="text-[10px] font-medium mt-0.5">MFH</span>
+                  <span className="text-[10px] font-medium mt-0.5">WoWi</span>
                 </>
               )}
             </div>

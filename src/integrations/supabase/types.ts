@@ -956,9 +956,11 @@ export type Database = {
         Returns: {
           ausbau_art: Database["public"]["Enums"]["ausbau_art"]
           ausbau_status: Database["public"]["Enums"]["ausbau_status"]
+          building_id: string
           city: string
           house_number: string
           kabel_tv_available: boolean
+          residential_units: number
           street: string
         }[]
       }
