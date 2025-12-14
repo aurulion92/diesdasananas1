@@ -418,6 +418,10 @@ export function OrderSummary() {
             orderId: insertedOrder.id,
             customerEmail: customerData.email,
             customerName: `${customerData.firstName} ${customerData.lastName}`,
+            customerFirstName: customerData.firstName,
+            customerLastName: customerData.lastName,
+            customerPhone: customerData.phone,
+            salutation: customerData.salutation === 'herr' ? 'Herr' : 'Frau',
             vzfHtml: vzfHtmlForEmail,
             vzfData: vzfDataForPdf
           }

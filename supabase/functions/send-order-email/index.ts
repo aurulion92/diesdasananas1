@@ -12,6 +12,10 @@ interface OrderEmailRequest {
   orderId: string;
   customerEmail: string;
   customerName: string;
+  customerFirstName?: string;
+  customerLastName?: string;
+  customerPhone?: string;
+  salutation?: string;
   vzfHtml: string;
   vzfData?: {
     tariffName?: string;
@@ -25,22 +29,6 @@ interface OrderEmailRequest {
     city?: string;
     selectedOptions?: Array<{ name: string; monthlyPrice?: number; oneTimePrice?: number }>;
   };
-}
-
-// Convert HTML to plain text for PDF (simplified - extracts text content)
-function htmlToText(html: string): string {
-  return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<[^>]+>/g, '\n')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&euro;/g, '€')
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)))
-    .replace(/\n\s*\n/g, '\n\n')
-    .trim();
 }
 
 // Generate a PDF from VZF data
@@ -79,7 +67,7 @@ function generateVZFPdf(vzfData: OrderEmailRequest['vzfData'], customerName: str
   };
   
   // Header
-  doc.setFillColor(26, 43, 82); // COM-IN blue
+  doc.setFillColor(0, 51, 102); // COM-IN blue #003366
   doc.rect(0, 0, pageWidth, 35, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18);
@@ -170,6 +158,16 @@ function generateVZFPdf(vzfData: OrderEmailRequest['vzfData'], customerName: str
   return doc.output('arraybuffer') as unknown as Uint8Array;
 }
 
+// Render template with placeholders
+function renderEmailTemplate(template: string, data: Record<string, string>): string {
+  let result = template;
+  for (const [key, value] of Object.entries(data)) {
+    const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+    result = result.replace(regex, value || '');
+  }
+  return result;
+}
+
 serve(async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -181,7 +179,18 @@ serve(async (req: Request): Promise<Response> => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { orderId, customerEmail, customerName, vzfHtml, vzfData }: OrderEmailRequest = await req.json();
+    const requestData: OrderEmailRequest = await req.json();
+    const { 
+      orderId, 
+      customerEmail, 
+      customerName, 
+      customerFirstName,
+      customerLastName,
+      customerPhone,
+      salutation,
+      vzfHtml, 
+      vzfData 
+    } = requestData;
 
     console.log(`Processing order email for order ${orderId} to ${customerEmail}`);
 
@@ -209,16 +218,6 @@ serve(async (req: Request): Promise<Response> => {
       sender_name: string;
     };
 
-    // Fetch branding settings
-    const { data: brandingData } = await supabase
-      .from("app_settings")
-      .select("value")
-      .eq("key", "branding_settings")
-      .maybeSingle();
-
-    const branding = brandingData?.value as { company_name?: string } || { company_name: 'COM-IN' };
-    const companyName = branding.company_name || 'COM-IN';
-
     // Validate settings
     if (!emailSettings.smtp_host || !emailSettings.smtp_user || !emailSettings.smtp_password || !emailSettings.sender_email) {
       console.error("Incomplete email settings");
@@ -233,48 +232,56 @@ serve(async (req: Request): Promise<Response> => {
       .from("document_templates")
       .select("content, name, use_case")
       .eq("is_active", true)
-      .returns<any[]>();
+      .eq("use_case", "order_confirmation_email")
+      .maybeSingle();
 
-    const emailTemplate = templateData?.find((t: any) => t.use_case === "order_confirmation_email");
+    // Build placeholder data for email template
+    const emailPlaceholders: Record<string, string> = {
+      kunde_anrede: salutation || 'Herr/Frau',
+      kunde_vorname: customerFirstName || customerName.split(' ')[0] || '',
+      kunde_nachname: customerLastName || customerName.split(' ').slice(1).join(' ') || '',
+      kunde_name: customerName,
+      kunde_telefon: customerPhone || '',
+      kunde_email: customerEmail,
+      adresse_strasse: vzfData?.street || '',
+      adresse_hausnummer: vzfData?.houseNumber || '',
+      adresse_stadt: vzfData?.city || '',
+      bestellnummer: orderId.substring(0, 8).toUpperCase(),
+      order_id: orderId.substring(0, 8).toUpperCase(),
+      customer_name: customerName,
+    };
 
     // Build email content
     let emailHtml: string;
-    if (emailTemplate?.content) {
-      emailHtml = emailTemplate.content
-        .replace(/\{\{customer_name\}\}/g, customerName)
-        .replace(/\{\{order_id\}\}/g, orderId.substring(0, 8).toUpperCase())
-        .replace(/\{\{company_name\}\}/g, companyName);
+    if (templateData?.content) {
+      console.log("Using email template from database");
+      emailHtml = renderEmailTemplate(templateData.content, emailPlaceholders);
     } else {
-      // Default email template using branding
+      console.log("Using default email template");
+      // Default fallback email
       emailHtml = `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
           <style>
-            body { font-family: 'Open Sans', Arial, sans-serif; line-height: 1.6; color: #1a2b52; }
+            body { font-family: 'Open Sans', Arial, sans-serif; line-height: 1.6; color: #333; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #1a2b52; color: white; padding: 20px; text-align: center; }
-            .content { padding: 30px; background: #f5f6f8; }
-            .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
           </style>
         </head>
         <body>
           <div class="container">
-            <div class="header">
-              <h1>${companyName} Glasfaser</h1>
-            </div>
-            <div class="content">
-              <h2>Vielen Dank für Ihre Bestellung, ${customerName}!</h2>
-              <p>Ihre Bestellung ist bei uns eingegangen und befindet sich nun in Bearbeitung.</p>
-              <p><strong>Bestellnummer:</strong> ${orderId.substring(0, 8).toUpperCase()}</p>
-              <p>Im Anhang finden Sie Ihre Vertragszusammenfassung (VZF) als PDF mit allen Details zu Ihrer Bestellung.</p>
-              <p>Bei Fragen stehen wir Ihnen gerne zur Verfügung.</p>
-              <p>Mit freundlichen Grüßen,<br>Ihr ${companyName} Team</p>
-            </div>
-            <div class="footer">
-              <p>${companyName} Glasfaser | ${emailSettings.sender_email}</p>
-            </div>
+            <p>Sehr geehrter Interessent, Sehr geehrte Interessentin,</p>
+            <p>vielen Dank für Ihre Anfrage über unsere Webseite.</p>
+            <p>Die Ihnen zugegangene Vertragszusammenfassung stellt nur ein Angebot auf Abschluss eines Vertrags dar. Unser Vertrieb meldet sich schnellstmöglich bei Ihnen.</p>
+            <p>Ihre COM-IN Telekommunikations GmbH</p>
+            <p>Tel: 0841 88511-0<br>kontakt@comin-glasfaser.de</p>
+            <hr>
+            <p><strong>Ihre Daten:</strong></p>
+            <p>Name: ${customerName}<br>
+            Adresse: ${vzfData?.street || ''} ${vzfData?.houseNumber || ''}, ${vzfData?.city || ''}<br>
+            E-Mail: ${customerEmail}<br>
+            ID: ${orderId.substring(0, 8).toUpperCase()}</p>
           </div>
         </body>
         </html>
@@ -397,7 +404,8 @@ serve(async (req: Request): Promise<Response> => {
 
       // Build email with PDF attachment
       const boundary = "----=_Part_" + Date.now().toString(36);
-      const subjectEncoded = btoa(unescape(encodeURIComponent(`Bestellbestätigung - ${companyName} (${orderId.substring(0, 8).toUpperCase()})`)));
+      const subjectText = `Bestellbestätigung - COM-IN (${orderId.substring(0, 8).toUpperCase()})`;
+      const subjectEncoded = btoa(unescape(encodeURIComponent(subjectText)));
 
       const emailContent = [
         `From: ${emailSettings.sender_name} <${emailSettings.sender_email}>`,
