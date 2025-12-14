@@ -136,7 +136,7 @@ export function buildVZFPlaceholders(data: VZFRenderData): Record<string, string
     router_monatlich: data.routerPrice,
     router_einmalig: data.routerOneTime || '0 €',
     router_aktion: data.routerAktion || '',
-    router_beschreibung: data.routerName === 'Kein Router' ? '' : `WLAN-Router für Glasfaser-Anschluss mit Mesh-Unterstützung und DECT-Basis.`,
+    router_beschreibung: data.routerName === 'Kein Router' ? '' : 'WLAN-Router für Glasfaser-Anschluss mit Mesh-Unterstützung und DECT-Basis.',
     
     // TV
     tv_name: data.tvName,
@@ -163,8 +163,8 @@ export function buildVZFPlaceholders(data: VZFRenderData): Record<string, string
     tarif_sonstiges: data.tariffSonstiges || 'Unbegrenzt für 0 ct/Min. in dt. Festnetze und dt. Mobilfunknetze telefonieren',
     
     // Contract
-    vorzeitiges_kuendigungsrecht: data.vorzeitigesKuendigungsrecht || '',
-    entgelt_vorzeitige_kuendigung: data.entgeltVorzeitigeKuendigung || '',
+    vorzeitiges_kuendigungsrecht: data.vorzeitigesKuendigungsrecht || 'Siehe AGB unter www.comin-glasfaser.de',
+    entgelt_vorzeitige_kuendigung: data.entgeltVorzeitigeKuendigung || 'Gemäß AGB unter www.comin-glasfaser.de',
     aktion_hinweis: data.aktionHinweis || '',
     
     // Meta
