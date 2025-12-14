@@ -35,7 +35,9 @@ import {
   ChevronDown,
   Loader2,
   Wrench,
-  ExternalLink
+  ExternalLink,
+  HardHat,
+  Home
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
@@ -104,6 +106,19 @@ function dbRouterOptionToAddon(mapping: ProductOptionMapping): TariffAddon {
   };
 }
 
+// Convert database option to TariffAddon for service/installation options
+function dbOptionToTariffAddon(option: any): TariffAddon {
+  return {
+    id: option.id,
+    databaseId: option.id,
+    name: option.name,
+    description: option.description || '',
+    monthlyPrice: option.monthly_price ?? 0,
+    oneTimePrice: option.one_time_price ?? 0,
+    category: option.category,
+  };
+}
+
 export function TariffSelection() {
   const { 
     connectionType, 
@@ -116,6 +131,8 @@ export function TariffSelection() {
     setTvSelection,
     phoneSelection,
     setPhoneSelection,
+    selectedAddons,
+    toggleAddon,
     contractDuration,
     setContractDuration,
     referralData,
@@ -150,6 +167,7 @@ export function TariffSelection() {
     tvWaipuOptions,
     tvHardwareOptions,
     serviceOptions,
+    installationOptions,
   } = useProductOptions(selectedTariff?.id || null, buildingId);
 
   const [promoCodeInput, setPromoCodeInput] = useState('');
@@ -986,58 +1004,183 @@ export function TariffSelection() {
           {/* Service-Leistungen - Options with category 'service' */}
           {serviceOptions.length > 0 && (
             <div className="bg-card rounded-xl p-5 border border-border">
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-4">
                 <Wrench className="w-5 h-5 text-accent" />
-                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Service-Leistungen</p>
+                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Persönlicher Service bei COM-IN</p>
               </div>
               
-              <div className="space-y-3">
-                {serviceOptions.map(({ option }) => (
-                  <div key={option.id} className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:border-accent/50 transition-all">
-                    <Checkbox 
-                      id={`service-${option.id}`}
-                      // TODO: Add state management for service options
-                    />
-                    <Label htmlFor={`service-${option.id}`} className="cursor-pointer flex-1">
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-2">
-                          <span>{option.name}</span>
+              <div className="grid gap-4 md:grid-cols-2">
+                {serviceOptions.map(({ option }) => {
+                  const isSelected = selectedAddons.some(a => a.id === option.id);
+                  const hasPrice = (option.one_time_price ?? 0) > 0 || (option.monthly_price ?? 0) > 0;
+                  
+                  return (
+                    <div 
+                      key={option.id} 
+                      className={cn(
+                        "relative rounded-xl border-2 transition-all cursor-pointer overflow-hidden bg-gradient-to-br from-background to-muted/30",
+                        isSelected 
+                          ? "border-accent shadow-lg shadow-accent/20" 
+                          : "border-border hover:border-accent/50 hover:shadow-md"
+                      )}
+                      onClick={() => toggleAddon(dbOptionToTariffAddon(option))}
+                    >
+                      {/* Selection indicator */}
+                      <div className={cn(
+                        "absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
+                        isSelected 
+                          ? "bg-accent border-accent" 
+                          : "border-muted-foreground/30"
+                      )}>
+                        {isSelected && <Check className="w-4 h-4 text-accent-foreground" />}
+                      </div>
+                      
+                      <div className="p-4">
+                        {/* Image if available */}
+                        {option.image_url && (
+                          <div className="mb-3 rounded-lg overflow-hidden bg-muted/50 flex items-center justify-center p-2">
+                            <img src={option.image_url} alt={option.name} className="max-h-20 object-contain" />
+                          </div>
+                        )}
+                        
+                        {/* Title */}
+                        <div className="flex items-start gap-2 mb-2 pr-8">
+                          <h4 className="font-semibold text-foreground">{option.name}</h4>
                           {option.info_text && <InfoTooltip text={option.info_text} />}
+                        </div>
+                        
+                        {/* Description */}
+                        {option.description && (
+                          <p className="text-sm text-muted-foreground mb-3 line-clamp-4 whitespace-pre-line">{option.description}</p>
+                        )}
+                        
+                        {/* External link */}
+                        {option.external_link_url && (
+                          <a 
+                            href={option.external_link_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline text-sm inline-flex items-center gap-1 mb-3"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {option.external_link_label || 'Mehr erfahren'}
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                        
+                        {/* Price */}
+                        {hasPrice && (
+                          <div className="flex items-center gap-2 mt-auto pt-3 border-t border-border/50">
+                            <span className="inline-flex items-center gap-1 bg-accent text-accent-foreground font-semibold px-3 py-1.5 rounded-lg text-sm">
+                              {(option.one_time_price ?? 0) > 0 && `${option.one_time_price?.toFixed(2).replace('.', ',')} €`}
+                              {(option.monthly_price ?? 0) > 0 && `${option.monthly_price?.toFixed(2).replace('.', ',')} €/Monat`}
+                            </span>
+                            {(option.one_time_price ?? 0) > 0 && (
+                              <span className="text-xs text-muted-foreground">einmalig</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Installations-Service - Options with category 'installation' */}
+          {installationOptions.length > 0 && (
+            <div className="bg-card rounded-xl p-5 border border-border">
+              <div className="flex items-center gap-2 mb-4">
+                <Home className="w-5 h-5 text-accent" />
+                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Glasfaserinstallation für zu Hause</p>
+              </div>
+              
+              <div className="space-y-4">
+                {installationOptions.map(({ option }) => {
+                  const isSelected = selectedAddons.some(a => a.id === option.id);
+                  const hasPrice = (option.one_time_price ?? 0) > 0 || (option.monthly_price ?? 0) > 0;
+                  const isIncluded = (option.one_time_price ?? 0) === 0 && (option.monthly_price ?? 0) === 0;
+                  
+                  return (
+                    <div 
+                      key={option.id} 
+                      className={cn(
+                        "relative rounded-xl border-2 transition-all cursor-pointer overflow-hidden",
+                        isSelected 
+                          ? "border-accent bg-accent/5 shadow-lg shadow-accent/20" 
+                          : "border-border hover:border-accent/50 hover:shadow-md bg-background"
+                      )}
+                      onClick={() => toggleAddon(dbOptionToTariffAddon(option))}
+                    >
+                      {/* Selection indicator */}
+                      <div className={cn(
+                        "absolute top-4 right-4 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all z-10",
+                        isSelected 
+                          ? "bg-accent border-accent" 
+                          : "border-muted-foreground/30 bg-background"
+                      )}>
+                        {isSelected && <Check className="w-5 h-5 text-accent-foreground" />}
+                      </div>
+                      
+                      <div className="flex flex-col md:flex-row gap-4 p-5">
+                        {/* Image if available */}
+                        {option.image_url && (
+                          <div className="flex-shrink-0 w-full md:w-48 h-32 rounded-lg overflow-hidden bg-muted/50 flex items-center justify-center">
+                            <img src={option.image_url} alt={option.name} className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        
+                        <div className="flex-1 pr-10">
+                          {/* Title */}
+                          <div className="flex items-start gap-2 mb-2">
+                            <h4 className="font-bold text-lg text-foreground">{option.name}</h4>
+                            {option.info_text && <InfoTooltip text={option.info_text} />}
+                          </div>
+                          
+                          {/* Description */}
+                          {option.description && (
+                            <p className="text-sm text-muted-foreground mb-3 whitespace-pre-line">{option.description}</p>
+                          )}
+                          
+                          {/* External link */}
                           {option.external_link_url && (
                             <a 
                               href={option.external_link_url} 
                               target="_blank" 
                               rel="noopener noreferrer"
-                              className="text-primary hover:underline text-xs inline-flex items-center gap-1"
+                              className="text-primary hover:underline text-sm inline-flex items-center gap-1 mb-3"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              {option.external_link_label || 'Mehr Info'}
+                              {option.external_link_label || 'Mehr erfahren'}
                               <ExternalLink className="w-3 h-3" />
                             </a>
                           )}
-                        </div>
-                        <div className="text-right">
-                          {(option.monthly_price ?? 0) > 0 && (
-                            <span className="text-accent font-medium">
-                              {option.monthly_price?.toFixed(2).replace('.', ',')} €/Monat
+                          
+                          {/* Price */}
+                          <div className="flex items-center gap-2 mt-3">
+                            <span className={cn(
+                              "inline-flex items-center gap-1 font-semibold px-4 py-2 rounded-lg text-sm",
+                              isIncluded 
+                                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                                : "bg-accent text-accent-foreground"
+                            )}>
+                              {isIncluded ? 'inklusive' : (
+                                <>
+                                  {(option.one_time_price ?? 0) > 0 && `${option.one_time_price?.toFixed(2).replace('.', ',')} €`}
+                                  {(option.monthly_price ?? 0) > 0 && `${option.monthly_price?.toFixed(2).replace('.', ',')} €/Monat`}
+                                </>
+                              )}
                             </span>
-                          )}
-                          {(option.one_time_price ?? 0) > 0 && (
-                            <span className="text-accent font-medium ml-2">
-                              {option.one_time_price?.toFixed(2).replace('.', ',')} € einm.
-                            </span>
-                          )}
+                            {(option.one_time_price ?? 0) > 0 && (
+                              <span className="text-sm text-muted-foreground">einmalig</span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      {option.description && (
-                        <p className="text-sm text-muted-foreground mt-1">{option.description}</p>
-                      )}
-                      {option.image_url && (
-                        <img src={option.image_url} alt={option.name} className="mt-2 rounded-md max-h-24 object-contain" />
-                      )}
-                    </Label>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
