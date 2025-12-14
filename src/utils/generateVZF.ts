@@ -8,6 +8,7 @@ export interface VZFData {
   tvHdAddon: TariffAddon | null;
   tvHardware: TariffAddon[];
   waipuStick: boolean;
+  waipuStickPrice?: number; // Price from database for waipu 4K Stick
   phoneEnabled: boolean;
   phoneLines: number;
   routerDiscount: number;
@@ -108,7 +109,8 @@ export function generateVZFContent(data: VZFData): string {
 
   const tariffSetup = setupFeeWaived ? 0 : setupFee;
   const expressSetup = expressActivation ? 200 : 0;
-  const tvOneTime = tvHardware.reduce((sum, h) => sum + (h.oneTimePrice || 0), 0) + (waipuStick ? 40 : 0);
+  const waipuStickPriceValue = data.waipuStickPrice ?? 59.99;
+  const tvOneTime = tvHardware.reduce((sum, h) => sum + (h.oneTimePrice || 0), 0) + (waipuStick ? waipuStickPriceValue : 0);
 
   const dateStr = new Date().toLocaleDateString('de-DE');
   const orderId = Date.now().toString().slice(-7);

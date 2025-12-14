@@ -90,7 +90,7 @@ export function CartSidebar() {
     });
     
     if (tvSelection.waipuStick) {
-      total += 40.00;
+      total += tvSelection.waipuStickPrice ?? 59.99;
     }
     
     if (expressActivation) {
@@ -282,7 +282,9 @@ export function CartSidebar() {
                 <Package className="w-3 h-3 text-accent" />
                 <div className="flex-1 flex justify-between items-center">
                   <p className="text-sm">waipu.tv 4K Stick</p>
-                  <p className="text-sm font-medium text-muted-foreground">40,00 € einm.</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {(tvSelection.waipuStickPrice ?? 59.99).toFixed(2).replace('.', ',')} € einm.
+                  </p>
                 </div>
               </div>
             )}
@@ -480,7 +482,7 @@ export function CartSidebar() {
               {tvSelection.waipuStick && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>waipu.tv 4K Stick</span>
-                  <span>40,00 €</span>
+                  <span>{(tvSelection.waipuStickPrice ?? 59.99).toFixed(2).replace('.', ',')} €</span>
                 </div>
               )}
               

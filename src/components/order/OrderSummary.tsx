@@ -88,6 +88,7 @@ export function OrderSummary() {
       tvHdAddon: tvSelection.hdAddon,
       tvHardware: tvSelection.hardware,
       waipuStick: tvSelection.waipuStick,
+      waipuStickPrice: tvSelection.waipuStickPrice,
       phoneEnabled: phoneSelection.enabled,
       phoneLines: phoneSelection.lines,
       routerDiscount: routerDiscount,
@@ -135,6 +136,7 @@ export function OrderSummary() {
         tvHdAddon: tvSelection.hdAddon,
         tvHardware: tvSelection.hardware,
         waipuStick: tvSelection.waipuStick,
+        waipuStickPrice: tvSelection.waipuStickPrice,
         phoneEnabled: phoneSelection.enabled,
         phoneLines: phoneSelection.lines,
         routerDiscount: routerDiscount,
@@ -174,6 +176,7 @@ export function OrderSummary() {
         tvHdAddon: tvSelection.hdAddon,
         tvHardware: tvSelection.hardware,
         waipuStick: tvSelection.waipuStick,
+        waipuStickPrice: tvSelection.waipuStickPrice,
         phoneEnabled: phoneSelection.enabled,
         phoneLines: phoneSelection.lines,
         routerDiscount: routerDiscount,
@@ -753,7 +756,7 @@ export function OrderSummary() {
                   {tvSelection.waipuStick && (
                     <div className="flex justify-between text-muted-foreground">
                       <span>waipu.tv 4K Stick</span>
-                      <span>40,00 € einm.</span>
+                      <span>{(tvSelection.waipuStickPrice ?? 59.99).toFixed(2).replace('.', ',')} € einm.</span>
                     </div>
                   )}
                 </div>
