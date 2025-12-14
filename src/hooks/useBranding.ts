@@ -39,6 +39,9 @@ export interface BrandingSettings {
   individual_feature_6: string;
   individual_feature_7: string;
   individual_feature_8: string;
+  // KMU specific
+  kmu_netto_hint: string;
+  kmu_cart_netto_label: string;
 }
 
 const DEFAULT_BRANDING: BrandingSettings = {
@@ -79,6 +82,9 @@ const DEFAULT_BRANDING: BrandingSettings = {
   individual_feature_6: '19″ Router (z. B. Cisco, Juniper) inklusive',
   individual_feature_7: 'Feste, öffentliche IP-Adressen',
   individual_feature_8: 'Kurzfristig upgradebar',
+  // KMU specific
+  kmu_netto_hint: 'Alle Preise verstehen sich zzgl. MwSt.',
+  kmu_cart_netto_label: 'netto',
 };
 
 export const useBranding = () => {
