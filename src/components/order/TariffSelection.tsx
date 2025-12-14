@@ -62,12 +62,21 @@ function dbProductToTariffOption(product: DatabaseProduct): TariffOption & {
   externalLinkLabel?: string; 
 } {
   const speedNum = product.download_speed || 0;
-  // Use product name as displayName, only fall back to speed if it's an "einfach" product
-  const isEinfachProduct = product.name.toLowerCase().startsWith('einfach');
+  
+  // Use display_name if set, otherwise fall back to old logic
+  let displayName: string;
+  if (product.display_name) {
+    displayName = product.display_name;
+  } else {
+    // Legacy fallback: use speed number for "einfach" products
+    const isEinfachProduct = product.name.toLowerCase().startsWith('einfach');
+    displayName = isEinfachProduct ? speedNum.toString() : product.name;
+  }
+  
   return {
     id: product.id, // Use UUID instead of slug for reliable option lookups
     name: product.name,
-    displayName: isEinfachProduct ? speedNum.toString() : product.name,
+    displayName,
     speed: speedNum > 0 ? `${speedNum} Mbit/s` : '',
     downloadSpeed: product.download_speed || 0,
     uploadSpeed: product.upload_speed || 0,
@@ -1402,6 +1411,10 @@ function TariffCard({
   onSelect: () => void;
 }) {
   const contractMonths = tariff.contractMonths || 24;
+  // Detect if this is a "einfach" product (shows "einfach" header + number)
+  // or a custom product (shows just the displayName)
+  const isEinfachStyle = tariff.name.toLowerCase().startsWith('einfach') && !tariff.name.includes('FiberBasic');
+  const isFiberBasic = tariff.name.includes('FiberBasic');
   
   return (
     <button
@@ -1417,10 +1430,19 @@ function TariffCard({
       {/* Orange Header */}
       <div className="bg-accent p-5 text-center">
         <Globe className="w-6 h-6 text-accent-foreground mx-auto mb-2" />
-        <p className="text-accent-foreground font-medium text-lg">
-          {tariff.name.includes('FiberBasic') ? 'FiberBasic' : 'einfach'}
-        </p>
-        <p className="text-accent-foreground font-bold text-4xl">{tariff.displayName}</p>
+        {isEinfachStyle ? (
+          <>
+            <p className="text-accent-foreground font-medium text-lg">einfach</p>
+            <p className="text-accent-foreground font-bold text-4xl">{tariff.displayName}</p>
+          </>
+        ) : isFiberBasic ? (
+          <>
+            <p className="text-accent-foreground font-medium text-lg">FiberBasic</p>
+            <p className="text-accent-foreground font-bold text-4xl">{tariff.displayName}</p>
+          </>
+        ) : (
+          <p className="text-accent-foreground font-bold text-2xl">{tariff.displayName}</p>
+        )}
       </div>
 
       {/* Content */}

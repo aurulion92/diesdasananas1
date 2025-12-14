@@ -642,6 +642,7 @@ export type Database = {
           contract_months: number | null
           created_at: string
           description: string | null
+          display_name: string | null
           display_order: number | null
           download_speed: number | null
           download_speed_min: number | null
@@ -675,6 +676,7 @@ export type Database = {
           contract_months?: number | null
           created_at?: string
           description?: string | null
+          display_name?: string | null
           display_order?: number | null
           download_speed?: number | null
           download_speed_min?: number | null
@@ -708,6 +710,7 @@ export type Database = {
           contract_months?: number | null
           created_at?: string
           description?: string | null
+          display_name?: string | null
           display_order?: number | null
           download_speed?: number | null
           download_speed_min?: number | null

@@ -50,6 +50,7 @@ interface Product {
   id: string;
   name: string;
   slug: string;
+  display_name: string | null;
   description: string | null;
   info_text: string | null;
   phone_terms_text: string | null;
@@ -108,6 +109,7 @@ export const ProductsManager = () => {
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
+    display_name: '',
     description: '',
     info_text: '',
     phone_terms_text: '',
@@ -172,6 +174,7 @@ export const ProductsManager = () => {
       const productData = {
         ...formData,
         product_id_k7: formData.product_id_k7 || null,
+        display_name: formData.display_name || null,
         description: formData.description || null,
         info_text: formData.info_text || null,
         phone_terms_text: formData.phone_terms_text || null,
@@ -213,6 +216,7 @@ export const ProductsManager = () => {
     setFormData({
       name: '',
       slug: '',
+      display_name: '',
       description: '',
       info_text: '',
       phone_terms_text: '',
@@ -245,6 +249,7 @@ export const ProductsManager = () => {
     setFormData({
       name: product.name,
       slug: product.slug,
+      display_name: product.display_name || '',
       description: product.description || '',
       info_text: product.info_text || '',
       phone_terms_text: product.phone_terms_text || '',
@@ -550,13 +555,28 @@ export const ProductsManager = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Beschreibung</Label>
-                    <Input
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="display_name">Anzeigename (Karte)</Label>
+                      <Input
+                        id="display_name"
+                        value={formData.display_name}
+                        onChange={(e) => setFormData({...formData, display_name: e.target.value})}
+                        placeholder="z.B. 150 oder FiberBasic 100"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Text der groß auf der Tarif-Karte angezeigt wird. Leer = automatisch aus Geschwindigkeit.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Beschreibung</Label>
+                      <Input
+                        id="description"
+                        value={formData.description}
+                        onChange={(e) => setFormData({...formData, description: e.target.value})}
+                        placeholder="z.B. Internet-Flatrate"
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">

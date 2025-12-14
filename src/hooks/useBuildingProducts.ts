@@ -5,6 +5,7 @@ export interface DatabaseProduct {
   id: string;  // This is now the UUID from the database
   name: string;
   slug: string;
+  display_name: string | null;
   description: string | null;
   monthly_price: number;
   setup_fee: number;
@@ -55,7 +56,7 @@ export function useBuildingProducts(
             .select(`
               product_id,
               products:product_id (
-                id, name, slug, description, monthly_price, setup_fee,
+                id, name, slug, display_name, description, monthly_price, setup_fee,
                 download_speed, upload_speed, is_ftth, is_fttb, is_ftth_limited,
                 is_active, display_order, contract_months, includes_phone,
                 is_building_restricted, hide_for_ftth, info_text,
