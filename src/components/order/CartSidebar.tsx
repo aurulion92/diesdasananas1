@@ -10,6 +10,7 @@ export function CartSidebar() {
     selectedRouter,
     tvSelection,
     phoneSelection,
+    selectedAddons,
     contractDuration,
     referralData,
     appliedPromoCode,
@@ -96,6 +97,11 @@ export function CartSidebar() {
     if (expressActivation) {
       total += 200.00;
     }
+    
+    // Service/Installation addons one-time prices
+    selectedAddons.forEach(addon => {
+      total += addon.oneTimePrice ?? 0;
+    });
     
     // Referral bonus
     if (referralData.type === 'referral' && referralData.referralValidated) {
@@ -485,6 +491,14 @@ export function CartSidebar() {
                   <span>{(tvSelection.waipuStickPrice ?? 59.99).toFixed(2).replace('.', ',')} €</span>
                 </div>
               )}
+              
+              {/* Service/Installation addons one-time */}
+              {selectedAddons.filter(a => (a.oneTimePrice ?? 0) > 0).map(addon => (
+                <div key={addon.id} className="flex justify-between text-muted-foreground">
+                  <span>{addon.name}</span>
+                  <span>{(addon.oneTimePrice ?? 0).toFixed(2).replace('.', ',')} €</span>
+                </div>
+              ))}
               
               {setupFeeWaived && (
                 <div className="flex justify-between text-success">
