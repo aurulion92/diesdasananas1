@@ -687,8 +687,13 @@ export function TariffSelection() {
                     </div>
                     {/* Info text displayed below like routers */}
                     {tvCominOptions[0]?.option.info_text && (
-                      <p className="text-sm text-muted-foreground mt-2 ml-6">
+                      <p className="text-sm text-muted-foreground mt-1 ml-7">
                         {tvCominOptions[0].option.info_text}
+                      </p>
+                    )}
+                    {tvCominOptions[0]?.option.description && !tvCominOptions[0]?.option.info_text && (
+                      <p className="text-sm text-muted-foreground mt-1 ml-7">
+                        {tvCominOptions[0].option.description}
                       </p>
                     )}
                   
@@ -722,6 +727,16 @@ export function TariffSelection() {
                                   ))}
                               </SelectContent>
                             </Select>
+                            {/* Info text for selected HD package */}
+                            {tvSelection.hdAddon && (() => {
+                              const selectedHd = tvCominOptions.find(m => m.option.slug === tvSelection.hdAddon?.id);
+                              if (!selectedHd?.option.info_text && !selectedHd?.option.description) return null;
+                              return (
+                                <p className="text-sm text-muted-foreground mt-2">
+                                  {selectedHd.option.info_text || selectedHd.option.description}
+                                </p>
+                              );
+                            })()}
                           </div>
                         )}
                         
@@ -755,17 +770,31 @@ export function TariffSelection() {
                                   );
                                 })
                                 .map((mapping) => (
-                                  <div key={mapping.option.slug} className="flex items-center space-x-3 p-2 rounded border border-border">
-                                    <RadioGroupItem value={mapping.option.slug} id={mapping.option.slug} />
-                                    <Label htmlFor={mapping.option.slug} className="flex-1 cursor-pointer text-sm">
-                                      <div className="flex justify-between">
-                                        <span>{mapping.option.name}</span>
-                                        <span className="text-accent">
-                                          {mapping.option.monthly_price ? `${mapping.option.monthly_price.toFixed(2).replace('.', ',')} €/Monat` : ''}
-                                          {mapping.option.one_time_price ? `${mapping.option.one_time_price.toFixed(2).replace('.', ',')} € einmalig` : ''}
-                                        </span>
-                                      </div>
-                                    </Label>
+                                  <div key={mapping.option.slug} className="space-y-1">
+                                    <div className="flex items-center space-x-3 p-2 rounded border border-border">
+                                      <RadioGroupItem value={mapping.option.slug} id={mapping.option.slug} />
+                                      {mapping.option.image_url && (
+                                        <img 
+                                          src={mapping.option.image_url} 
+                                          alt={mapping.option.name}
+                                          className="w-10 h-10 object-contain rounded"
+                                        />
+                                      )}
+                                      <Label htmlFor={mapping.option.slug} className="flex-1 cursor-pointer text-sm">
+                                        <div className="flex justify-between">
+                                          <span>{mapping.option.name}</span>
+                                          <span className="text-accent">
+                                            {mapping.option.monthly_price ? `${mapping.option.monthly_price.toFixed(2).replace('.', ',')} €/Monat` : ''}
+                                            {mapping.option.one_time_price ? `${mapping.option.one_time_price.toFixed(2).replace('.', ',')} € einmalig` : ''}
+                                          </span>
+                                        </div>
+                                      </Label>
+                                    </div>
+                                    {mapping.option.info_text && (
+                                      <p className="text-xs text-muted-foreground ml-2">
+                                        {mapping.option.info_text}
+                                      </p>
+                                    )}
                                   </div>
                                 ))}
                             </RadioGroup>
@@ -856,22 +885,38 @@ export function TariffSelection() {
                             return waipuParents.includes(tvSelection.package?.id || '');
                           })
                           .map((stickMapping) => (
-                            <div key={stickMapping.option.slug} className="flex items-center space-x-3">
-                              <Checkbox 
-                                id={stickMapping.option.slug}
-                                checked={tvSelection.waipuStick}
-                                onCheckedChange={(checked) => setTvSelection({
-                                  ...tvSelection,
-                                  waipuStick: checked === true,
-                                  waipuStickPrice: checked === true ? (stickMapping.option.one_time_price ?? 59.99) : undefined
-                                })}
-                              />
-                              <Label htmlFor={stickMapping.option.slug} className="cursor-pointer">
-                                <div className="flex justify-between items-center gap-4">
-                                  <span>{stickMapping.option.name}</span>
-                                  <span className="text-accent">{(stickMapping.option.one_time_price ?? 0).toFixed(2).replace('.', ',')} € einmalig</span>
-                                </div>
-                              </Label>
+                            <div key={stickMapping.option.slug} className="space-y-2">
+                              <div className="flex items-center space-x-3">
+                                <Checkbox 
+                                  id={stickMapping.option.slug}
+                                  checked={tvSelection.waipuStick}
+                                  onCheckedChange={(checked) => setTvSelection({
+                                    ...tvSelection,
+                                    waipuStick: checked === true,
+                                    waipuStickPrice: checked === true ? (stickMapping.option.one_time_price ?? 59.99) : undefined
+                                  })}
+                                />
+                                {/* Image thumbnail */}
+                                {stickMapping.option.image_url && (
+                                  <img 
+                                    src={stickMapping.option.image_url} 
+                                    alt={stickMapping.option.name}
+                                    className="w-12 h-12 object-contain rounded"
+                                  />
+                                )}
+                                <Label htmlFor={stickMapping.option.slug} className="cursor-pointer flex-1">
+                                  <div className="flex justify-between items-center gap-4">
+                                    <span>{stickMapping.option.name}</span>
+                                    <span className="text-accent">{(stickMapping.option.one_time_price ?? 0).toFixed(2).replace('.', ',')} € einmalig</span>
+                                  </div>
+                                </Label>
+                              </div>
+                              {/* Info text below */}
+                              {stickMapping.option.info_text && (
+                                <p className="text-sm text-muted-foreground ml-8">
+                                  {stickMapping.option.info_text}
+                                </p>
+                              )}
                             </div>
                           ))}
                       </div>
