@@ -82,6 +82,7 @@ export function useProductOptions(productId: string | null, buildingId?: string 
               display_order,
               info_text,
               image_url,
+              image_urls,
               external_link_url,
               external_link_label
             )
