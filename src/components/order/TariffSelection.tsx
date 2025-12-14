@@ -490,38 +490,7 @@ export function TariffSelection() {
         </div>
       )}
 
-      {/* Vertragslaufzeit - Only for FiberBasic */}
-      {selectedTariff && isFiberBasic && (
-        <div className="animate-fade-in">
-          <h3 className="font-bold text-lg text-primary mb-4">Vertragslaufzeit</h3>
-          <div className="flex gap-4">
-            <button
-              onClick={() => setContractDuration(24)}
-              className={cn(
-                "flex-1 p-5 rounded-xl border-2 transition-all",
-                contractDuration === 24
-                  ? "border-accent bg-accent/5"
-                  : "border-border hover:border-accent/50"
-              )}
-            >
-              <div className="font-bold text-lg">24 Monate</div>
-              <div className="text-sm text-muted-foreground">34,90 €/Monat</div>
-            </button>
-            <button
-              onClick={() => setContractDuration(12)}
-              className={cn(
-                "flex-1 p-5 rounded-xl border-2 transition-all",
-                contractDuration === 12
-                  ? "border-accent bg-accent/5"
-                  : "border-border hover:border-accent/50"
-              )}
-            >
-              <div className="font-bold text-lg">12 Monate</div>
-              <div className="text-sm text-muted-foreground">49,90 €/Monat</div>
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Vertragslaufzeit wird durch das gewählte Produkt bestimmt (contract_months) */}
 
       {/* Zusatzoptionen */}
       {selectedTariff && (
