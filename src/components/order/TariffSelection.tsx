@@ -676,10 +676,7 @@ export function TariffSelection() {
                           const cominOption = tvCominOptions[0];
                           return (
                             <div className="flex justify-between items-center">
-                              <span className="flex items-center gap-2">
-                                {cominOption?.option.name || 'COM-IN TV'}
-                                {cominOption?.option.info_text && <InfoTooltip text={cominOption.option.info_text} />}
-                              </span>
+                              <span>{cominOption?.option.name || 'COM-IN TV'}</span>
                               <span className="text-accent font-medium">
                                 {(cominOption?.option.monthly_price ?? 0).toFixed(2).replace('.', ',')} €/Monat
                               </span>
@@ -688,6 +685,12 @@ export function TariffSelection() {
                         })()}
                       </Label>
                     </div>
+                    {/* Info text displayed below like routers */}
+                    {tvCominOptions[0]?.option.info_text && (
+                      <p className="text-sm text-muted-foreground mt-2 ml-6">
+                        {tvCominOptions[0].option.info_text}
+                      </p>
+                    )}
                   
                     {tvSelection.type === 'comin' && (
                       <div className="mt-4 ml-6 space-y-4">
@@ -809,28 +812,38 @@ export function TariffSelection() {
                               {tvWaipuOptions.map((mapping) => (
                                 <SelectItem key={mapping.option.slug} value={mapping.option.slug}>
                                   <div className="flex justify-between items-center w-full gap-4">
-                                    <span className="flex items-center gap-2">
-                                      {mapping.option.name}
-                                      {mapping.option.info_text && <InfoTooltip text={mapping.option.info_text} />}
-                                    </span>
+                                    <span>{mapping.option.name}</span>
                                     <span className="text-accent">{(mapping.option.monthly_price ?? 0).toFixed(2).replace('.', ',')} €/Monat</span>
                                   </div>
-                                  {mapping.option.external_link_url && (
-                                    <a 
-                                      href={mapping.option.external_link_url} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="text-xs text-primary hover:underline flex items-center gap-1"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      {mapping.option.external_link_label || 'Mehr Info'}
-                                      <ExternalLink className="w-3 h-3" />
-                                    </a>
-                                  )}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
+                          {/* Info text and external link displayed below dropdown */}
+                          {tvSelection.package && (() => {
+                            const selectedMapping = tvWaipuOptions.find(m => m.option.slug === tvSelection.package?.id);
+                            if (!selectedMapping) return null;
+                            return (
+                              <div className="mt-2 space-y-1">
+                                {selectedMapping.option.info_text && (
+                                  <p className="text-sm text-muted-foreground">
+                                    {selectedMapping.option.info_text}
+                                  </p>
+                                )}
+                                {selectedMapping.option.external_link_url && (
+                                  <a 
+                                    href={selectedMapping.option.external_link_url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                                  >
+                                    {selectedMapping.option.external_link_label || 'Mehr Info'}
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                         
                         {/* waipu.tv 4K Stick - from database, only show if a waipu package is selected */}
