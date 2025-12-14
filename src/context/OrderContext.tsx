@@ -401,8 +401,12 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     setState(prev => ({ ...prev, consentData }));
 
   const hasPhoneBooked = (): boolean => {
-    // Phone is booked if tariff includes phone OR phone option is enabled
-    return state.selectedTariff?.includesPhone === true || state.phoneSelection.enabled;
+    // Phone is booked if:
+    // 1. Tariff includes phone, OR
+    // 2. Phone selection is enabled (legacy), OR
+    // 3. A phone option is in selectedAddons (database options with category 'phone')
+    const hasPhoneAddon = state.selectedAddons.some(addon => addon.category === 'phone');
+    return state.selectedTariff?.includesPhone === true || state.phoneSelection.enabled || hasPhoneAddon;
   };
 
   // Check if einfach tariff discount applies (4€ on routers)

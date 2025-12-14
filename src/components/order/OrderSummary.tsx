@@ -76,6 +76,10 @@ export function OrderSummary() {
   const isFiberBasic = selectedTariff?.name?.toLowerCase().includes('fiberbasic') || 
                        selectedTariff?.name?.toLowerCase().includes('fiber basic') || false;
   const routerDiscount = getRouterDiscount();
+  
+  // Check if phone is booked (via tariff, phoneSelection, or phone option addon)
+  const hasPhoneAddon = selectedAddons.some(addon => addon.category === 'phone');
+  const phoneIsBooked = selectedTariff?.includesPhone === true || phoneSelection.enabled || hasPhoneAddon;
 
   const handleDownloadVZF = async () => {
     if (!selectedTariff || !customerData) return;
@@ -89,8 +93,8 @@ export function OrderSummary() {
       tvHardware: tvSelection.hardware,
       waipuStick: tvSelection.waipuStick,
       waipuStickPrice: tvSelection.waipuStickPrice,
-      phoneEnabled: phoneSelection.enabled,
-      phoneLines: phoneSelection.lines,
+      phoneEnabled: phoneIsBooked,
+      phoneLines: phoneSelection.lines || (hasPhoneAddon ? 1 : 0),
       routerDiscount: routerDiscount,
       setupFee: getSetupFee(),
       setupFeeWaived: isSetupFeeWaived(),
@@ -137,8 +141,8 @@ export function OrderSummary() {
         tvHardware: tvSelection.hardware,
         waipuStick: tvSelection.waipuStick,
         waipuStickPrice: tvSelection.waipuStickPrice,
-        phoneEnabled: phoneSelection.enabled,
-        phoneLines: phoneSelection.lines,
+        phoneEnabled: phoneIsBooked,
+        phoneLines: phoneSelection.lines || (hasPhoneAddon ? 1 : 0),
         routerDiscount: routerDiscount,
         setupFee: getSetupFee(),
         setupFeeWaived: isSetupFeeWaived(),
@@ -177,8 +181,8 @@ export function OrderSummary() {
         tvHardware: tvSelection.hardware,
         waipuStick: tvSelection.waipuStick,
         waipuStickPrice: tvSelection.waipuStickPrice,
-        phoneEnabled: phoneSelection.enabled,
-        phoneLines: phoneSelection.lines,
+        phoneEnabled: phoneIsBooked,
+        phoneLines: phoneSelection.lines || (hasPhoneAddon ? 1 : 0),
         routerDiscount: routerDiscount,
         setupFee: getSetupFee(),
         setupFeeWaived: isSetupFeeWaived(),
