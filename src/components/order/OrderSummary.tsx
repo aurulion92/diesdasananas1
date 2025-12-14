@@ -130,6 +130,7 @@ export function OrderSummary() {
       setupFee: `${getSetupFee().toFixed(2).replace('.', ',')} €`,
       orderNumber: generateOrderNumber(),
       vzfTimestamp: format(new Date(), 'dd.MM.yyyy HH:mm', { locale: de }),
+      serviceAddons: selectedAddons,
     };
 
     try {
