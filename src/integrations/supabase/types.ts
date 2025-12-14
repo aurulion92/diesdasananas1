@@ -566,10 +566,13 @@ export type Database = {
           is_building_restricted: boolean | null
           is_fttb: boolean | null
           is_ftth: boolean | null
+          is_quantitative: boolean | null
+          max_quantity: number | null
           monthly_price: number | null
           name: string
           one_time_price: number | null
           parent_option_slug: string[] | null
+          quantity_label: string | null
           requires_kabel_tv: boolean | null
           slug: string
           updated_at: string
@@ -590,10 +593,13 @@ export type Database = {
           is_building_restricted?: boolean | null
           is_fttb?: boolean | null
           is_ftth?: boolean | null
+          is_quantitative?: boolean | null
+          max_quantity?: number | null
           monthly_price?: number | null
           name: string
           one_time_price?: number | null
           parent_option_slug?: string[] | null
+          quantity_label?: string | null
           requires_kabel_tv?: boolean | null
           slug: string
           updated_at?: string
@@ -614,10 +620,13 @@ export type Database = {
           is_building_restricted?: boolean | null
           is_fttb?: boolean | null
           is_ftth?: boolean | null
+          is_quantitative?: boolean | null
+          max_quantity?: number | null
           monthly_price?: number | null
           name?: string
           one_time_price?: number | null
           parent_option_slug?: string[] | null
+          quantity_label?: string | null
           requires_kabel_tv?: boolean | null
           slug?: string
           updated_at?: string
