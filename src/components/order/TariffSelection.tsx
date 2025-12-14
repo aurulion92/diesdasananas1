@@ -183,8 +183,20 @@ export function TariffSelection() {
   
   const isLimited = connectionType === 'limited';
   const isFtth = connectionType === 'ftth';
-  const isFiberBasic = selectedTariff?.id === 'fiber-basic-100';
-  const isEinfachTariff = selectedTariff?.id?.startsWith('einfach-');
+  
+  // Get the selected product from database to check its properties
+  const selectedDbProduct = selectedTariff ? dbProducts.find(p => p.id === selectedTariff.id) : null;
+  
+  // Check if selected product includes phone (via includes_phone flag)
+  const productIncludesPhone = selectedDbProduct?.includes_phone === true;
+  
+  // Check if it's a FiberBasic product (by slug) for legacy compatibility
+  const isFiberBasic = selectedDbProduct?.slug?.toLowerCase().includes('fiber-basic') || false;
+  
+  // Check if it's an "einfach" tariff (by slug or name)
+  const isEinfachTariff = selectedDbProduct?.slug?.toLowerCase().startsWith('einfach') || 
+                          selectedDbProduct?.name?.toLowerCase().startsWith('einfach') || false;
+  
   const hasKabelTv = address?.kabelTvAvailable === true;
 
   // Determine option availability based on product_option_mappings
@@ -948,8 +960,8 @@ export function TariffSelection() {
             </div>
           )}
 
-          {/* FiberBasic Hinweis */}
-          {isFiberBasic && (
+          {/* Phone included hint - show when product includes phone */}
+          {productIncludesPhone && (
             <div className="bg-success/10 border border-success/20 rounded-xl p-4">
               <p className="text-sm text-success font-medium">
                 ✓ Telefon-Flat ins deutsche Festnetz ist bereits inklusive
@@ -957,8 +969,8 @@ export function TariffSelection() {
             </div>
           )}
 
-          {/* Phone Book Options - Show when phone is booked */}
-          {(phoneSelection.enabled || isFiberBasic) && (
+          {/* Phone Book Options - Show when phone is included in product OR phone option is enabled */}
+          {(phoneSelection.enabled || productIncludesPhone) && (
             <PhoneBookOptions
               data={phoneSelection}
               onChange={setPhoneSelection}
