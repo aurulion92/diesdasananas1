@@ -17,21 +17,22 @@ export interface ActivePromotion {
   description: string | null;
   is_global: boolean;
   is_active: boolean;
+  // Use UUIDs for matching instead of slugs
   requires_customer_number: boolean;
   available_text: string | null;
   unavailable_text: string | null;
   start_date: string | null;
   end_date: string | null;
   discounts: PromotionDiscount[];
+  target_product_ids: string[]; // UUIDs for matching
   building_ids: string[];
-  target_product_slugs: string[];
 }
 
 interface PromotionsContextType {
   promotions: ActivePromotion[];
   loading: boolean;
-  getRouterDiscountForTariff: (tariffSlug: string | null, buildingId: string | null, selectedRouterOptionId: string | null) => number;
-  isSetupFeeWaived: (tariffSlug: string | null, buildingId: string | null) => boolean;
+  getRouterDiscountForTariff: (tariffId: string | null, buildingId: string | null, selectedRouterOptionId: string | null) => number;
+  isSetupFeeWaived: (tariffId: string | null, buildingId: string | null) => boolean;
   refetch: () => void;
 }
 
@@ -73,18 +74,11 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
           .select('building_id')
           .eq('promotion_id', promo.id);
 
-        // Get target product slugs from discounts
-        const targetProductSlugs: string[] = [];
+        // Get target product IDs from discounts (use UUIDs directly for matching)
+        const targetProductIds: string[] = [];
         for (const discount of discountsData || []) {
-          if (discount.target_product_id) {
-            const { data: productData } = await supabase
-              .from('products')
-              .select('slug')
-              .eq('id', discount.target_product_id)
-              .maybeSingle();
-            if (productData?.slug) {
-              targetProductSlugs.push(productData.slug);
-            }
+          if (discount.target_product_id && !targetProductIds.includes(discount.target_product_id)) {
+            targetProductIds.push(discount.target_product_id);
           }
         }
 
@@ -106,10 +100,10 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
             discount_type: d.discount_type,
             discount_amount: d.discount_amount,
             target_product_id: d.target_product_id,
-            target_option_id: d.target_option_id,
+          target_option_id: d.target_option_id,
           })),
           building_ids: (buildingsData || []).map(b => b.building_id),
-          target_product_slugs: targetProductSlugs,
+          target_product_ids: targetProductIds,
         });
       }
 
@@ -126,29 +120,22 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
     fetchActivePromotions();
   }, []);
 
-  // Check which promotions apply based on tariff and building
+  // Check which promotions apply based on tariff ID and building
   const getApplicablePromotions = (
-    tariffSlug: string | null,
+    tariffId: string | null,
     buildingId: string | null
   ): ActivePromotion[] => {
     return promotions.filter(promo => {
       // Global promotion without specific targets
-      if (promo.is_global && promo.target_product_slugs.length === 0 && promo.building_ids.length === 0) {
+      if (promo.is_global && promo.target_product_ids.length === 0 && promo.building_ids.length === 0) {
         return true;
       }
 
-      const hasProductTarget = promo.target_product_slugs.length > 0;
+      const hasProductTarget = promo.target_product_ids.length > 0;
       const hasBuildingTarget = promo.building_ids.length > 0;
 
-      // Check if tariff matches any target product slug
-      // Match "einfach-150" against slugs like "einfach-150", "einfach-300", etc.
-      const matchesProduct = tariffSlug && hasProductTarget && promo.target_product_slugs.some(slug => {
-        // Exact match or prefix match for "einfach" tariffs
-        if (tariffSlug === slug) return true;
-        // Check if both start with "einfach-"
-        if (tariffSlug.startsWith('einfach-') && slug.startsWith('einfach-')) return true;
-        return false;
-      });
+      // Check if tariff ID matches any target product ID
+      const matchesProduct = tariffId && hasProductTarget && promo.target_product_ids.includes(tariffId);
 
       const matchesBuilding = buildingId && hasBuildingTarget && promo.building_ids.includes(buildingId);
 
@@ -172,13 +159,13 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
   // Get router discount for a specific router option from applicable promotions
   // Takes the MAXIMUM discount from any single promotion (no stacking)
   const getRouterDiscountForTariff = (
-    tariffSlug: string | null,
+    tariffId: string | null,
     buildingId: string | null,
     selectedRouterOptionId: string | null
   ): number => {
     if (!selectedRouterOptionId) return 0;
     
-    const applicable = getApplicablePromotions(tariffSlug, buildingId);
+    const applicable = getApplicablePromotions(tariffId, buildingId);
     let maxDiscount = 0;
 
     for (const promo of applicable) {
@@ -193,16 +180,16 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
-    console.log(`Router discount for tariff ${tariffSlug}, router ${selectedRouterOptionId}:`, maxDiscount, 'from promotions:', applicable.map(p => p.name));
+    console.log(`Router discount for tariff ${tariffId}, router ${selectedRouterOptionId}:`, maxDiscount, 'from promotions:', applicable.map(p => p.name));
     return maxDiscount;
   };
 
   // Check if setup fee is waived by any applicable promotion
   const isSetupFeeWaived = (
-    tariffSlug: string | null,
+    tariffId: string | null,
     buildingId: string | null
   ): boolean => {
-    const applicable = getApplicablePromotions(tariffSlug, buildingId);
+    const applicable = getApplicablePromotions(tariffId, buildingId);
     
     for (const promo of applicable) {
       for (const discount of promo.discounts) {
