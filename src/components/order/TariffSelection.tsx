@@ -56,7 +56,11 @@ interface ReferralData {
 
 // Convert database product to TariffOption format
 // IMPORTANT: id is now the product UUID from the database, not the slug
-function dbProductToTariffOption(product: DatabaseProduct): TariffOption {
+function dbProductToTariffOption(product: DatabaseProduct): TariffOption & { 
+  contractMonths: number; 
+  externalLinkUrl?: string; 
+  externalLinkLabel?: string; 
+} {
   const speedNum = product.download_speed || 0;
   // Use product name as displayName, only fall back to speed if it's an "einfach" product
   const isEinfachProduct = product.name.toLowerCase().startsWith('einfach');
@@ -78,7 +82,10 @@ function dbProductToTariffOption(product: DatabaseProduct): TariffOption {
       'IPv4 & IPv6',
       ...(product.includes_phone ? ['Telefonie-Flat ins dt. Festnetz'] : [])
     ] : [product.description || 'Spezialtarif'],
-    includesPhone: product.includes_phone
+    includesPhone: product.includes_phone,
+    contractMonths: product.contract_months || 24,
+    externalLinkUrl: product.external_link_url || undefined,
+    externalLinkLabel: product.external_link_label || undefined,
   };
 }
 
@@ -1390,10 +1397,12 @@ function TariffCard({
   isSelected, 
   onSelect 
 }: { 
-  tariff: TariffOption; 
+  tariff: TariffOption & { contractMonths?: number; externalLinkUrl?: string; externalLinkLabel?: string }; 
   isSelected: boolean; 
   onSelect: () => void;
 }) {
+  const contractMonths = tariff.contractMonths || 24;
+  
   return (
     <button
       onClick={onSelect}
@@ -1433,11 +1442,30 @@ function TariffCard({
           <span className="text-sm font-medium">{tariff.description}</span>
         </div>
 
-        {/* Preis */}
+        {/* Preis + Laufzeit */}
         <div className="text-center mb-4">
           <span className="text-accent font-bold text-xl">{tariff.monthlyPrice.toFixed(2).replace('.', ',')} €</span>
           <span className="text-muted-foreground text-sm"> / Monat</span>
+          <div className="text-xs text-muted-foreground mt-1">
+            Mindestvertragslaufzeit: {contractMonths} Monate
+          </div>
         </div>
+
+        {/* Produkthinweise Link */}
+        {tariff.externalLinkUrl && (
+          <div className="text-center mb-4">
+            <a
+              href={tariff.externalLinkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              <ExternalLink className="w-3 h-3" />
+              {tariff.externalLinkLabel || 'Produkthinweise'}
+            </a>
+          </div>
+        )}
 
         {/* Button */}
         <Button 
