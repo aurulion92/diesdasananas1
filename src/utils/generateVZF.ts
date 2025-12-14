@@ -138,42 +138,46 @@ export function generateVZFContent(data: VZFData): string {
       box-sizing: border-box; 
     }
     body { 
-      font-family: 'Open Sans', 'Segoe UI', Arial, sans-serif; 
+      font-family: Arial, Helvetica, sans-serif; 
       font-size: 10pt; 
       line-height: 1.5; 
       color: #333; 
       background: white;
-      width: 210mm;
-      min-height: 297mm;
     }
     .page {
-      width: 100%;
+      width: 210mm;
       min-height: 297mm;
       position: relative;
       page-break-after: always;
+      background: white;
     }
     .page:last-child {
       page-break-after: auto;
     }
     
-    /* Blue Header Bar */
+    /* Blue Header Bar - using table for PDF compatibility */
     .header-bar {
-      background: #003366;
-      height: 12mm;
       width: 100%;
+      height: 45px;
+      background-color: #003366;
+      display: block;
     }
     
     /* Page Content */
     .page-content {
-      padding: 8mm 15mm 15mm 15mm;
+      padding: 20px 40px 40px 40px;
     }
     
-    /* Letterhead */
-    .letterhead {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 8mm;
+    /* Letterhead Table for PDF compatibility */
+    .letterhead-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    .letterhead-table td {
+      vertical-align: top;
+      padding: 0;
+      border: none;
     }
     .tariff-info {
       text-align: left;
@@ -182,29 +186,38 @@ export function generateVZFContent(data: VZFData): string {
     }
     .tariff-name {
       font-weight: bold;
-      font-size: 12pt;
+      font-size: 14pt;
     }
     .tariff-id {
       font-size: 9pt;
       color: #666;
     }
-    .company-block {
-      display: flex;
-      align-items: flex-start;
-      gap: 10mm;
+    .logo-cell {
+      text-align: right;
+      width: 200px;
     }
-    .logo-container {
-      width: 50mm;
+    .logo-text {
+      font-family: Arial, Helvetica, sans-serif;
+      font-weight: bold;
+      font-size: 28px;
     }
-    .logo-container svg {
-      width: 100%;
-      height: auto;
+    .logo-com {
+      color: #003366;
+    }
+    .logo-in-box {
+      display: inline-block;
+      background-color: #f57c00;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 3px;
+      margin-left: 2px;
     }
     .company-info {
       text-align: right;
       font-size: 9pt;
       color: #003366;
       line-height: 1.6;
+      padding-left: 20px;
     }
     .company-name {
       font-weight: bold;
@@ -220,18 +233,18 @@ export function generateVZFContent(data: VZFData): string {
       font-size: 22pt;
       font-weight: normal;
       color: #333;
-      margin-bottom: 5mm;
-      margin-top: 5mm;
+      margin-bottom: 15px;
+      margin-top: 15px;
     }
     
     /* Section Headers - Blue Bar */
     .section-header {
-      background: #003366;
+      background-color: #003366;
       color: white;
       font-size: 11pt;
       font-weight: bold;
-      padding: 2mm 4mm;
-      margin-top: 8mm;
+      padding: 6px 10px;
+      margin-top: 20px;
       margin-bottom: 0;
     }
     
@@ -240,7 +253,7 @@ export function generateVZFContent(data: VZFData): string {
       font-size: 9pt;
       font-style: italic;
       color: #333;
-      margin-bottom: 6mm;
+      margin-bottom: 15px;
       line-height: 1.6;
     }
     .intro-text sup {
@@ -248,28 +261,28 @@ export function generateVZFContent(data: VZFData): string {
     }
     
     /* Tables */
-    table {
+    table.content-table {
       width: 100%;
       border-collapse: collapse;
       font-size: 9pt;
       border: 1px solid #ccc;
     }
-    th {
-      background: #e6eef5;
+    table.content-table th {
+      background-color: #e6eef5;
       color: #003366;
       text-align: left;
-      padding: 2.5mm 3mm;
+      padding: 8px 10px;
       font-weight: bold;
       font-size: 9pt;
       border: 1px solid #ccc;
     }
-    td {
-      padding: 2.5mm 3mm;
+    table.content-table td {
+      padding: 8px 10px;
       border: 1px solid #ccc;
       vertical-align: top;
     }
-    tr:nth-child(even) td {
-      background: #fafafa;
+    table.content-table tr:nth-child(even) td {
+      background-color: #fafafa;
     }
     .label-cell {
       font-weight: bold;
@@ -283,7 +296,7 @@ export function generateVZFContent(data: VZFData): string {
     .footnote {
       font-size: 7pt;
       color: #666;
-      margin-top: 5mm;
+      margin-top: 15px;
       line-height: 1.5;
     }
     .footnote sup {
@@ -292,19 +305,19 @@ export function generateVZFContent(data: VZFData): string {
     
     /* Upgrade Notice */
     .upgrade-notice {
-      background: #e8f5e9;
+      background-color: #e8f5e9;
       border-left: 3px solid #4caf50;
-      padding: 3mm;
-      margin-bottom: 5mm;
+      padding: 10px;
+      margin-bottom: 15px;
       font-size: 9pt;
     }
     
     /* Action Box */
     .action-note {
       font-size: 8pt;
-      margin-top: 5mm;
-      padding: 3mm;
-      background: #fffde7;
+      margin-top: 15px;
+      padding: 10px;
+      background-color: #fffde7;
       border: 1px solid #fff9c4;
     }
     
@@ -317,11 +330,13 @@ export function generateVZFContent(data: VZFData): string {
     /* Print styles */
     @media print {
       body {
-        width: 210mm;
-        padding: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
-      .page {
-        margin: 0;
+      .header-bar {
+        background-color: #003366 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
     }
   </style>
@@ -331,29 +346,24 @@ export function generateVZFContent(data: VZFData): string {
   <div class="page">
     <div class="header-bar"></div>
     <div class="page-content">
-      <div class="letterhead">
-        <div class="tariff-info">
-          <div class="tariff-name">${tariff.name}</div>
-          <div class="tariff-id">ID:${Date.now().toString().slice(-7)}</div>
-        </div>
-        <div class="company-block">
-          <div class="logo-container">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60">
-              <style>.text { font-family: Arial, Helvetica, sans-serif; font-weight: bold; font-size: 40px; }.com { fill: #003366; }.in-text { fill: #fff; }</style>
-              <text x="5" y="42" class="text com">COM</text>
-              <rect x="97" y="8" width="55" height="45" fill="#f57c00" rx="3"/>
-              <text x="103" y="43" class="text in-text">IN</text>
-            </svg>
-          </div>
-          <div class="company-info">
+      <table class="letterhead-table">
+        <tr>
+          <td class="tariff-info">
+            <div class="tariff-name">${tariff.name}</div>
+            <div class="tariff-id">ID:${Date.now().toString().slice(-7)}</div>
+          </td>
+          <td class="logo-cell">
+            <span class="logo-text logo-com">COM</span><span class="logo-text logo-in-box">IN</span>
+          </td>
+          <td class="company-info">
             <div class="company-name">COM-IN Telekommunikations GmbH</div>
             Erni-Singerl-Straße 2b<br>
             85053 Ingolstadt<br>
             Tel.: 0841 88511-0<br>
             E-Mail: <a href="mailto:kontakt@comin-glasfaser.de">kontakt@comin-glasfaser.de</a>
-          </div>
-        </div>
-      </div>
+          </td>
+        </tr>
+      </table>
       
       <h1>Vertragszusammenfassung</h1>
     
@@ -368,7 +378,7 @@ export function generateVZFContent(data: VZFData): string {
     </p>
     
     <div class="section-header">Dienste / Produkte / Geräte</div>
-    <table>
+    <table class="content-table">
       <tr>
         <td class="label-cell">${tariff.name}</td>
         <td class="content-cell">${getTariffDescription()}</td>
@@ -395,32 +405,27 @@ export function generateVZFContent(data: VZFData): string {
   <div class="page">
     <div class="header-bar"></div>
     <div class="page-content">
-      <div class="letterhead">
-        <div class="tariff-info">
-          <div class="tariff-name">${tariff.name}</div>
-          <div class="tariff-id">ID:${Date.now().toString().slice(-7)}</div>
-        </div>
-        <div class="company-block">
-          <div class="logo-container">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60">
-              <style>.text { font-family: Arial, Helvetica, sans-serif; font-weight: bold; font-size: 40px; }.com { fill: #003366; }.in-text { fill: #fff; }</style>
-              <text x="5" y="42" class="text com">COM</text>
-              <rect x="97" y="8" width="55" height="45" fill="#f57c00" rx="3"/>
-              <text x="103" y="43" class="text in-text">IN</text>
-            </svg>
-          </div>
-          <div class="company-info">
+      <table class="letterhead-table">
+        <tr>
+          <td class="tariff-info">
+            <div class="tariff-name">${tariff.name}</div>
+            <div class="tariff-id">ID:${Date.now().toString().slice(-7)}</div>
+          </td>
+          <td class="logo-cell">
+            <span class="logo-text logo-com">COM</span><span class="logo-text logo-in-box">IN</span>
+          </td>
+          <td class="company-info">
             <div class="company-name">COM-IN Telekommunikations GmbH</div>
             Erni-Singerl-Straße 2b<br>
             85053 Ingolstadt<br>
             Tel.: 0841 88511-0<br>
             E-Mail: <a href="mailto:kontakt@comin-glasfaser.de">kontakt@comin-glasfaser.de</a>
-          </div>
-        </div>
-      </div>
+          </td>
+        </tr>
+      </table>
     
     <div class="section-header">Geschwindigkeiten des Internetdienstes und Abhilfen bei Problemen</div>
-    <table>
+    <table class="content-table">
       <tr>
         <th>Datenübertragungsraten</th>
         <th>im Download</th>
@@ -444,7 +449,7 @@ export function generateVZFContent(data: VZFData): string {
     </table>
     
     <div class="section-header" style="margin-top: 8mm;">Preis</div>
-    <table>
+    <table class="content-table">
       <tr>
         <th>Entgelt</th>
         <th>Einmalig</th>
@@ -521,32 +526,27 @@ export function generateVZFContent(data: VZFData): string {
   <div class="page">
     <div class="header-bar"></div>
     <div class="page-content">
-      <div class="letterhead">
-        <div class="tariff-info">
-          <div class="tariff-name">${tariff.name}</div>
-          <div class="tariff-id">ID:${Date.now().toString().slice(-7)}</div>
-        </div>
-        <div class="company-block">
-          <div class="logo-container">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60">
-              <style>.text { font-family: Arial, Helvetica, sans-serif; font-weight: bold; font-size: 40px; }.com { fill: #003366; }.in-text { fill: #fff; }</style>
-              <text x="5" y="42" class="text com">COM</text>
-              <rect x="97" y="8" width="55" height="45" fill="#f57c00" rx="3"/>
-              <text x="103" y="43" class="text in-text">IN</text>
-            </svg>
-          </div>
-          <div class="company-info">
+      <table class="letterhead-table">
+        <tr>
+          <td class="tariff-info">
+            <div class="tariff-name">${tariff.name}</div>
+            <div class="tariff-id">ID:${Date.now().toString().slice(-7)}</div>
+          </td>
+          <td class="logo-cell">
+            <span class="logo-text logo-com">COM</span><span class="logo-text logo-in-box">IN</span>
+          </td>
+          <td class="company-info">
             <div class="company-name">COM-IN Telekommunikations GmbH</div>
             Erni-Singerl-Straße 2b<br>
             85053 Ingolstadt<br>
             Tel.: 0841 88511-0<br>
             E-Mail: <a href="mailto:kontakt@comin-glasfaser.de">kontakt@comin-glasfaser.de</a>
-          </div>
-        </div>
-      </div>
+          </td>
+        </tr>
+      </table>
     
     <div class="section-header">Laufzeit, Verlängerung und Kündigung</div>
-    <table>
+    <table class="content-table">
       <tr>
         <th colspan="2">Weitere Produktinformationen</th>
       </tr>
@@ -565,21 +565,21 @@ export function generateVZFContent(data: VZFData): string {
     </table>
     
     <div class="section-header" style="margin-top: 8mm;">Vorzeitiges Kündigungsrecht</div>
-    <table>
+    <table class="content-table">
       <tr>
         <td>Siehe AGB unter www.comin-glasfaser.de</td>
       </tr>
     </table>
     
     <div class="section-header" style="margin-top: 8mm;">Entgelt bei vorzeitiger Kündigung</div>
-    <table>
+    <table class="content-table">
       <tr>
         <td>Gemäß AGB unter www.comin-glasfaser.de</td>
       </tr>
     </table>
     
     <div class="section-header" style="margin-top: 8mm;">Funktionsmerkmale für Endnutzer mit Behinderungen:</div>
-    <table>
+    <table class="content-table">
       <tr>
         <td>Funktionsmerkmale für Endnutzer mit Behinderungen stellen wir Ihnen separat unter www.comin-glasfaser.de zur Verfügung.</td>
       </tr>
