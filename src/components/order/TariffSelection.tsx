@@ -44,7 +44,7 @@ import { useState, useEffect } from 'react';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { PhoneBookOptions } from '@/components/order/PhoneBookOptions';
 import { ContactForm } from '@/components/order/ContactForm';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { ImageGalleryDialog } from '@/components/order/ImageGalleryDialog';
 
 interface ReferralData {
   type: 'none' | 'internet' | 'social-media' | 'referral' | 'promo-code';
@@ -586,31 +586,23 @@ export function TariffSelection() {
               </Select>
               {selectedRouter && selectedRouter.id !== 'router-none' && (
                 <div className="mt-3 flex items-start gap-4">
-                  {/* Router image - find from routerOptions mapping */}
+                  {/* Router image gallery - find from routerOptions mapping */}
                   {(() => {
                     const selectedSlug = selectedRouter.id.replace('router-', '');
                     const routerMapping = routerOptions.find(m => m.option.slug === selectedSlug);
-                    const imageUrl = routerMapping?.option.image_url;
-                    if (imageUrl) {
+                    // Use image_urls array if available, otherwise fall back to single image_url
+                    const imageUrls = routerMapping?.option.image_urls?.length 
+                      ? routerMapping.option.image_urls 
+                      : routerMapping?.option.image_url 
+                        ? [routerMapping.option.image_url] 
+                        : [];
+                    
+                    if (imageUrls.length > 0) {
                       return (
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <img 
-                              src={imageUrl} 
-                              alt={selectedRouter.name} 
-                              className="w-24 h-24 object-contain rounded-lg bg-muted/50 p-2 flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-accent transition-all"
-                              title="Klicken zum Vergrößern"
-                            />
-                          </DialogTrigger>
-                          <DialogContent className="max-w-md p-4">
-                            <img 
-                              src={imageUrl} 
-                              alt={selectedRouter.name} 
-                              className="w-full h-auto object-contain"
-                            />
-                            <p className="text-center text-sm text-muted-foreground mt-2">{selectedRouter.name}</p>
-                          </DialogContent>
-                        </Dialog>
+                        <ImageGalleryDialog 
+                          images={imageUrls} 
+                          alt={selectedRouter.name} 
+                        />
                       );
                     }
                     return null;

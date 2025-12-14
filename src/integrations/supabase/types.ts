@@ -561,6 +561,7 @@ export type Database = {
           external_link_url: string | null
           id: string
           image_url: string | null
+          image_urls: string[] | null
           info_text: string | null
           is_active: boolean | null
           is_building_restricted: boolean | null
@@ -588,6 +589,7 @@ export type Database = {
           external_link_url?: string | null
           id?: string
           image_url?: string | null
+          image_urls?: string[] | null
           info_text?: string | null
           is_active?: boolean | null
           is_building_restricted?: boolean | null
@@ -615,6 +617,7 @@ export type Database = {
           external_link_url?: string | null
           id?: string
           image_url?: string | null
+          image_urls?: string[] | null
           info_text?: string | null
           is_active?: boolean | null
           is_building_restricted?: boolean | null
