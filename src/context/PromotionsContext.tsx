@@ -6,6 +6,7 @@ export interface PromotionDiscount {
   applies_to: string;
   discount_type: string;
   discount_amount: number | null;
+  price_type: 'monthly' | 'one_time';
   target_product_id: string | null;
   target_option_id: string | null;
 }
@@ -31,7 +32,7 @@ export interface ActivePromotion {
 interface PromotionsContextType {
   promotions: ActivePromotion[];
   loading: boolean;
-  getRouterDiscountForTariff: (tariffId: string | null, buildingId: string | null, selectedRouterOptionId: string | null) => number;
+  getOptionDiscountForTariff: (tariffId: string | null, buildingId: string | null, optionId: string | null, priceType: 'monthly' | 'one_time') => number;
   isSetupFeeWaived: (tariffId: string | null, buildingId: string | null) => boolean;
   refetch: () => void;
 }
@@ -99,8 +100,9 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
             applies_to: d.applies_to,
             discount_type: d.discount_type,
             discount_amount: d.discount_amount,
+            price_type: (d.price_type as 'monthly' | 'one_time') || 'monthly',
             target_product_id: d.target_product_id,
-          target_option_id: d.target_option_id,
+            target_option_id: d.target_option_id,
           })),
           building_ids: (buildingsData || []).map(b => b.building_id),
           target_product_ids: targetProductIds,
@@ -156,22 +158,26 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  // Get router discount for a specific router option from applicable promotions
+  // Get option discount for a specific option from applicable promotions
   // Takes the MAXIMUM discount from any single promotion (no stacking)
-  const getRouterDiscountForTariff = (
+  // priceType: 'monthly' for recurring costs, 'one_time' for one-time costs
+  const getOptionDiscountForTariff = (
     tariffId: string | null,
     buildingId: string | null,
-    selectedRouterOptionId: string | null
+    optionId: string | null,
+    priceType: 'monthly' | 'one_time'
   ): number => {
-    if (!selectedRouterOptionId) return 0;
+    if (!optionId) return 0;
     
     const applicable = getApplicablePromotions(tariffId, buildingId);
     let maxDiscount = 0;
 
     for (const promo of applicable) {
       for (const discount of promo.discounts) {
-        // Only apply discount if it targets the SELECTED router option
-        if (discount.applies_to === 'option' && discount.target_option_id === selectedRouterOptionId) {
+        // Only apply discount if it targets the SELECTED option AND matches price type
+        if (discount.applies_to === 'option' && 
+            discount.target_option_id === optionId &&
+            discount.price_type === priceType) {
           if (discount.discount_type === 'fixed' && discount.discount_amount) {
             // Take maximum, don't stack
             maxDiscount = Math.max(maxDiscount, discount.discount_amount);
@@ -180,7 +186,7 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
-    console.log(`Router discount for tariff ${tariffId}, router ${selectedRouterOptionId}:`, maxDiscount, 'from promotions:', applicable.map(p => p.name));
+    console.log(`Option discount (${priceType}) for tariff ${tariffId}, option ${optionId}:`, maxDiscount, 'from promotions:', applicable.map(p => p.name));
     return maxDiscount;
   };
 
@@ -206,7 +212,7 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
     <PromotionsContext.Provider value={{
       promotions,
       loading,
-      getRouterDiscountForTariff,
+      getOptionDiscountForTariff,
       isSetupFeeWaived,
       refetch: fetchActivePromotions,
     }}>

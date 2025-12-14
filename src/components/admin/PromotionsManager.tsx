@@ -74,6 +74,7 @@ interface DiscountEntry {
   target_option_id: string | null;
   discount_type: 'fixed' | 'percentage' | 'waive';
   discount_amount: number | null;
+  price_type: 'monthly' | 'one_time';
   k7_product_id: string;
   k7_template_id: string;
   k7_template_type: string;
@@ -220,6 +221,7 @@ export const PromotionsManager = () => {
         target_option_id: d.target_option_id,
         discount_type: d.discount_type as 'fixed' | 'percentage' | 'waive',
         discount_amount: d.discount_amount,
+        price_type: (d.price_type as 'monthly' | 'one_time') || 'monthly',
         k7_product_id: d.k7_product_id || '',
         k7_template_id: d.k7_template_id || '',
         k7_template_type: d.k7_template_type || '',
@@ -324,6 +326,7 @@ export const PromotionsManager = () => {
                 target_option_id: entry.target_option_id || null,
                 discount_type: entry.discount_type,
                 discount_amount: entry.discount_amount,
+                price_type: entry.price_type,
                 k7_product_id: entry.k7_product_id || null,
                 k7_template_id: entry.k7_template_id || null,
                 k7_template_type: entry.k7_template_type || null,
@@ -340,6 +343,7 @@ export const PromotionsManager = () => {
               target_option_id: entry.target_option_id || null,
               discount_type: entry.discount_type,
               discount_amount: entry.discount_amount,
+              price_type: entry.price_type,
               k7_product_id: entry.k7_product_id || null,
               k7_template_id: entry.k7_template_id || null,
               k7_template_type: entry.k7_template_type || null,
@@ -479,6 +483,7 @@ export const PromotionsManager = () => {
       target_option_id: null,
       discount_type: 'fixed',
       discount_amount: 0,
+      price_type: 'monthly',
       k7_product_id: '',
       k7_template_id: '',
       k7_template_type: '',
@@ -771,6 +776,22 @@ export const PromotionsManager = () => {
                                   </Select>
                                 </div>
                               )}
+
+                              <div className="space-y-2">
+                                <Label>Preistyp</Label>
+                                <Select
+                                  value={entry.price_type}
+                                  onValueChange={(value) => updateDiscountEntry(index, 'price_type', value)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="monthly">Monatlich</SelectItem>
+                                    <SelectItem value="one_time">Einmalig</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
 
                               <div className="space-y-2">
                                 <Label>Rabattart</Label>
