@@ -24,7 +24,7 @@ export function ProgressSteps({ currentStep, steps }: ProgressStepsProps) {
 
   return (
     <div className="w-full py-6">
-      <div className="flex items-center justify-between max-w-4xl mx-auto">
+      <div className="flex items-center justify-center max-w-2xl mx-auto px-4">
         {steps.map((step, index) => {
           const stepNumber = index + 1;
           const isCompleted = stepNumber < currentStep;
@@ -32,7 +32,7 @@ export function ProgressSteps({ currentStep, steps }: ProgressStepsProps) {
           const isClickable = stepNumber < currentStep || canNavigateToStep(stepNumber);
           
           return (
-            <div key={step} className="flex items-center flex-1">
+            <div key={step} className="flex items-center">
               <div className="flex flex-col items-center">
                 <button
                   onClick={() => handleStepClick(stepNumber)}
@@ -50,7 +50,7 @@ export function ProgressSteps({ currentStep, steps }: ProgressStepsProps) {
                 </button>
                 <span
                   className={cn(
-                    "mt-2 text-xs font-medium text-center max-w-[70px] hidden sm:block",
+                    "mt-2 text-xs font-medium text-center w-[70px] hidden sm:block",
                     isCurrent && "text-accent font-semibold",
                     isCompleted && "text-success",
                     !isCompleted && !isCurrent && "text-muted-foreground",
@@ -65,7 +65,7 @@ export function ProgressSteps({ currentStep, steps }: ProgressStepsProps) {
               {index < steps.length - 1 && (
                 <div
                   className={cn(
-                    "flex-1 h-0.5 mx-2 rounded-full transition-all duration-300",
+                    "w-20 md:w-32 h-0.5 mx-2 rounded-full transition-all duration-300",
                     stepNumber < currentStep ? "bg-success" : "bg-border"
                   )}
                 />
