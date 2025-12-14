@@ -29,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { format, subHours, startOfDay, endOfDay } from 'date-fns';
+import { format, subHours, startOfDay, endOfDay, startOfWeek, startOfMonth, startOfQuarter } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { renderVZFFromTemplate, VZFRenderData } from '@/utils/renderVZFTemplate';
 import { generateVZFContent, VZFData } from '@/utils/generateVZF';
@@ -66,8 +66,15 @@ interface OrderStats {
   total: number;
   today: number;
   lastHour: number;
+  week: number;
+  month: number;
+  quarter: number;
   byProduct: { name: string; count: number }[];
+  totalMonthlyRevenue: number;
+  totalOneTimeRevenue: number;
 }
+
+type TimePeriod = 'all' | 'quarter' | 'month' | 'week' | 'today';
 
 export const OrdersManager = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -76,7 +83,8 @@ export const OrdersManager = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [stats, setStats] = useState<OrderStats>({ total: 0, today: 0, lastHour: 0, byProduct: [] });
+  const [stats, setStats] = useState<OrderStats>({ total: 0, today: 0, lastHour: 0, week: 0, month: 0, quarter: 0, byProduct: [], totalMonthlyRevenue: 0, totalOneTimeRevenue: 0 });
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('all');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -115,6 +123,9 @@ export const OrdersManager = () => {
       const hourAgo = subHours(now, 1);
       const todayStart = startOfDay(now);
       const todayEnd = endOfDay(now);
+      const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+      const monthStart = startOfMonth(now);
+      const quarterStart = startOfQuarter(now);
 
       // Total orders
       const { count: total } = await supabase
@@ -137,15 +148,41 @@ export const OrdersManager = () => {
         .eq('is_archived', false)
         .gte('created_at', hourAgo.toISOString());
 
-      // Orders by product
-      const { data: productData } = await supabase
+      // Week orders
+      const { count: week } = await supabase
         .from('orders')
-        .select('product_name')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_archived', false)
+        .gte('created_at', weekStart.toISOString());
+
+      // Month orders
+      const { count: month } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_archived', false)
+        .gte('created_at', monthStart.toISOString());
+
+      // Quarter orders
+      const { count: quarter } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_archived', false)
+        .gte('created_at', quarterStart.toISOString());
+
+      // Orders by product and revenue calculation
+      const { data: allOrdersData } = await supabase
+        .from('orders')
+        .select('product_name, monthly_total, one_time_total, setup_fee')
         .eq('is_archived', false);
 
       const productCounts: Record<string, number> = {};
-      productData?.forEach(order => {
+      let totalMonthlyRevenue = 0;
+      let totalOneTimeRevenue = 0;
+
+      allOrdersData?.forEach(order => {
         productCounts[order.product_name] = (productCounts[order.product_name] || 0) + 1;
+        totalMonthlyRevenue += order.monthly_total || 0;
+        totalOneTimeRevenue += (order.one_time_total || 0) + (order.setup_fee || 0);
       });
 
       const byProduct = Object.entries(productCounts)
@@ -156,7 +193,12 @@ export const OrdersManager = () => {
         total: total || 0,
         today: today || 0,
         lastHour: lastHour || 0,
+        week: week || 0,
+        month: month || 0,
+        quarter: quarter || 0,
         byProduct,
+        totalMonthlyRevenue,
+        totalOneTimeRevenue,
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -235,6 +277,18 @@ export const OrdersManager = () => {
       
       if (order.vzf_data?.tariff) {
         // We have full VZF data, can use template
+        // Extract service addons from selected_options if present
+        const serviceAddons = (order.selected_options as any[] || [])
+          .filter(opt => opt.type === 'service' || opt.category === 'service' || opt.category === 'installation')
+          .map(opt => ({
+            id: opt.id || opt.name,
+            name: opt.name,
+            description: opt.description || '',
+            monthlyPrice: opt.monthlyPrice || opt.monthly_price || 0,
+            oneTimePrice: opt.oneTimePrice || opt.one_time_price || 0,
+            category: opt.category || 'service',
+          }));
+
         const vzfData: VZFData = {
           tariff: order.vzf_data.tariff,
           router: order.vzf_data.router || null,
@@ -253,7 +307,11 @@ export const OrdersManager = () => {
           promoCode: order.vzf_data.promoCode || order.promo_code,
           isFiberBasic: order.vzf_data.isFiberBasic || false,
           referralBonus: order.vzf_data.referralBonus || 0,
+          serviceAddons: serviceAddons,
         };
+        
+        // Also add serviceAddons to renderData for template
+        renderData.serviceAddons = serviceAddons;
         
         content = await renderVZFFromTemplate(vzfData, renderData);
       } else {
@@ -359,19 +417,57 @@ export const OrdersManager = () => {
     }
   };
 
+  // Get order count based on selected time period
+  const getOrderCountForPeriod = () => {
+    switch (timePeriod) {
+      case 'today': return stats.today;
+      case 'week': return stats.week;
+      case 'month': return stats.month;
+      case 'quarter': return stats.quarter;
+      default: return stats.total;
+    }
+  };
+
+  const getPeriodLabel = () => {
+    switch (timePeriod) {
+      case 'today': return 'Heute';
+      case 'week': return 'Diese Woche';
+      case 'month': return 'Dieser Monat';
+      case 'quarter': return 'Dieses Quartal';
+      default: return 'Gesamt';
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Time Period Filter */}
+      <div className="flex gap-2 flex-wrap">
+        {(['all', 'quarter', 'month', 'week', 'today'] as TimePeriod[]).map((period) => (
+          <Button
+            key={period}
+            variant={timePeriod === period ? "default" : "outline"}
+            size="sm"
+            onClick={() => setTimePeriod(period)}
+          >
+            {period === 'all' ? 'Gesamt' : 
+             period === 'quarter' ? 'Quartal' : 
+             period === 'month' ? 'Monat' : 
+             period === 'week' ? 'Woche' : 'Tag'}
+          </Button>
+        ))}
+      </div>
+
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <ShoppingCart className="w-4 h-4" />
-              Bestellungen gesamt
+              Bestellungen ({getPeriodLabel()})
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats.total}</div>
+            <div className="text-3xl font-bold">{getOrderCountForPeriod()}</div>
           </CardContent>
         </Card>
         
@@ -399,22 +495,31 @@ export const OrdersManager = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="bg-primary/5 border-primary/20">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
-              Top Tarif
+              Monatl. Umsatz (Gesamt)
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-lg font-bold truncate">
-              {stats.byProduct[0]?.name || '-'}
+            <div className="text-2xl font-bold text-primary">
+              {stats.totalMonthlyRevenue.toFixed(2).replace('.', ',')} €
             </div>
-            {stats.byProduct[0] && (
-              <div className="text-sm text-muted-foreground">
-                {stats.byProduct[0].count} Bestellungen
-              </div>
-            )}
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-accent/5 border-accent/20">
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Einmal. Umsatz (Gesamt)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-accent">
+              {stats.totalOneTimeRevenue.toFixed(2).replace('.', ',')} €
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -491,11 +596,12 @@ export const OrdersManager = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Datum</TableHead>
+                    <TableHead>Bestellnr. / Datum</TableHead>
                     <TableHead>Kunde</TableHead>
                     <TableHead>Kontakt</TableHead>
                     <TableHead>Tarif</TableHead>
-                    <TableHead>Monatlich</TableHead>
+                    <TableHead>Monatl.</TableHead>
+                    <TableHead>Einmal.</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Aktionen</TableHead>
                   </TableRow>
@@ -503,7 +609,7 @@ export const OrdersManager = () => {
                 <TableBody>
                   {filteredOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         {showArchived ? 'Keine archivierten Bestellungen.' : 'Keine Bestellungen gefunden.'}
                       </TableCell>
                     </TableRow>
@@ -511,11 +617,11 @@ export const OrdersManager = () => {
                     filteredOrders.map((order) => (
                       <TableRow key={order.id}>
                         <TableCell>
-                          <div className="text-sm">
-                            {format(new Date(order.created_at), 'dd.MM.yyyy', { locale: de })}
+                          <div className="text-sm font-mono text-primary">
+                            COM-{order.id.slice(0, 8).toUpperCase()}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {format(new Date(order.created_at), 'HH:mm', { locale: de })} Uhr
+                            {format(new Date(order.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -540,6 +646,9 @@ export const OrdersManager = () => {
                         </TableCell>
                         <TableCell>
                           <div className="font-medium">{order.monthly_total.toFixed(2)} €</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{(order.one_time_total + order.setup_fee).toFixed(2)} €</div>
                         </TableCell>
                         <TableCell>
                           {getStatusBadge(order.status)}
