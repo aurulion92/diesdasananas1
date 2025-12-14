@@ -77,14 +77,17 @@ const OrderFlow = ({ onBackToStart }: OrderFlowProps) => {
       <Header onLogoClick={onBackToStart} />
       
       <main className="container mx-auto px-4 py-8">
-        <ProgressSteps currentStep={step} steps={steps} />
-        
-        <div className="mt-8 grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
-            {step === 1 && <AddressCheck />}
-            {step === 2 && connectionType && connectionType !== 'not-connected' && <TariffSelection />}
-            {step === 3 && <CustomerForm />}
-            {step === 4 && <OrderSummary />}
+            {/* Steps oben im gleichen Content-Bereich wie der Willkommenstext */}
+            <ProgressSteps currentStep={step} steps={steps} />
+
+            <div className="mt-8">
+              {step === 1 && <AddressCheck />}
+              {step === 2 && connectionType && connectionType !== 'not-connected' && <TariffSelection />}
+              {step === 3 && <CustomerForm />}
+              {step === 4 && <OrderSummary />}
+            </div>
           </div>
           
           <div className="hidden lg:block">
