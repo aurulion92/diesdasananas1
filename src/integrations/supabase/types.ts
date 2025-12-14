@@ -577,6 +577,7 @@ export type Database = {
           requires_kabel_tv: boolean | null
           slug: string
           updated_at: string
+          vzf_text: string | null
         }
         Insert: {
           auto_include_option_slug?: string[] | null
@@ -605,6 +606,7 @@ export type Database = {
           requires_kabel_tv?: boolean | null
           slug: string
           updated_at?: string
+          vzf_text?: string | null
         }
         Update: {
           auto_include_option_slug?: string[] | null
@@ -633,6 +635,7 @@ export type Database = {
           requires_kabel_tv?: boolean | null
           slug?: string
           updated_at?: string
+          vzf_text?: string | null
         }
         Relationships: []
       }
