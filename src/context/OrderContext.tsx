@@ -50,6 +50,7 @@ interface TvSelection {
   hdAddon: TariffAddon | null; // Basis HD or Family HD for COM-IN TV
   hardware: TariffAddon[]; // Smartcard + Receiver/CI Module
   waipuStick: boolean;
+  waipuStickPrice?: number; // Price from database for waipu 4K Stick
 }
 
 interface PhoneSelection {
@@ -517,7 +518,7 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
     
     // WAIPU stick
     if (state.tvSelection.waipuStick) {
-      total += 40.00;
+      total += state.tvSelection.waipuStickPrice ?? 59.99;
     }
     
     // Express activation

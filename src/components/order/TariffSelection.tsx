@@ -789,7 +789,8 @@ export function TariffSelection() {
                                 checked={tvSelection.waipuStick}
                                 onCheckedChange={(checked) => setTvSelection({
                                   ...tvSelection,
-                                  waipuStick: checked === true
+                                  waipuStick: checked === true,
+                                  waipuStickPrice: checked === true ? (stickMapping.option.one_time_price ?? 59.99) : undefined
                                 })}
                               />
                               <Label htmlFor={stickMapping.option.slug} className="cursor-pointer">
