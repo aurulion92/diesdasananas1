@@ -208,15 +208,9 @@ export function TariffSelection() {
   // Build available routers list: ONLY from database options
   let availableRouters: TariffAddon[] = [];
 
-  if (hasRouterDbOptions && connectionType && connectionType !== 'not-connected') {
-    const isFtthConnection = connectionType === 'ftth' || connectionType === 'limited';
-
+  if (hasRouterDbOptions) {
     const dbRouters = routerOptions
-      .filter(({ option }) => {
-        // Filter routers by infrastructure flags when present
-        if (isFtthConnection) return option.is_ftth !== false;
-        return option.is_fttb !== false;
-      })
+      // Admin legt die Zuordnung fest – keine zusätzliche Filterlogik nach Anschlussart hier
       .map(dbRouterOptionToAddon);
 
     if (dbRouters.length > 0) {
