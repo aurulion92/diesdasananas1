@@ -31,8 +31,10 @@ export function CartSidebar() {
   const setupFeeWaived = isSetupFeeWaivedByPromotions() || appliedPromoCode?.setupFeeWaived === true;
   const setupFee = setupFeeWaived ? 0 : (selectedTariff?.setupFee || 99);
   
-  const isFiberBasic = selectedTariff?.id === 'fiber-basic-100';
-  const isEinfachTariff = selectedTariff?.id?.startsWith('einfach-');
+  // Check for FiberBasic by name since id is now UUID
+  const isFiberBasic = selectedTariff?.name?.toLowerCase().includes('fiberbasic') || 
+                       selectedTariff?.name?.toLowerCase().includes('fiber basic') || false;
+  const isEinfachTariff = selectedTariff?.name?.toLowerCase().startsWith('einfach') || false;
 
   // Calculate monthly total with promotion discounts
   const calculateMonthlyTotal = () => {

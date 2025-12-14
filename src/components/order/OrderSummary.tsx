@@ -72,7 +72,9 @@ export function OrderSummary() {
 
   const [orderComplete, setOrderComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isFiberBasic = selectedTariff?.id === 'fiber-basic-100';
+  // Check for FiberBasic by name since id is now UUID
+  const isFiberBasic = selectedTariff?.name?.toLowerCase().includes('fiberbasic') || 
+                       selectedTariff?.name?.toLowerCase().includes('fiber basic') || false;
   const routerDiscount = getRouterDiscount();
 
   const handleDownloadVZF = async () => {
