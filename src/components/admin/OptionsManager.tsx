@@ -29,6 +29,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { OptionBuildingAssignment } from './OptionBuildingAssignment';
+import { ImageUpload } from './ImageUpload';
 
 interface ProductOption {
   id: string;
@@ -742,12 +743,11 @@ export const OptionsManager = () => {
                         </p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="image_url">Bild-URL</Label>
-                        <Input
-                          id="image_url"
+                        <Label htmlFor="image_url">Bild</Label>
+                        <ImageUpload
                           value={formData.image_url}
-                          onChange={(e) => setFormData({...formData, image_url: e.target.value})}
-                          placeholder="https://example.com/image.jpg"
+                          onChange={(url) => setFormData({...formData, image_url: url})}
+                          folder="options"
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
