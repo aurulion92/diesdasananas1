@@ -78,6 +78,7 @@ const CATEGORIES = [
   { value: 'tv_waipu', label: 'waipu.tv' },
   { value: 'tv_hardware', label: 'TV Hardware' },
   { value: 'service', label: 'Service-Leistungen' },
+  { value: 'installation', label: 'Installations-Service' },
 ];
 
 export const OptionsManager = () => {

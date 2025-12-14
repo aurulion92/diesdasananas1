@@ -183,5 +183,6 @@ export function useProductOptions(productId: string | null, buildingId?: string 
     tvWaipuOptions: getOptionsByCategory('tv_waipu'),
     tvHardwareOptions: getOptionsByCategory('tv_hardware'),
     serviceOptions: getOptionsByCategory('service'),
+    installationOptions: getOptionsByCategory('installation'),
   };
 }
