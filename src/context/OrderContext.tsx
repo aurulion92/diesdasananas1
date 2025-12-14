@@ -98,6 +98,7 @@ interface OrderState {
   vzfDownloaded: boolean;
   vzfConfirmed: boolean;
   consentData: ConsentData;
+  generatedOrderNumber: string | null;
 }
 
 interface OrderContextType extends OrderState {
@@ -125,6 +126,8 @@ interface OrderContextType extends OrderState {
   setVzfDownloaded: (downloaded: boolean) => void;
   setVzfConfirmed: (confirmed: boolean) => void;
   setConsentData: (data: ConsentData) => void;
+  generateOrderNumber: () => string;
+  getOrderNumber: () => string | null;
   getTotalMonthly: () => number;
   getTotalOneTime: () => number;
   getRouterPrice: () => number;
@@ -194,6 +197,7 @@ const initialState: OrderState = {
   vzfDownloaded: false,
   vzfConfirmed: false,
   consentData: initialConsentData,
+  generatedOrderNumber: null,
 };
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -251,10 +255,11 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
   const setApartmentData = (apartmentData: ApartmentData | null) =>
     setState(prev => ({ ...prev, apartmentData }));
   
-  // Helper function to reset VZF status when order changes
+  // Helper function to reset VZF status and order number when order changes
   const resetVzfStatus = (prevState: OrderState): Partial<OrderState> => ({
     vzfDownloaded: false,
     vzfConfirmed: false,
+    generatedOrderNumber: null,
   });
 
   const setSelectedTariff = (selectedTariff: TariffOption) => {
@@ -391,6 +396,18 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
   
   const setVzfConfirmed = (vzfConfirmed: boolean) => 
     setState(prev => ({ ...prev, vzfConfirmed }));
+
+  // Generate a new order number (called when VZF is created)
+  const generateOrderNumber = (): string => {
+    const newOrderNumber = `COM-${Date.now().toString(36).toUpperCase()}`;
+    setState(prev => ({ ...prev, generatedOrderNumber: newOrderNumber }));
+    return newOrderNumber;
+  };
+
+  // Get the current order number (null if not generated yet)
+  const getOrderNumber = (): string | null => {
+    return state.generatedOrderNumber;
+  };
 
   const isMFH = (): boolean => {
     // MFH detection based on address data - can be extended later
@@ -577,6 +594,8 @@ export const OrderProvider = ({ children }: { children: ReactNode }) => {
       clearPromoCode,
       setVzfDownloaded,
       setVzfConfirmed,
+      generateOrderNumber,
+      getOrderNumber,
       getTotalMonthly,
       getTotalOneTime,
       getRouterPrice,

@@ -67,6 +67,8 @@ export function OrderSummary() {
     getSetupFee,
     isSetupFeeWaived,
     getReferralBonus,
+    generateOrderNumber,
+    getOrderNumber,
     setStep 
   } = useOrder();
 
@@ -126,7 +128,7 @@ export function OrderSummary() {
       monthlyTotal: `${getTotalMonthly().toFixed(2).replace('.', ',')} €`,
       oneTimeTotal: `${getTotalOneTime().toFixed(2).replace('.', ',')} €`,
       setupFee: `${getSetupFee().toFixed(2).replace('.', ',')} €`,
-      orderNumber: `COM-${Date.now().toString(36).toUpperCase()}`,
+      orderNumber: generateOrderNumber(),
       vzfTimestamp: format(new Date(), 'dd.MM.yyyy HH:mm', { locale: de }),
     };
 
@@ -375,7 +377,7 @@ export function OrderSummary() {
           monthlyTotal: `${getTotalMonthly().toFixed(2).replace('.', ',')} €`,
           oneTimeTotal: `${getTotalOneTime().toFixed(2).replace('.', ',')} €`,
           setupFee: `${getSetupFee().toFixed(2).replace('.', ',')} €`,
-          orderNumber: insertedOrder.id.substring(0, 8).toUpperCase(),
+          orderNumber: getOrderNumber() || `COM-${insertedOrder.id.substring(0, 8).toUpperCase()}`,
           vzfTimestamp: format(new Date(), 'dd.MM.yyyy HH:mm', { locale: de }),
         };
 
@@ -472,7 +474,7 @@ export function OrderSummary() {
           {/* Bestellnummer */}
           <div className="bg-card rounded-xl shadow-soft p-5 text-center">
             <p className="text-sm text-muted-foreground">Bestellnummer</p>
-            <p className="text-2xl font-mono font-bold text-primary">COM-{Date.now().toString(36).toUpperCase()}</p>
+            <p className="text-2xl font-mono font-bold text-primary">{getOrderNumber() || 'Wird generiert...'}</p>
           </div>
 
           {/* Anschlussadresse */}
