@@ -256,6 +256,42 @@ export type Database = {
         }
         Relationships: []
       }
+      option_buildings: {
+        Row: {
+          building_id: string
+          created_at: string
+          id: string
+          option_id: string
+        }
+        Insert: {
+          building_id: string
+          created_at?: string
+          id?: string
+          option_id: string
+        }
+        Update: {
+          building_id?: string
+          created_at?: string
+          id?: string
+          option_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "option_buildings_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "option_buildings_option_id_fkey"
+            columns: ["option_id"]
+            isOneToOne: false
+            referencedRelation: "product_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           apartment: string | null
@@ -527,6 +563,7 @@ export type Database = {
           image_url: string | null
           info_text: string | null
           is_active: boolean | null
+          is_building_restricted: boolean | null
           is_fttb: boolean | null
           is_ftth: boolean | null
           monthly_price: number | null
@@ -550,6 +587,7 @@ export type Database = {
           image_url?: string | null
           info_text?: string | null
           is_active?: boolean | null
+          is_building_restricted?: boolean | null
           is_fttb?: boolean | null
           is_ftth?: boolean | null
           monthly_price?: number | null
@@ -573,6 +611,7 @@ export type Database = {
           image_url?: string | null
           info_text?: string | null
           is_active?: boolean | null
+          is_building_restricted?: boolean | null
           is_fttb?: boolean | null
           is_ftth?: boolean | null
           monthly_price?: number | null
