@@ -153,6 +153,7 @@ export function OrderSummary() {
         promoCode: appliedPromoCode?.code,
         isFiberBasic: isFiberBasic,
         referralBonus: getReferralBonus(),
+        serviceAddons: selectedAddons,
       };
 
       // Get the HTML content
@@ -193,6 +194,7 @@ export function OrderSummary() {
         promoCode: appliedPromoCode?.code,
         isFiberBasic: isFiberBasic,
         referralBonus: getReferralBonus(),
+        serviceAddons: selectedAddons,
       };
       const htmlContent = generateVZFContent(vzfDataForContent);
       const newWindow = window.open('', '_blank');

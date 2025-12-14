@@ -21,6 +21,7 @@ export interface VZFData {
   isUpgrade?: boolean;
   currentTariff?: string;
   referralBonus?: number;
+  serviceAddons?: TariffAddon[]; // Service options like einfach Wifi, einfach Telefon, etc.
 }
 
 export function generateVZFContent(data: VZFData): string {
@@ -44,6 +45,7 @@ export function generateVZFContent(data: VZFData): string {
     isUpgrade,
     currentTariff,
     referralBonus = 0,
+    serviceAddons = [],
   } = data;
 
   // Calculate speeds based on tariff
@@ -115,6 +117,10 @@ export function generateVZFContent(data: VZFData): string {
   const expressSetup = expressActivation ? 200 : 0;
   const waipuStickPriceValue = data.waipuStickPrice ?? 59.99;
   const tvOneTime = tvHardware.reduce((sum, h) => sum + (h.oneTimePrice || 0), 0) + (waipuStick ? waipuStickPriceValue : 0);
+  
+  // Calculate service addons totals
+  const serviceAddonsMonthly = serviceAddons.reduce((sum, a) => sum + (a.monthlyPrice || 0), 0);
+  const serviceAddonsOneTime = serviceAddons.reduce((sum, a) => sum + (a.oneTimePrice || 0), 0);
 
   const dateStr = new Date().toLocaleDateString('de-DE');
 
@@ -512,6 +518,15 @@ export function generateVZFContent(data: VZFData): string {
         <td>Gutschrift auf Einmalkosten</td>
       </tr>
       ` : ''}
+      ${serviceAddons.map(addon => `
+      <tr>
+        <td>${addon.name}</td>
+        <td>${(addon.oneTimePrice || 0) > 0 ? formatPrice(addon.oneTimePrice || 0) : '0 €'}</td>
+        <td></td>
+        <td>${(addon.monthlyPrice || 0) > 0 ? formatPrice(addon.monthlyPrice || 0) : '0,00 €'}</td>
+        <td>${addon.description || ''}</td>
+      </tr>
+      `).join('')}
     </table>
     
     ${routerDiscount > 0 ? `
