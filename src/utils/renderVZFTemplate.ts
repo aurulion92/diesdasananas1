@@ -34,6 +34,12 @@ export interface VZFRenderData {
   // Tariff description - optional
   produktBeschreibung?: string;
   
+  // Phone terms - for products with included phone or booked phone option
+  phoneTermsText?: string;
+  phoneIncluded?: boolean;
+  phoneOptionBooked?: boolean;
+  phoneOptionQuantity?: number;
+  
   // Router
   routerName: string;
   routerPrice: string;
@@ -99,6 +105,19 @@ export function buildVZFPlaceholders(data: VZFRenderData): Record<string, string
   const produktBeschreibung = data.produktBeschreibung || 
     `Das Produkt "${data.tariffName}" beinhaltet einen Glasfaser-Festnetzanschluss für Internetdienste. Im monatlichen Entgelt ist eine Flatrate für die Internetnutzung enthalten.`;
   
+  // Build phone terms display
+  let telefonKonditionen = '';
+  if (data.phoneIncluded && data.phoneTermsText) {
+    // Product includes phone - use product's phone_terms_text
+    telefonKonditionen = data.phoneTermsText;
+  } else if (data.phoneOptionBooked && data.phoneTermsText) {
+    // Phone option booked - show with quantity multiplier if > 1
+    const quantityPrefix = data.phoneOptionQuantity && data.phoneOptionQuantity > 1 
+      ? `${data.phoneOptionQuantity}x Sprachkanal: ` 
+      : '';
+    telefonKonditionen = quantityPrefix + data.phoneTermsText;
+  }
+
   return {
     // Customer
     kunde_name: data.customerName,
@@ -129,6 +148,12 @@ export function buildVZFPlaceholders(data: VZFRenderData): Record<string, string
     
     // Product description
     produkt_beschreibung: produktBeschreibung,
+    
+    // Phone terms
+    telefon_konditionen: telefonKonditionen,
+    telefon_inklusiv: data.phoneIncluded ? 'Ja' : 'Nein',
+    telefon_option_gebucht: data.phoneOptionBooked ? 'Ja' : 'Nein',
+    telefon_anzahl: String(data.phoneOptionQuantity || 0),
     
     // Router
     router_name: data.routerName,

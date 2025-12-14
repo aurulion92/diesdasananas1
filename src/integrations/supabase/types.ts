@@ -659,6 +659,7 @@ export type Database = {
           is_ftth_limited: boolean | null
           monthly_price: number
           name: string
+          phone_terms_text: string | null
           product_id_k7: string | null
           setup_fee: number | null
           slug: string
@@ -689,6 +690,7 @@ export type Database = {
           is_ftth_limited?: boolean | null
           monthly_price: number
           name: string
+          phone_terms_text?: string | null
           product_id_k7?: string | null
           setup_fee?: number | null
           slug: string
@@ -719,6 +721,7 @@ export type Database = {
           is_ftth_limited?: boolean | null
           monthly_price?: number
           name?: string
+          phone_terms_text?: string | null
           product_id_k7?: string | null
           setup_fee?: number | null
           slug?: string

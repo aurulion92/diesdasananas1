@@ -52,6 +52,7 @@ interface Product {
   slug: string;
   description: string | null;
   info_text: string | null;
+  phone_terms_text: string | null;
   monthly_price: number;
   setup_fee: number;
   download_speed: number | null;
@@ -107,6 +108,7 @@ export const ProductsManager = () => {
     slug: '',
     description: '',
     info_text: '',
+    phone_terms_text: '',
     monthly_price: 0,
     setup_fee: 99,
     download_speed: 0,
@@ -168,6 +170,7 @@ export const ProductsManager = () => {
         product_id_k7: formData.product_id_k7 || null,
         description: formData.description || null,
         info_text: formData.info_text || null,
+        phone_terms_text: formData.phone_terms_text || null,
       };
 
       if (editingProduct) {
@@ -206,6 +209,7 @@ export const ProductsManager = () => {
       slug: '',
       description: '',
       info_text: '',
+      phone_terms_text: '',
       monthly_price: 0,
       setup_fee: 99,
       download_speed: 0,
@@ -235,6 +239,7 @@ export const ProductsManager = () => {
       slug: product.slug,
       description: product.description || '',
       info_text: product.info_text || '',
+      phone_terms_text: product.phone_terms_text || '',
       monthly_price: product.monthly_price,
       setup_fee: product.setup_fee,
       download_speed: product.download_speed || 0,
@@ -716,6 +721,21 @@ export const ProductsManager = () => {
                           onCheckedChange={(checked) => setFormData({...formData, includes_phone: checked})}
                         />
                       </div>
+                      {formData.includes_phone && (
+                        <div className="col-span-2 space-y-2 bg-muted/50 p-3 rounded-lg">
+                          <Label htmlFor="phone_terms_text">Telefon-Konditionen (für VZF)</Label>
+                          <textarea
+                            id="phone_terms_text"
+                            className="w-full min-h-[80px] px-3 py-2 text-sm rounded-md border border-input bg-background"
+                            value={formData.phone_terms_text}
+                            onChange={(e) => setFormData({...formData, phone_terms_text: e.target.value})}
+                            placeholder="z.B. Festnetz-Flatrate ins deutsche Festnetz. Mobilfunk Anrufe 17,9 ct/Min."
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Dieser Text erscheint in der VZF unter den Telefon-Konditionen.
+                          </p>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
                         <Label htmlFor="includes_fiber_tv">FiberTV inkludiert</Label>
                         <Switch
