@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Search, 
@@ -19,7 +18,9 @@ import {
   Clock,
   TrendingUp,
   Users,
-  Calendar
+  Calendar,
+  Download,
+  BarChart3
 } from 'lucide-react';
 import {
   Table,
@@ -29,11 +30,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { format, subHours, startOfDay, endOfDay, startOfWeek, startOfMonth, startOfQuarter } from 'date-fns';
+import { format, subHours, startOfDay, endOfDay, startOfWeek, startOfMonth, startOfQuarter, startOfYear, isWithinInterval, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { renderVZFFromTemplate, VZFRenderData } from '@/utils/renderVZFTemplate';
 import { generateVZFContent, VZFData } from '@/utils/generateVZF';
 import { openVZFAsPDF } from '@/services/pdfService';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface Order {
   id: string;
@@ -69,28 +71,36 @@ interface OrderStats {
   week: number;
   month: number;
   quarter: number;
+  year: number;
   byProduct: { name: string; count: number }[];
   totalMonthlyRevenue: number;
   totalOneTimeRevenue: number;
 }
 
-type TimePeriod = 'all' | 'quarter' | 'month' | 'week' | 'today';
+type TimePeriod = 'all' | 'year' | 'quarter' | 'month' | 'week' | 'today';
 
 export const OrdersManager = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [stats, setStats] = useState<OrderStats>({ total: 0, today: 0, lastHour: 0, week: 0, month: 0, quarter: 0, byProduct: [], totalMonthlyRevenue: 0, totalOneTimeRevenue: 0 });
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>('all');
+  const [stats, setStats] = useState<OrderStats>({ total: 0, today: 0, lastHour: 0, week: 0, month: 0, quarter: 0, year: 0, byProduct: [], totalMonthlyRevenue: 0, totalOneTimeRevenue: 0 });
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('month');
+  const [showChart, setShowChart] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchOrders();
-    fetchStats();
   }, [showArchived]);
+
+  useEffect(() => {
+    // Recalculate stats when orders or time period changes
+    calculateStats();
+  }, [orders, timePeriod]);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -117,92 +127,79 @@ export const OrdersManager = () => {
     }
   };
 
-  const fetchStats = async () => {
-    try {
-      const now = new Date();
-      const hourAgo = subHours(now, 1);
-      const todayStart = startOfDay(now);
-      const todayEnd = endOfDay(now);
-      const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-      const monthStart = startOfMonth(now);
-      const quarterStart = startOfQuarter(now);
+  const getDateRangeForPeriod = (period: TimePeriod): { start: Date; end: Date } => {
+    const now = new Date();
+    const end = endOfDay(now);
+    
+    switch (period) {
+      case 'today':
+        return { start: startOfDay(now), end };
+      case 'week':
+        return { start: startOfWeek(now, { weekStartsOn: 1 }), end };
+      case 'month':
+        return { start: startOfMonth(now), end };
+      case 'quarter':
+        return { start: startOfQuarter(now), end };
+      case 'year':
+        return { start: startOfYear(now), end };
+      default:
+        return { start: new Date(0), end };
+    }
+  };
 
-      // Total orders
-      const { count: total } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_archived', false);
+  const calculateStats = () => {
+    const now = new Date();
+    const hourAgo = subHours(now, 1);
+    const todayStart = startOfDay(now);
+    const todayEnd = endOfDay(now);
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const monthStart = startOfMonth(now);
+    const quarterStart = startOfQuarter(now);
+    const yearStart = startOfYear(now);
 
-      // Today's orders
-      const { count: today } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_archived', false)
-        .gte('created_at', todayStart.toISOString())
-        .lte('created_at', todayEnd.toISOString());
+    let today = 0, lastHour = 0, week = 0, month = 0, quarter = 0, year = 0;
+    const productCounts: Record<string, number> = {};
+    let totalMonthlyRevenue = 0;
+    let totalOneTimeRevenue = 0;
 
-      // Last hour orders
-      const { count: lastHour } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_archived', false)
-        .gte('created_at', hourAgo.toISOString());
+    // Get date range for current period
+    const { start: periodStart, end: periodEnd } = getDateRangeForPeriod(timePeriod);
 
-      // Week orders
-      const { count: week } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_archived', false)
-        .gte('created_at', weekStart.toISOString());
+    orders.forEach(order => {
+      const orderDate = parseISO(order.created_at);
+      
+      // Count by time periods
+      if (isWithinInterval(orderDate, { start: todayStart, end: todayEnd })) today++;
+      if (orderDate >= hourAgo) lastHour++;
+      if (orderDate >= weekStart) week++;
+      if (orderDate >= monthStart) month++;
+      if (orderDate >= quarterStart) quarter++;
+      if (orderDate >= yearStart) year++;
 
-      // Month orders
-      const { count: month } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_archived', false)
-        .gte('created_at', monthStart.toISOString());
-
-      // Quarter orders
-      const { count: quarter } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_archived', false)
-        .gte('created_at', quarterStart.toISOString());
-
-      // Orders by product and revenue calculation
-      const { data: allOrdersData } = await supabase
-        .from('orders')
-        .select('product_name, monthly_total, one_time_total, setup_fee')
-        .eq('is_archived', false);
-
-      const productCounts: Record<string, number> = {};
-      let totalMonthlyRevenue = 0;
-      let totalOneTimeRevenue = 0;
-
-      allOrdersData?.forEach(order => {
+      // Calculate revenue and product counts for selected period only
+      if (timePeriod === 'all' || isWithinInterval(orderDate, { start: periodStart, end: periodEnd })) {
         productCounts[order.product_name] = (productCounts[order.product_name] || 0) + 1;
         totalMonthlyRevenue += order.monthly_total || 0;
         totalOneTimeRevenue += (order.one_time_total || 0) + (order.setup_fee || 0);
-      });
+      }
+    });
 
-      const byProduct = Object.entries(productCounts)
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count);
+    const byProduct = Object.entries(productCounts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
 
-      setStats({
-        total: total || 0,
-        today: today || 0,
-        lastHour: lastHour || 0,
-        week: week || 0,
-        month: month || 0,
-        quarter: quarter || 0,
-        byProduct,
-        totalMonthlyRevenue,
-        totalOneTimeRevenue,
-      });
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
+    setStats({
+      total: orders.length,
+      today,
+      lastHour,
+      week,
+      month,
+      quarter,
+      year,
+      byProduct,
+      totalMonthlyRevenue,
+      totalOneTimeRevenue,
+    });
   };
 
   const toggleArchive = async (order: Order) => {
@@ -223,7 +220,6 @@ export const OrdersManager = () => {
       });
       
       fetchOrders();
-      fetchStats();
     } catch (error) {
       console.error('Error toggling archive:', error);
       toast({
@@ -246,7 +242,6 @@ export const OrdersManager = () => {
     });
 
     try {
-      // Build render data from order
       const renderData: VZFRenderData = {
         customerName: order.customer_name,
         customerFirstName: order.customer_first_name || '',
@@ -276,8 +271,6 @@ export const OrdersManager = () => {
       let content: string;
       
       if (order.vzf_data?.tariff) {
-        // We have full VZF data, can use template
-        // Extract service addons from selected_options if present
         const serviceAddons = (order.selected_options as any[] || [])
           .filter(opt => opt.type === 'service' || opt.category === 'service' || opt.category === 'installation')
           .map(opt => ({
@@ -310,21 +303,16 @@ export const OrdersManager = () => {
           serviceAddons: serviceAddons,
         };
         
-        // Also add serviceAddons to renderData for template
         renderData.serviceAddons = serviceAddons;
-        
         content = await renderVZFFromTemplate(vzfData, renderData);
       } else {
-        // Fallback to simple HTML for old orders without full vzf_data
         content = generateFallbackVZFHTML(order, renderData);
       }
 
-      // Try to generate PDF
       const orderNumber = `COM-${order.id.slice(0, 8).toUpperCase()}`;
       const success = await openVZFAsPDF(content, orderNumber);
       
       if (!success) {
-        // Fallback: Open in new window
         const vzfWindow = window.open('', '_blank');
         if (vzfWindow) {
           vzfWindow.document.open();
@@ -395,12 +383,130 @@ export const OrdersManager = () => {
     `;
   };
 
-  const filteredOrders = orders.filter(order =>
-    order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.customer_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (order.customer_phone && order.customer_phone.includes(searchTerm)) ||
-    order.product_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter orders by search term, date range, and time period
+  const filteredOrders = useMemo(() => {
+    const { start: periodStart, end: periodEnd } = getDateRangeForPeriod(timePeriod);
+    
+    return orders.filter(order => {
+      const orderDate = parseISO(order.created_at);
+      
+      // Time period filter
+      if (timePeriod !== 'all' && !isWithinInterval(orderDate, { start: periodStart, end: periodEnd })) {
+        return false;
+      }
+      
+      // Custom date range filter
+      if (dateFrom) {
+        const fromDate = startOfDay(parseISO(dateFrom));
+        if (orderDate < fromDate) return false;
+      }
+      if (dateTo) {
+        const toDate = endOfDay(parseISO(dateTo));
+        if (orderDate > toDate) return false;
+      }
+      
+      // Search term filter
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        return (
+          order.customer_name.toLowerCase().includes(term) ||
+          order.customer_email.toLowerCase().includes(term) ||
+          (order.customer_phone && order.customer_phone.includes(term)) ||
+          order.product_name.toLowerCase().includes(term) ||
+          order.street.toLowerCase().includes(term) ||
+          order.id.toLowerCase().includes(term)
+        );
+      }
+      
+      return true;
+    });
+  }, [orders, searchTerm, dateFrom, dateTo, timePeriod]);
+
+  // Calculate chart data based on filtered orders
+  const chartData = useMemo(() => {
+    const productData: Record<string, { count: number; monthly: number; oneTime: number }> = {};
+    
+    filteredOrders.forEach(order => {
+      if (!productData[order.product_name]) {
+        productData[order.product_name] = { count: 0, monthly: 0, oneTime: 0 };
+      }
+      productData[order.product_name].count++;
+      productData[order.product_name].monthly += order.monthly_total || 0;
+      productData[order.product_name].oneTime += (order.one_time_total || 0) + (order.setup_fee || 0);
+    });
+
+    return Object.entries(productData).map(([name, data]) => ({
+      name: name.length > 15 ? name.substring(0, 15) + '...' : name,
+      fullName: name,
+      Bestellungen: data.count,
+      'Monatl. Umsatz': Math.round(data.monthly * 100) / 100,
+      'Einm. Umsatz': Math.round(data.oneTime * 100) / 100,
+    }));
+  }, [filteredOrders]);
+
+  // Calculate totals for filtered orders
+  const filteredTotals = useMemo(() => {
+    let monthly = 0, oneTime = 0;
+    filteredOrders.forEach(order => {
+      monthly += order.monthly_total || 0;
+      oneTime += (order.one_time_total || 0) + (order.setup_fee || 0);
+    });
+    return { monthly, oneTime, count: filteredOrders.length };
+  }, [filteredOrders]);
+
+  const exportToCSV = () => {
+    const headers = [
+      'Bestellnummer',
+      'Datum',
+      'Kunde',
+      'E-Mail',
+      'Telefon',
+      'Straße',
+      'Hausnummer',
+      'Stadt',
+      'Tarif',
+      'Monatlich',
+      'Einmalig',
+      'Bereitstellung',
+      'Status',
+      'Aktionscode'
+    ];
+    
+    const rows = filteredOrders.map(order => [
+      `COM-${order.id.slice(0, 8).toUpperCase()}`,
+      format(new Date(order.created_at), 'dd.MM.yyyy HH:mm'),
+      order.customer_name,
+      order.customer_email,
+      order.customer_phone || '',
+      order.street,
+      order.house_number,
+      order.city,
+      order.product_name,
+      order.monthly_total.toFixed(2).replace('.', ','),
+      order.one_time_total.toFixed(2).replace('.', ','),
+      order.setup_fee.toFixed(2).replace('.', ','),
+      order.status,
+      order.promo_code || ''
+    ]);
+
+    const csvContent = [
+      headers.join(';'),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(';'))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `bestellungen_export_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: 'Export erfolgreich',
+      description: `${filteredOrders.length} Bestellungen exportiert.`,
+    });
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -417,13 +523,13 @@ export const OrdersManager = () => {
     }
   };
 
-  // Get order count based on selected time period
   const getOrderCountForPeriod = () => {
     switch (timePeriod) {
       case 'today': return stats.today;
       case 'week': return stats.week;
       case 'month': return stats.month;
       case 'quarter': return stats.quarter;
+      case 'year': return stats.year;
       default: return stats.total;
     }
   };
@@ -434,6 +540,7 @@ export const OrdersManager = () => {
       case 'week': return 'Diese Woche';
       case 'month': return 'Dieser Monat';
       case 'quarter': return 'Dieses Quartal';
+      case 'year': return 'Dieses Jahr';
       default: return 'Gesamt';
     }
   };
@@ -442,7 +549,7 @@ export const OrdersManager = () => {
     <div className="space-y-6">
       {/* Time Period Filter */}
       <div className="flex gap-2 flex-wrap">
-        {(['all', 'quarter', 'month', 'week', 'today'] as TimePeriod[]).map((period) => (
+        {(['all', 'year', 'quarter', 'month', 'week', 'today'] as TimePeriod[]).map((period) => (
           <Button
             key={period}
             variant={timePeriod === period ? "default" : "outline"}
@@ -450,6 +557,7 @@ export const OrdersManager = () => {
             onClick={() => setTimePeriod(period)}
           >
             {period === 'all' ? 'Gesamt' : 
+             period === 'year' ? 'Jahr' :
              period === 'quarter' ? 'Quartal' : 
              period === 'month' ? 'Monat' : 
              period === 'week' ? 'Woche' : 'Tag'}
@@ -458,16 +566,16 @@ export const OrdersManager = () => {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <ShoppingCart className="w-4 h-4" />
-              Bestellungen ({getPeriodLabel()})
+              {getPeriodLabel()}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{getOrderCountForPeriod()}</div>
+            <div className="text-3xl font-bold">{filteredTotals.count}</div>
           </CardContent>
         </Card>
         
@@ -494,17 +602,29 @@ export const OrdersManager = () => {
             <div className="text-3xl font-bold text-accent">{stats.lastHour}</div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Gesamt
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{stats.total}</div>
+          </CardContent>
+        </Card>
         
         <Card className="bg-primary/5 border-primary/20">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
-              Monatl. Umsatz (Gesamt)
+              Monatl. ({getPeriodLabel()})
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">
-              {stats.totalMonthlyRevenue.toFixed(2).replace('.', ',')} €
+            <div className="text-xl font-bold text-primary">
+              {filteredTotals.monthly.toFixed(2).replace('.', ',')} €
             </div>
           </CardContent>
         </Card>
@@ -513,16 +633,68 @@ export const OrdersManager = () => {
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
-              Einmal. Umsatz (Gesamt)
+              Einmal. ({getPeriodLabel()})
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-accent">
-              {stats.totalOneTimeRevenue.toFixed(2).replace('.', ',')} €
+            <div className="text-xl font-bold text-accent">
+              {filteredTotals.oneTime.toFixed(2).replace('.', ',')} €
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Chart Section */}
+      {chartData.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" />
+                Bestellungen nach Tarif ({getPeriodLabel()})
+              </CardTitle>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowChart(!showChart)}
+              >
+                {showChart ? 'Ausblenden' : 'Anzeigen'}
+              </Button>
+            </div>
+          </CardHeader>
+          {showChart && (
+            <CardContent>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis 
+                      dataKey="name" 
+                      angle={-45} 
+                      textAnchor="end" 
+                      height={80}
+                      tick={{ fontSize: 12 }}
+                      className="fill-muted-foreground"
+                    />
+                    <YAxis className="fill-muted-foreground" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                      labelFormatter={(label) => chartData.find(d => d.name === label)?.fullName || label}
+                    />
+                    <Legend />
+                    <Bar dataKey="Bestellungen" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Monatl. Umsatz" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       {/* Orders by Product Breakdown */}
       {stats.byProduct.length > 0 && (
@@ -530,7 +702,7 @@ export const OrdersManager = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Bestellungen nach Tarif
+              Bestellungen nach Tarif ({getPeriodLabel()})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -555,19 +727,28 @@ export const OrdersManager = () => {
                 {showArchived ? 'Archivierte Bestellungen' : 'Bestellungen'}
               </CardTitle>
               <CardDescription>
-                Alle eingegangenen Bestellungen mit VZF-Rekonstruktion.
+                {filteredTotals.count} Bestellungen im ausgewählten Zeitraum
               </CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportToCSV}
+                disabled={filteredOrders.length === 0}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                CSV Export
+              </Button>
               <Button 
                 variant={showArchived ? "default" : "outline"} 
                 size="sm" 
                 onClick={() => setShowArchived(!showArchived)}
               >
                 {showArchived ? <ArchiveRestore className="w-4 h-4 mr-2" /> : <Archive className="w-4 h-4 mr-2" />}
-                {showArchived ? 'Aktive anzeigen' : 'Archiv anzeigen'}
+                {showArchived ? 'Aktive' : 'Archiv'}
               </Button>
-              <Button variant="outline" size="sm" onClick={() => { fetchOrders(); fetchStats(); }}>
+              <Button variant="outline" size="sm" onClick={fetchOrders}>
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Aktualisieren
               </Button>
@@ -575,15 +756,45 @@ export const OrdersManager = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
+          {/* Search and Date Filters */}
+          <div className="mb-4 space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Suchen nach Name, E-Mail, Telefon, Tarif..."
+                placeholder="Suchen nach Name, E-Mail, Telefon, Adresse, Tarif..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
+            </div>
+            <div className="flex gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Von:</span>
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-40"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Bis:</span>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="w-40"
+                />
+              </div>
+              {(dateFrom || dateTo) && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => { setDateFrom(''); setDateTo(''); }}
+                >
+                  Filter zurücksetzen
+                </Button>
+              )}
             </div>
           </div>
 
