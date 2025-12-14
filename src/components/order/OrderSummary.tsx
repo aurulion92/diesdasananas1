@@ -686,7 +686,7 @@ export function OrderSummary() {
                   <h4 className="font-bold text-primary">{selectedTariff?.name}</h4>
                   <p className="text-muted-foreground mt-1">{selectedTariff?.speed} • {isFiberBasic ? contractDuration : 24} Monate Laufzeit</p>
                   {isFiberBasic && (
-                    <p className="text-xs text-success mt-1">✓ Telefon inklusive</p>
+                    <p className="text-xs text-success mt-1">✓ Telefonie-Flat ins dt. Festnetz inklusive</p>
                   )}
                 </div>
                 <p className="font-bold text-accent text-lg">

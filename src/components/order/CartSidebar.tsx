@@ -166,7 +166,7 @@ export function CartSidebar() {
                   </p>
                 </div>
                 {isFiberBasic && (
-                  <p className="text-xs text-success mt-1">✓ Telefon inklusive</p>
+                  <p className="text-xs text-success mt-1">✓ Telefonie-Flat ins dt. Festnetz inklusive</p>
                 )}
               </div>
             </div>
