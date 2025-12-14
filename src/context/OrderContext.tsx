@@ -200,7 +200,33 @@ const OrderContext = createContext<OrderContextType | undefined>(undefined);
 export const OrderProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<OrderState>(initialState);
 
-  const setStep = (step: number) => setState(prev => ({ ...prev, step }));
+  const resetTariffSelections = () => ({
+    selectedTariff: null,
+    selectedRouter: null,
+    tvSelection: initialTvSelection,
+    phoneSelection: initialPhoneSelection,
+    selectedAddons: [],
+    contractDuration: 24 as const,
+    expressActivation: false,
+    referralData: initialReferralData,
+    appliedPromoCode: null,
+    promoCodeError: null,
+    vzfDownloaded: false,
+    vzfConfirmed: false,
+  });
+
+  const setStep = (step: number) => setState(prev => {
+    // When navigating back to step 1 or 2, reset tariff-related selections
+    // but keep personal data (customerData, bankData, preferredDate, apartmentData)
+    if (step < prev.step && step <= 2) {
+      return { 
+        ...prev, 
+        step,
+        ...resetTariffSelections(),
+      };
+    }
+    return { ...prev, step };
+  });
   
   const setAddress = (address: AddressData) => {
     setState(prev => ({ 
