@@ -911,12 +911,14 @@ export function TariffSelection() {
                                     waipuStickPrice: checked === true ? (stickMapping.option.one_time_price ?? 59.99) : undefined
                                   })}
                                 />
-                                {/* Image thumbnail */}
-                                {stickMapping.option.image_url && (
-                                  <img 
-                                    src={stickMapping.option.image_url} 
+                                {/* Image thumbnail with gallery */}
+                                {(stickMapping.option.image_urls?.length > 0 || stickMapping.option.image_url) && (
+                                  <ImageGalleryDialog
+                                    images={stickMapping.option.image_urls?.length > 0 
+                                      ? stickMapping.option.image_urls 
+                                      : [stickMapping.option.image_url!]}
                                     alt={stickMapping.option.name}
-                                    className="w-12 h-12 object-contain rounded"
+                                    triggerClassName="w-12 h-12 object-contain rounded cursor-pointer hover:opacity-80 transition-opacity"
                                   />
                                 )}
                                 <Label htmlFor={stickMapping.option.slug} className="cursor-pointer flex-1">
