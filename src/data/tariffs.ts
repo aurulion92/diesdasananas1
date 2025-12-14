@@ -16,6 +16,7 @@ export interface TariffOption {
 
 export interface TariffAddon {
   id: string;
+  databaseId?: string; // UUID from database for promotion matching
   name: string;
   description: string;
   monthlyPrice: number;
