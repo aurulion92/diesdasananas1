@@ -1,7 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-// @ts-ignore - jspdf works in Deno
-import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +14,7 @@ interface OrderEmailRequest {
   customerLastName?: string;
   customerPhone?: string;
   salutation?: string;
-  vzfHtml: string;
+  vzfHtml: string; // VZF HTML content (pre-rendered from frontend with template)
   vzfData?: {
     tariffName?: string;
     tariffPrice?: number;
@@ -31,133 +29,6 @@ interface OrderEmailRequest {
   };
 }
 
-// Generate a PDF from VZF data
-function generateVZFPdf(vzfData: OrderEmailRequest['vzfData'], customerName: string, orderId: string): Uint8Array {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  let y = 20;
-  const lineHeight = 7;
-  const margin = 20;
-  
-  // Helper to add text with word wrap
-  const addText = (text: string, fontSize = 10, isBold = false) => {
-    doc.setFontSize(fontSize);
-    if (isBold) {
-      doc.setFont("helvetica", "bold");
-    } else {
-      doc.setFont("helvetica", "normal");
-    }
-    
-    const lines = doc.splitTextToSize(text, pageWidth - 2 * margin);
-    for (const line of lines) {
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
-      doc.text(line, margin, y);
-      y += lineHeight;
-    }
-  };
-  
-  const addLine = () => {
-    y += 3;
-    doc.setDrawColor(200, 200, 200);
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 6;
-  };
-  
-  // Header
-  doc.setFillColor(0, 51, 102); // COM-IN blue #003366
-  doc.rect(0, 0, pageWidth, 35, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.text("Vertragszusammenfassung (VZF)", margin, 22);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text(`Bestellnummer: ${orderId.substring(0, 8).toUpperCase()}`, margin, 30);
-  
-  // Reset for body
-  doc.setTextColor(0, 0, 0);
-  y = 50;
-  
-  // Customer info
-  addText("Kundendaten", 12, true);
-  y += 2;
-  addText(`Name: ${customerName}`);
-  if (vzfData?.street) {
-    addText(`Adresse: ${vzfData.street} ${vzfData.houseNumber || ''}, ${vzfData.city || ''}`);
-  }
-  
-  addLine();
-  
-  // Tariff info
-  addText("Gewählter Tarif", 12, true);
-  y += 2;
-  if (vzfData?.tariffName) {
-    addText(`Tarif: ${vzfData.tariffName}`);
-    addText(`Monatlicher Preis: ${vzfData.tariffPrice?.toFixed(2) || '0,00'} EUR`);
-  }
-  if (vzfData?.contractDuration) {
-    addText(`Vertragslaufzeit: ${vzfData.contractDuration} Monate`);
-  }
-  
-  // Options
-  if (vzfData?.selectedOptions && vzfData.selectedOptions.length > 0) {
-    addLine();
-    addText("Zusatzoptionen", 12, true);
-    y += 2;
-    for (const opt of vzfData.selectedOptions) {
-      let optText = `• ${opt.name}`;
-      if (opt.monthlyPrice && opt.monthlyPrice > 0) {
-        optText += ` (${opt.monthlyPrice.toFixed(2)} EUR/Monat)`;
-      } else if (opt.oneTimePrice && opt.oneTimePrice > 0) {
-        optText += ` (${opt.oneTimePrice.toFixed(2)} EUR einmalig)`;
-      }
-      addText(optText);
-    }
-  }
-  
-  addLine();
-  
-  // Pricing summary
-  addText("Kostenübersicht", 12, true);
-  y += 2;
-  
-  doc.setFillColor(245, 246, 248);
-  doc.rect(margin, y - 4, pageWidth - 2 * margin, 28, 'F');
-  
-  addText(`Monatliche Kosten gesamt: ${vzfData?.monthlyTotal?.toFixed(2) || '0,00'} EUR`);
-  addText(`Einmalige Kosten gesamt: ${vzfData?.oneTimeTotal?.toFixed(2) || '0,00'} EUR`);
-  if (vzfData?.setupFee) {
-    addText(`(inkl. Bereitstellungspreis: ${vzfData.setupFee.toFixed(2)} EUR)`);
-  }
-  
-  y += 10;
-  addLine();
-  
-  // Legal info
-  addText("Wichtige Hinweise", 12, true);
-  y += 2;
-  addText("• Der Vertrag beginnt mit der Aktivierung des Anschlusses.", 9);
-  addText("• Die Mindestvertragslaufzeit beginnt ab dem Aktivierungsdatum.", 9);
-  addText("• Eine Kündigung ist zum Ende der Vertragslaufzeit mit einer Frist von 1 Monat möglich.", 9);
-  addText("• Nach Ablauf der Mindestvertragslaufzeit verlängert sich der Vertrag auf unbestimmte Zeit", 9);
-  addText("  und kann mit einer Frist von 1 Monat gekündigt werden.", 9);
-  
-  y += 10;
-  
-  // Footer
-  doc.setFontSize(8);
-  doc.setTextColor(100, 100, 100);
-  const date = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  doc.text(`Erstellt am: ${date}`, margin, 280);
-  doc.text("Dies ist eine automatisch generierte Vertragszusammenfassung.", margin, 285);
-  
-  // Return as Uint8Array
-  return doc.output('arraybuffer') as unknown as Uint8Array;
-}
-
 // Render template with placeholders
 function renderEmailTemplate(template: string, data: Record<string, string>): string {
   let result = template;
@@ -166,6 +37,102 @@ function renderEmailTemplate(template: string, data: Record<string, string>): st
     result = result.replace(regex, value || '');
   }
   return result;
+}
+
+// Convert HTML to PDF using html2pdf.app API
+async function htmlToPdf(html: string): Promise<Uint8Array | null> {
+  try {
+    console.log("Converting HTML to PDF via html2pdf.app...");
+    
+    const response = await fetch("https://api.html2pdf.app/v1/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        html: html,
+        apiKey: "free", // Free tier
+        format: "A4",
+        marginTop: 0,
+        marginBottom: 0,
+        marginLeft: 0,
+        marginRight: 0,
+      }),
+    });
+
+    if (!response.ok) {
+      console.log("html2pdf.app service unavailable, status:", response.status);
+      return null;
+    }
+
+    const pdfBuffer = await response.arrayBuffer();
+    console.log("PDF generated successfully, size:", pdfBuffer.byteLength);
+    return new Uint8Array(pdfBuffer);
+  } catch (error) {
+    console.error("PDF conversion failed:", error);
+    return null;
+  }
+}
+
+// Fallback: Generate simple PDF from VZF data using text-based approach
+function generateFallbackPdf(vzfData: OrderEmailRequest['vzfData'], customerName: string, orderId: string): Uint8Array {
+  // Create a simple text-based PDF structure
+  // This is a minimal PDF that should work as fallback
+  const date = new Date().toLocaleDateString('de-DE');
+  const content = `
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 500 >>
+stream
+BT
+/F1 16 Tf
+50 780 Td
+(Vertragszusammenfassung - VZF) Tj
+/F1 12 Tf
+0 -30 Td
+(Bestellnummer: ${orderId.substring(0, 8).toUpperCase()}) Tj
+0 -20 Td
+(Datum: ${date}) Tj
+0 -30 Td
+(Kunde: ${customerName}) Tj
+0 -20 Td
+(Tarif: ${vzfData?.tariffName || 'N/A'}) Tj
+0 -20 Td
+(Monatlich: ${vzfData?.monthlyTotal?.toFixed(2) || '0.00'} EUR) Tj
+0 -20 Td
+(Einmalig: ${vzfData?.oneTimeTotal?.toFixed(2) || '0.00'} EUR) Tj
+0 -40 Td
+(Diese Vertragszusammenfassung wurde automatisch erstellt.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000266 00000 n 
+0000000818 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+895
+%%EOF
+`;
+  return new TextEncoder().encode(content);
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -254,7 +221,7 @@ serve(async (req: Request): Promise<Response> => {
     // Build email content
     let emailHtml: string;
     if (templateData?.content) {
-      console.log("Using email template from database");
+      console.log("Using email template from database:", templateData.name);
       emailHtml = renderEmailTemplate(templateData.content, emailPlaceholders);
     } else {
       console.log("Using default email template");
@@ -290,21 +257,31 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log(`Sending email via ${emailSettings.smtp_host}:${emailSettings.smtp_port}`);
 
-    // Generate PDF from VZF data
-    console.log("Generating PDF attachment...");
+    // Generate PDF from VZF HTML (passed from frontend, already rendered with template)
+    console.log("Generating PDF from VZF HTML template...");
+    console.log("VZF HTML length:", vzfHtml?.length || 0);
+    
     let pdfBytes: Uint8Array;
-    try {
-      pdfBytes = generateVZFPdf(vzfData, customerName, orderId);
-      console.log("PDF generated successfully, size:", pdfBytes.length);
-    } catch (pdfError) {
-      console.error("PDF generation failed:", pdfError);
-      // Fall back to HTML attachment if PDF fails
-      const encoder = new TextEncoder();
-      pdfBytes = encoder.encode(vzfHtml);
+    
+    if (vzfHtml && vzfHtml.length > 100) {
+      // Try to convert the VZF HTML template to PDF
+      const convertedPdf = await htmlToPdf(vzfHtml);
+      
+      if (convertedPdf && convertedPdf.length > 100) {
+        pdfBytes = convertedPdf;
+        console.log("Successfully converted VZF template to PDF, size:", pdfBytes.length);
+      } else {
+        console.log("PDF conversion failed, using fallback");
+        pdfBytes = generateFallbackPdf(vzfData, customerName, orderId);
+      }
+    } else {
+      console.log("No VZF HTML provided, using fallback PDF");
+      pdfBytes = generateFallbackPdf(vzfData, customerName, orderId);
     }
 
     // Base64 encode PDF
-    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
+    const pdfBase64 = btoa(String.fromCharCode(...pdfBytes));
+    console.log("PDF base64 encoded, length:", pdfBase64.length);
 
     // Connect to SMTP server with STARTTLS
     const encoder = new TextEncoder();
@@ -438,7 +415,7 @@ serve(async (req: Request): Promise<Response> => {
       if (!response.startsWith("250")) {
         throw new Error("Email sending failed: " + response);
       }
-      console.log("Email sent successfully");
+      console.log("Email sent successfully with VZF PDF attachment");
 
       // QUIT
       await sendTlsCommand("QUIT");
@@ -452,7 +429,7 @@ serve(async (req: Request): Promise<Response> => {
     console.log(`Email sent successfully to ${customerEmail}`);
 
     return new Response(
-      JSON.stringify({ success: true, message: "E-Mail erfolgreich gesendet" }),
+      JSON.stringify({ success: true, message: "E-Mail mit VZF-PDF erfolgreich gesendet" }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
