@@ -919,7 +919,7 @@ export const OrdersManager = () => {
                       <TableRow key={order.id}>
                         <TableCell>
                           <div className="text-sm font-mono text-primary">
-                            COM-{order.id.slice(0, 8).toUpperCase()}
+                            {order.vzf_data?.orderNumber || `COM-${order.id.slice(0, 8).toUpperCase()}`}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {format(new Date(order.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
@@ -949,7 +949,7 @@ export const OrdersManager = () => {
                           <div className="font-medium">{order.monthly_total.toFixed(2)} €</div>
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">{(order.one_time_total + order.setup_fee).toFixed(2)} €</div>
+                          <div className="font-medium">{order.one_time_total.toFixed(2)} €</div>
                         </TableCell>
                         <TableCell>
                           {getStatusBadge(order.status)}
