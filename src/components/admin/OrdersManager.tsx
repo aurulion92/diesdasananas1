@@ -345,6 +345,8 @@ export const OrdersManager = () => {
             waipuStick: order.vzf_data.tvSelection?.waipuStick || false,
             phoneEnabled: order.vzf_data.phoneSelection?.enabled || false,
             phoneLines: order.vzf_data.phoneSelection?.lines || 0,
+            phonePrice: order.vzf_data.phoneSelection?.selectedOptionPrice || 0,
+            phoneName: order.vzf_data.phoneSelection?.selectedOptionName || undefined,
             routerDiscount: order.vzf_data.routerDiscount || 0,
             setupFee: order.vzf_data.setupFee || order.setup_fee,
             setupFeeWaived: order.vzf_data.setupFeeWaived || false,

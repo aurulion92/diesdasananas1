@@ -11,6 +11,8 @@ export interface VZFData {
   waipuStickPrice?: number; // Price from database for waipu 4K Stick
   phoneEnabled: boolean;
   phoneLines: number;
+  phonePrice: number; // Price per line from database
+  phoneName?: string; // Name of the phone option from database
   routerDiscount: number;
   setupFee: number;
   setupFeeWaived: boolean;
@@ -111,7 +113,7 @@ export function generateVZFContent(data: VZFData): string {
     (tvPackage?.monthlyPrice || 0) + 
     (tvHdAddon?.monthlyPrice || 0) +
     tvHardware.reduce((sum, h) => sum + (h.monthlyPrice || 0), 0);
-  const phoneMonthly = phoneEnabled && !isFiberBasic ? phoneLines * 2.95 : 0;
+  const phoneMonthly = phoneEnabled && !isFiberBasic ? phoneLines * (data.phonePrice || 0) : 0;
 
   const tariffSetup = setupFeeWaived ? 0 : setupFee;
   const expressSetup = expressActivation ? 200 : 0;

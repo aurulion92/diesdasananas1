@@ -618,9 +618,9 @@ export const OrderProvider = ({ children, initialCustomerType = 'pk' }: OrderPro
       total += hw.monthlyPrice;
     });
     
-    // Phone costs (only for non-FiberBasic tariffs)
+    // Phone costs - use selectedOptionPrice from database instead of hardcoded value
     if (state.phoneSelection.enabled && !state.selectedTariff?.includesPhone) {
-      total += state.phoneSelection.lines * 2.95; // 2.95€ per line
+      total += state.phoneSelection.lines * state.phoneSelection.selectedOptionPrice;
     }
     
     // Other addons (with quantity support)
