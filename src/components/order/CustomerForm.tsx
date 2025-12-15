@@ -169,6 +169,27 @@ export function CustomerForm() {
     }
   }, [phoneSelection.portingRequired, phoneSelection.portingData, cancelPreviousProvider, setCancelPreviousProvider, address]);
 
+  // Sync selectedProviderId when porting providers are loaded and porting data exists
+  useEffect(() => {
+    if (portingProviders.length > 0 && phoneSelection.portingData?.previousProvider) {
+      const providerName = phoneSelection.portingData.previousProvider;
+      // Find provider by display_name (case-insensitive match)
+      const matchedProvider = portingProviders.find(
+        p => p.display_name.toLowerCase() === providerName.toLowerCase()
+      );
+      if (matchedProvider && !matchedProvider.is_other) {
+        setSelectedProviderId(matchedProvider.id);
+      } else if (providerName) {
+        // Provider not in list - select "Sonstige" option and set custom name
+        const otherProvider = portingProviders.find(p => p.is_other);
+        if (otherProvider) {
+          setSelectedProviderId(otherProvider.id);
+          setCustomProviderName(providerName);
+        }
+      }
+    }
+  }, [portingProviders, phoneSelection.portingData?.previousProvider]);
+
   // Auto-fill connectionHolder and connectionAddress when cancel provider is enabled and fields are empty
   useEffect(() => {
     if (cancelPreviousProvider) {
