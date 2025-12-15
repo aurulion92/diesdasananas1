@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, Download } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface K7DataImportDialogProps {
@@ -23,7 +23,13 @@ interface ImportStats {
   matchedBuildings: number;
   newEntries: number;
   skippedRows: number;
+  unmatchedAddresses: Array<{ street: string; houseNum: string; plz: string; city: string }>;
   errors: string[];
+  debugInfo: {
+    separator: string;
+    headers: string[];
+    sampleRow: Record<string, string> | null;
+  };
 }
 
 export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps) {
@@ -34,9 +40,9 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
   const [statusMessage, setStatusMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const parseCSV = (text: string): Record<string, string>[] => {
+  const parseCSV = (text: string): { rows: Record<string, string>[]; separator: string; headers: string[] } => {
     const lines = text.split('\n');
-    if (lines.length < 2) return [];
+    if (lines.length < 2) return { rows: [], separator: ',', headers: [] };
     
     // Parse header - handle different separators (tab, semicolon, comma)
     let separator = ',';
@@ -46,7 +52,10 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
       separator = ';';
     }
     
+    console.log('CSV Separator detected:', separator === '\t' ? 'TAB' : separator);
+    
     const headers = lines[0].split(separator).map(h => h.trim().replace(/"/g, ''));
+    console.log('CSV Headers:', headers);
     
     const rows: Record<string, string>[] = [];
     for (let i = 1; i < lines.length; i++) {
@@ -63,7 +72,35 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
       rows.push(row);
     }
     
-    return rows;
+    return { rows, separator, headers };
+  };
+
+  const downloadUnmatchedAddresses = () => {
+    if (!stats?.unmatchedAddresses.length) return;
+    
+    // Get unique addresses
+    const uniqueAddresses = new Map<string, typeof stats.unmatchedAddresses[0]>();
+    for (const addr of stats.unmatchedAddresses) {
+      const key = `${addr.street}|${addr.houseNum}|${addr.plz}|${addr.city}`;
+      if (!uniqueAddresses.has(key)) {
+        uniqueAddresses.set(key, addr);
+      }
+    }
+    
+    const csvContent = [
+      'Straße;Hausnummer;PLZ;Ort',
+      ...Array.from(uniqueAddresses.values()).map(a => 
+        `${a.street};${a.houseNum};${a.plz};${a.city}`
+      )
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'nicht_gematchte_adressen.csv';
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,11 +120,14 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
 
     try {
       const text = await file.text();
-      const rows = parseCSV(text);
+      const { rows, separator, headers } = parseCSV(text);
       
       if (rows.length === 0) {
         throw new Error('Keine Daten in der Datei gefunden');
       }
+
+      // Log first row for debugging
+      console.log('First CSV row:', rows[0]);
 
       setStatusMessage(`${rows.length.toLocaleString()} Zeilen gefunden. Lade Gebäude...`);
       
@@ -98,11 +138,13 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
 
       if (buildingsError) throw buildingsError;
 
+      console.log(`Loaded ${buildings?.length || 0} buildings from database`);
+
       // Create lookup map by normalized address (street + house_number + postal_code/city)
       const buildingLookup = new Map<string, { id: string; gebaeude_id_k7: string | null }>();
+      const normalizeStr = (s: string) => s?.toLowerCase().trim().replace(/\s+/g, ' ') || '';
+      
       for (const building of buildings || []) {
-        // Create multiple keys for flexible matching
-        const normalizeStr = (s: string) => s?.toLowerCase().trim().replace(/\s+/g, ' ') || '';
         const street = normalizeStr(building.street);
         const houseNum = normalizeStr(building.house_number);
         const plz = building.postal_code?.trim() || '';
@@ -118,14 +160,20 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
         buildingLookup.set(keyWithCity, { id: building.id, gebaeude_id_k7: building.gebaeude_id_k7 });
       }
 
-      setStatusMessage(`${buildingLookup.size} Gebäude geladen. Verarbeite Daten...`);
+      setStatusMessage(`${buildingLookup.size} Gebäude-Keys geladen. Verarbeite Daten...`);
 
       const importStats: ImportStats = {
         totalRows: rows.length,
         matchedBuildings: 0,
         newEntries: 0,
         skippedRows: 0,
-        errors: []
+        unmatchedAddresses: [],
+        errors: [],
+        debugInfo: {
+          separator: separator === '\t' ? 'TAB' : separator,
+          headers,
+          sampleRow: rows[0] || null
+        }
       };
 
       // Process rows and match to buildings
@@ -140,15 +188,21 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
       }> = [];
 
       const matchedBuildingIds = new Set<string>();
+      const seenUnmatchedAddresses = new Set<string>();
       
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         
         // Get address fields from CSV (handle different column name cases)
-        const street = (row['STRASSE'] || row['Strasse'] || row['strasse'] || '').toLowerCase().trim().replace(/\s+/g, ' ');
-        const houseNum = (row['HAUSNUMMER'] || row['Hausnummer'] || row['hausnummer'] || row['HAUSNUMME'] || '').toLowerCase().trim();
-        const plz = (row['PLZ'] || row['Plz'] || row['plz'] || '').trim();
-        const city = (row['ORT'] || row['Ort'] || row['ort'] || row['TEILORT_NAME'] || '').toLowerCase().trim().replace(/\s+/g, ' ');
+        const streetRaw = row['STRASSE'] || row['Strasse'] || row['strasse'] || '';
+        const houseNumRaw = row['HAUSNUMMER'] || row['Hausnummer'] || row['hausnummer'] || row['HAUSNUMME'] || '';
+        const plzRaw = row['PLZ'] || row['Plz'] || row['plz'] || '';
+        const cityRaw = row['ORT'] || row['Ort'] || row['ort'] || row['TEILORT_NAME'] || '';
+
+        const street = normalizeStr(streetRaw);
+        const houseNum = normalizeStr(houseNumRaw);
+        const plz = plzRaw.trim();
+        const city = normalizeStr(cityRaw);
 
         if (!street || !houseNum) {
           importStats.skippedRows++;
@@ -157,12 +211,13 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
 
         // Try to find building - first by PLZ, then by city
         let building = null;
+        const keyWithPlz = `${street}|${houseNum}|${plz}`;
+        const keyWithCity = `${street}|${houseNum}|${city}`;
+        
         if (plz) {
-          const keyWithPlz = `${street}|${houseNum}|${plz}`;
           building = buildingLookup.get(keyWithPlz);
         }
         if (!building && city) {
-          const keyWithCity = `${street}|${houseNum}|${city}`;
           building = buildingLookup.get(keyWithCity);
         }
 
@@ -191,6 +246,18 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
           });
         } else {
           importStats.skippedRows++;
+          
+          // Track unmatched addresses (limit to first 1000 unique addresses for memory)
+          const addrKey = `${street}|${houseNum}|${plz}|${city}`;
+          if (!seenUnmatchedAddresses.has(addrKey) && importStats.unmatchedAddresses.length < 1000) {
+            seenUnmatchedAddresses.add(addrKey);
+            importStats.unmatchedAddresses.push({
+              street: streetRaw.trim(),
+              houseNum: houseNumRaw.trim(),
+              plz: plz,
+              city: cityRaw.trim()
+            });
+          }
         }
 
         // Update progress every 10000 rows
@@ -201,6 +268,9 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
       }
 
       importStats.matchedBuildings = matchedBuildingIds.size;
+
+      console.log(`Matched ${matchedBuildingIds.size} buildings, ${entriesToInsert.length} entries to insert`);
+      console.log('Sample unmatched addresses:', importStats.unmatchedAddresses.slice(0, 5));
 
       setStatusMessage(`Prüfe auf bereits vorhandene Einträge...`);
 
@@ -366,6 +436,16 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
               <CheckCircle className="h-5 w-5" />
               <span className="font-medium">Import abgeschlossen</span>
             </div>
+            
+            {/* Debug Info */}
+            <div className="text-xs bg-muted p-2 rounded space-y-1">
+              <p><strong>Separator:</strong> {stats.debugInfo.separator}</p>
+              <p><strong>Spalten:</strong> {stats.debugInfo.headers.join(', ')}</p>
+              {stats.debugInfo.sampleRow && (
+                <p><strong>Erste Zeile STRASSE:</strong> "{stats.debugInfo.sampleRow['STRASSE'] || stats.debugInfo.sampleRow['Strasse'] || 'nicht gefunden'}"</p>
+              )}
+            </div>
+            
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground">Gesamte Zeilen:</span>
@@ -384,6 +464,35 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
                 <span className="ml-2 font-medium text-muted-foreground">{stats.skippedRows.toLocaleString()}</span>
               </div>
             </div>
+            
+            {/* Unmatched addresses preview */}
+            {stats.unmatchedAddresses.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-orange-600">
+                  {stats.unmatchedAddresses.length >= 1000 ? '1000+' : stats.unmatchedAddresses.length} nicht-gematchte Adressen (Beispiele):
+                </p>
+                <div className="text-xs bg-orange-50 dark:bg-orange-950/20 p-2 rounded max-h-32 overflow-y-auto">
+                  {stats.unmatchedAddresses.slice(0, 10).map((addr, i) => (
+                    <p key={i} className="text-orange-700 dark:text-orange-300">
+                      {addr.street} {addr.houseNum}, {addr.plz} {addr.city}
+                    </p>
+                  ))}
+                  {stats.unmatchedAddresses.length > 10 && (
+                    <p className="text-orange-500">...und weitere</p>
+                  )}
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={downloadUnmatchedAddresses}
+                  className="w-full"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Nicht-gematchte Adressen exportieren
+                </Button>
+              </div>
+            )}
+            
             {stats.errors.length > 0 && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
