@@ -546,7 +546,7 @@ export const OptionsManager = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="category">Kategorie *</Label>
                       <Select
@@ -560,6 +560,21 @@ export const OptionsManager = () => {
                           {CATEGORIES.map(cat => (
                             <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
                           ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="customer_type">Kundentyp *</Label>
+                      <Select
+                        value={formData.customer_type}
+                        onValueChange={(value) => setFormData({...formData, customer_type: value})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pk">Privatkunden (PK)</SelectItem>
+                          <SelectItem value="kmu">Geschäftskunden (KMU)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
