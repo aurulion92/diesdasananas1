@@ -89,7 +89,9 @@ export function OrderSummary() {
   // Check for FiberBasic by name since id is now UUID
   const isFiberBasic = selectedTariff?.name?.toLowerCase().includes('fiberbasic') || 
                        selectedTariff?.name?.toLowerCase().includes('fiber basic') || false;
-  const routerDiscount = getRouterDiscount();
+
+  // Use effective router discount from database promotions / promo codes (not legacy OrderContext logic)
+  const routerDiscount = getEffectiveRouterMonthlyDiscount();
   
   // Check if phone is booked (via tariff, phoneSelection, or phone option addon)
   const hasPhoneAddon = selectedAddons.some(addon => addon.category === 'phone');
