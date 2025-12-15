@@ -27,8 +27,11 @@ export interface TariffAddon {
   monthlyPrice: number;
   discountedPrice?: number; // Price with discount (for routers with einfach tariffs)
   oneTimePrice: number;
-  category: 'router' | 'phone' | 'tv' | 'tv-addon' | 'tv-hardware';
+  category: 'router' | 'phone' | 'tv' | 'tv-addon' | 'tv-hardware' | 'service' | 'express' | 'hardware';
   connectionType?: 'ftth' | 'fttb' | 'both'; // Which connection types this addon is available for
+  quantity?: number; // For quantitative options (e.g., 2x Telefon)
+  isQuantitative?: boolean; // Whether this option supports multiple quantities
+  maxQuantity?: number; // Maximum allowed quantity
 }
 
 // FTTH Tarife - "einfach Internet" Produkte von COM-IN (alle Tarife)

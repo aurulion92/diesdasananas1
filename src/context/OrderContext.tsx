@@ -623,9 +623,10 @@ export const OrderProvider = ({ children, initialCustomerType = 'pk' }: OrderPro
       total += state.phoneSelection.lines * 2.95; // 2.95€ per line
     }
     
-    // Other addons
+    // Other addons (with quantity support)
     state.selectedAddons.forEach(addon => {
-      total += addon.monthlyPrice;
+      const quantity = addon.quantity || 1;
+      total += addon.monthlyPrice * quantity;
     });
     
     return total;
@@ -661,9 +662,10 @@ export const OrderProvider = ({ children, initialCustomerType = 'pk' }: OrderPro
       total += state.expressOption?.oneTimePrice || 200.00;
     }
     
-    // Other addons
+    // Other addons (with quantity support)
     state.selectedAddons.forEach(addon => {
-      total += addon.oneTimePrice;
+      const quantity = addon.quantity || 1;
+      total += addon.oneTimePrice * quantity;
     });
     
     // Subtract referral bonus

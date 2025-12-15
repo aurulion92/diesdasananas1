@@ -534,12 +534,14 @@ export function OrderSummary() {
           selectedOptions: [
             ...(expressActivation ? [{
               name: 'Express-Anschaltung',
-              oneTimePrice: 200
+              oneTimePrice: 200,
+              quantity: 1
             }] : []),
             ...selectedAddons.map(addon => ({
               name: addon.name,
               monthlyPrice: addon.monthlyPrice,
               oneTimePrice: addon.oneTimePrice,
+              quantity: addon.quantity || 1,
             }))
           ]
         };
