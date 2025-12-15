@@ -56,6 +56,7 @@ interface VZFData {
     monthlyPrice?: number;
     oneTimePrice?: number;
     quantity?: number;
+    optionId?: string;
   }>;
   discounts?: Array<{
     name: string;
@@ -76,6 +77,12 @@ interface OrderEmailRequest {
   customerPhone?: string;
   salutation?: string;
   vzfData?: VZFData;
+}
+
+interface MissingK7Id {
+  type: string;
+  name: string;
+  id?: string;
 }
 
 // Render template with placeholders
@@ -99,6 +106,12 @@ function sanitizeText(text: string): string {
     .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
     .replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue')
     .replace(/ß/g, 'ss').replace(/€/g, 'EUR');
+}
+
+// Clean numeric ID (remove decimals)
+function cleanNumericId(value: string | null): string {
+  if (!value) return '';
+  return value.replace(/,\d+$/, '').replace(/\.\d+$/, '').trim();
 }
 
 // Fill Vertragszusammenfassung PDF
@@ -555,6 +568,329 @@ async function fetchPdfFromUrl(url: string): Promise<Uint8Array | null> {
   }
 }
 
+// Check for missing K7 IDs
+async function checkMissingK7Ids(
+  supabase: any,
+  orderId: string,
+  productId: string | null,
+  street: string,
+  houseNumber: string,
+  city: string,
+  selectedOptions: any[]
+): Promise<MissingK7Id[]> {
+  const missingIds: MissingK7Id[] = [];
+  
+  // Check product K7 ID
+  if (productId) {
+    const { data: product } = await supabase
+      .from('products')
+      .select('product_id_k7, name')
+      .eq('id', productId)
+      .single();
+    
+    if (product && !cleanNumericId(product.product_id_k7)) {
+      missingIds.push({ type: 'Produkt', name: product.name, id: productId });
+    }
+  }
+  
+  // Check building K7 ID
+  const { data: buildings } = await supabase
+    .from('buildings')
+    .select('id, gebaeude_id_k7, street, house_number')
+    .ilike('street', street)
+    .ilike('house_number', houseNumber)
+    .ilike('city', city)
+    .limit(1);
+  
+  if (buildings && buildings.length > 0) {
+    const building = buildings[0];
+    if (!cleanNumericId(building.gebaeude_id_k7)) {
+      missingIds.push({ type: 'Gebäude K7 ID', name: `${street} ${houseNumber}, ${city}`, id: building.id });
+    }
+    
+    // Check building K7 services (Vorleistungsprodukt)
+    const { data: k7Services } = await supabase
+      .from('building_k7_services')
+      .select('*')
+      .eq('building_id', building.id);
+    
+    if (!k7Services || k7Services.length === 0) {
+      missingIds.push({ type: 'Vorleistungsprodukt (K7 Services)', name: `${street} ${houseNumber}, ${city}`, id: building.id });
+    } else {
+      // Check if any K7 service has missing IDs
+      const hasCompleteK7 = k7Services.some((k7: any) => 
+        cleanNumericId(k7.leistungsprodukt_id) && cleanNumericId(k7.nt_dsl_bandbreite_id)
+      );
+      if (!hasCompleteK7) {
+        missingIds.push({ type: 'Vorleistungsprodukt IDs (leistungsprodukt_id/nt_dsl_bandbreite_id)', name: `${street} ${houseNumber}, ${city}` });
+      }
+    }
+  } else {
+    missingIds.push({ type: 'Gebäude nicht gefunden', name: `${street} ${houseNumber}, ${city}` });
+  }
+  
+  // Check option K7 IDs
+  for (const opt of selectedOptions || []) {
+    if (opt.optionId && productId) {
+      const { data: mapping } = await supabase
+        .from('product_option_mappings')
+        .select('option_id_k7')
+        .eq('option_id', opt.optionId)
+        .eq('product_id', productId)
+        .maybeSingle();
+      
+      if (!mapping?.option_id_k7 || !cleanNumericId(mapping.option_id_k7)) {
+        missingIds.push({ type: 'Option K7 ID', name: opt.name || 'Unbekannte Option', id: opt.optionId });
+      }
+    }
+  }
+  
+  return missingIds;
+}
+
+// Send fallback email to admin
+async function sendFallbackEmail(
+  emailSettings: any,
+  fallbackEmail: string,
+  orderId: string,
+  orderData: any,
+  missingK7Ids: MissingK7Id[],
+  vzfData: VZFData
+): Promise<void> {
+  const orderNumber = vzfData.orderNumber || `COMIN-${new Date().getFullYear()}-${orderId.substring(0, 4).toUpperCase()}`;
+  
+  // Build missing K7 IDs list HTML
+  const missingK7Html = missingK7Ids.map(m => 
+    `<li><strong>${m.type}:</strong> ${m.name}${m.id ? ` (ID: ${m.id})` : ''}</li>`
+  ).join('\n');
+  
+  // Build order details HTML
+  const emailHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        h1 { color: #c00; }
+        h2 { color: #003366; border-bottom: 1px solid #003366; padding-bottom: 5px; }
+        .warning { background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .warning h3 { color: #856404; margin-top: 0; }
+        table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f5f5f5; }
+        .section { margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 5px; }
+      </style>
+    </head>
+    <body>
+      <h1>⚠️ Neue Bestellung - Elektronische Verarbeitung nicht möglich</h1>
+      
+      <div class="warning">
+        <h3>Fehlende K7-IDs für XML-Generierung:</h3>
+        <ul>
+          ${missingK7Html}
+        </ul>
+        <p><em>Diese Bestellung kann nicht automatisch als XML für K7 verarbeitet werden und muss manuell bearbeitet werden.</em></p>
+      </div>
+      
+      <h2>Bestellnummer: ${orderNumber}</h2>
+      <p><strong>Bestelldatum:</strong> ${new Date().toLocaleDateString('de-DE')} ${new Date().toLocaleTimeString('de-DE')}</p>
+      
+      <div class="section">
+        <h3>👤 Kundendaten</h3>
+        <table>
+          <tr><th>Name</th><td>${vzfData.salutation || ''} ${vzfData.customerFirstName || ''} ${vzfData.customerLastName || vzfData.customerName || ''}</td></tr>
+          <tr><th>E-Mail</th><td>${vzfData.customerEmail || ''}</td></tr>
+          <tr><th>Telefon</th><td>${vzfData.customerPhone || ''}</td></tr>
+        </table>
+      </div>
+      
+      <div class="section">
+        <h3>📍 Anschlussadresse</h3>
+        <table>
+          <tr><th>Straße</th><td>${vzfData.street || ''} ${vzfData.houseNumber || ''}</td></tr>
+          <tr><th>PLZ / Ort</th><td>${vzfData.postalCode || ''} ${vzfData.city || ''}</td></tr>
+          ${vzfData.floor ? `<tr><th>Etage</th><td>${vzfData.floor}</td></tr>` : ''}
+          ${vzfData.apartment ? `<tr><th>Wohnung</th><td>${vzfData.apartment}</td></tr>` : ''}
+        </table>
+      </div>
+      
+      <div class="section">
+        <h3>📦 Bestellte Produkte</h3>
+        <table>
+          <tr><th>Tarif</th><td>${vzfData.tariffName || ''}</td><td>${vzfData.tariffPrice ? formatCurrency(vzfData.tariffPrice) + '/Monat' : ''}</td></tr>
+          ${vzfData.routerName ? `<tr><th>Router</th><td>${vzfData.routerName}</td><td>${vzfData.routerMonthlyPrice ? formatCurrency(vzfData.routerMonthlyPrice) + '/Monat' : ''}</td></tr>` : ''}
+          ${vzfData.tvName ? `<tr><th>TV</th><td>${vzfData.tvName}</td><td>${vzfData.tvMonthlyPrice ? formatCurrency(vzfData.tvMonthlyPrice) + '/Monat' : ''}</td></tr>` : ''}
+          ${vzfData.phoneName ? `<tr><th>Telefon</th><td>${vzfData.phoneName} (${vzfData.phoneLines || 1} Leitung(en))</td><td>${vzfData.phoneMonthlyPrice ? formatCurrency(vzfData.phoneMonthlyPrice) + '/Monat' : ''}</td></tr>` : ''}
+        </table>
+        ${vzfData.selectedOptions && vzfData.selectedOptions.length > 0 ? `
+          <h4>Zusätzliche Optionen:</h4>
+          <table>
+            ${vzfData.selectedOptions.map(opt => `
+              <tr>
+                <td>${opt.quantity && opt.quantity > 1 ? opt.quantity + 'x ' : ''}${opt.name}</td>
+                <td>${opt.monthlyPrice ? formatCurrency(opt.monthlyPrice) + '/Monat' : ''}${opt.oneTimePrice ? formatCurrency(opt.oneTimePrice) + ' einmalig' : ''}</td>
+              </tr>
+            `).join('')}
+          </table>
+        ` : ''}
+      </div>
+      
+      <div class="section">
+        <h3>💰 Preiszusammenfassung</h3>
+        <table>
+          <tr><th>Monatlich gesamt</th><td><strong>${formatCurrency(vzfData.monthlyTotal || 0)}</strong></td></tr>
+          <tr><th>Einmalig gesamt</th><td><strong>${formatCurrency(vzfData.oneTimeTotal || 0)}</strong></td></tr>
+          <tr><th>Bereitstellungspreis</th><td>${formatCurrency(vzfData.setupFee || 0)}</td></tr>
+          <tr><th>Vertragslaufzeit</th><td>${vzfData.contractDuration || 24} Monate</td></tr>
+        </table>
+        ${vzfData.discounts && vzfData.discounts.length > 0 ? `
+          <h4>Angewandte Rabatte:</h4>
+          <ul>
+            ${vzfData.discounts.map(d => `<li>${d.name}: -${formatCurrency(d.amount)} (${d.type === 'monthly' ? 'monatlich' : 'einmalig'})</li>`).join('')}
+          </ul>
+        ` : ''}
+      </div>
+      
+      ${vzfData.phonePorting ? `
+        <div class="section">
+          <h3>📞 Rufnummernmitnahme</h3>
+          <table>
+            <tr><th>Bisheriger Anbieter</th><td>${vzfData.phonePortingProvider || ''}</td></tr>
+            <tr><th>Rufnummern</th><td>${vzfData.phonePortingNumbers?.join(', ') || ''}</td></tr>
+          </table>
+        </div>
+      ` : ''}
+      
+      ${vzfData.previousProvider ? `
+        <div class="section">
+          <h3>🔄 Anbieterwechsel</h3>
+          <table>
+            <tr><th>Bisheriger Anbieter</th><td>${vzfData.previousProvider}</td></tr>
+            <tr><th>Kündigung durch COM-IN</th><td>${vzfData.cancelPreviousProvider ? 'Ja' : 'Nein'}</td></tr>
+          </table>
+        </div>
+      ` : ''}
+      
+      <div class="section">
+        <h3>🏦 Bankverbindung</h3>
+        <table>
+          <tr><th>Kontoinhaber</th><td>${vzfData.bankAccountHolder || ''}</td></tr>
+          <tr><th>IBAN</th><td>${vzfData.bankIban || ''}</td></tr>
+        </table>
+      </div>
+      
+      <hr>
+      <p style="color: #666; font-size: 12px;">
+        Diese E-Mail wurde automatisch generiert, da die Bestellung nicht elektronisch über K7 verarbeitet werden kann.<br>
+        Bestellungs-ID: ${orderId}
+      </p>
+    </body>
+    </html>
+  `;
+  
+  const subjectText = `⚠️ Neue Bestellung - Elektronische Verarbeitung nicht möglich (${orderNumber})`;
+  const subjectEncoded = btoa(unescape(encodeURIComponent(subjectText)));
+  
+  const boundary = "----=_Fallback_" + Date.now().toString(36);
+  
+  console.log(`Sending fallback email to ${fallbackEmail}...`);
+  
+  const conn = await Deno.connect({
+    hostname: emailSettings.smtp_host,
+    port: parseInt(emailSettings.smtp_port) || 587,
+  });
+
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
+  const readResponse = async (): Promise<string> => {
+    const buffer = new Uint8Array(4096);
+    const n = await conn.read(buffer);
+    if (n === null) return "";
+    return decoder.decode(buffer.subarray(0, n));
+  };
+
+  const sendCommand = async (cmd: string): Promise<string> => {
+    await conn.write(encoder.encode(cmd + "\r\n"));
+    return await readResponse();
+  };
+
+  try {
+    await readResponse();
+    await sendCommand(`EHLO localhost`);
+    const tlsResponse = await sendCommand("STARTTLS");
+
+    if (!tlsResponse.startsWith("220")) {
+      throw new Error("STARTTLS not supported: " + tlsResponse);
+    }
+
+    const tlsConn = await Deno.startTls(conn, { hostname: emailSettings.smtp_host });
+
+    const readTlsResponse = async (): Promise<string> => {
+      const buffer = new Uint8Array(4096);
+      const n = await tlsConn.read(buffer);
+      if (n === null) return "";
+      return decoder.decode(buffer.subarray(0, n));
+    };
+
+    const sendTlsCommand = async (cmd: string): Promise<string> => {
+      await tlsConn.write(encoder.encode(cmd + "\r\n"));
+      return await readTlsResponse();
+    };
+
+    await sendTlsCommand(`EHLO localhost`);
+    let response = await sendTlsCommand("AUTH LOGIN");
+    
+    if (!response.startsWith("334")) throw new Error("AUTH LOGIN failed: " + response);
+    
+    response = await sendTlsCommand(btoa(emailSettings.smtp_user));
+    if (!response.startsWith("334")) throw new Error("Username rejected: " + response);
+    
+    response = await sendTlsCommand(btoa(emailSettings.smtp_password));
+    if (!response.startsWith("235")) throw new Error("Authentication failed: " + response);
+
+    response = await sendTlsCommand(`MAIL FROM:<${emailSettings.sender_email}>`);
+    if (!response.startsWith("250")) throw new Error("MAIL FROM failed: " + response);
+
+    response = await sendTlsCommand(`RCPT TO:<${fallbackEmail}>`);
+    if (!response.startsWith("250")) throw new Error("RCPT TO failed: " + response);
+
+    response = await sendTlsCommand("DATA");
+    if (!response.startsWith("354")) throw new Error("DATA command failed: " + response);
+
+    const emailContent = [
+      `From: ${emailSettings.sender_name} <${emailSettings.sender_email}>`,
+      `To: ${fallbackEmail}`,
+      `Subject: =?UTF-8?B?${subjectEncoded}?=`,
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/html; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      ``,
+      btoa(unescape(encodeURIComponent(emailHtml))),
+      ``,
+      `--${boundary}--`,
+      `.`,
+    ].join("\r\n");
+
+    await tlsConn.write(encoder.encode(emailContent + "\r\n"));
+    response = await readTlsResponse();
+    
+    if (!response.startsWith("250")) throw new Error("Email sending failed: " + response);
+    
+    console.log(`Fallback email sent successfully to ${fallbackEmail}`);
+
+    await sendTlsCommand("QUIT");
+    tlsConn.close();
+  } catch (error) {
+    conn.close();
+    throw error;
+  }
+}
+
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -592,6 +928,7 @@ serve(async (req: Request): Promise<Response> => {
       smtp_password: string;
       sender_email: string;
       sender_name: string;
+      fallback_order_email?: string;
     };
 
     if (!emailSettings.smtp_host || !emailSettings.smtp_user || !emailSettings.smtp_password || !emailSettings.sender_email) {
@@ -601,6 +938,13 @@ serve(async (req: Request): Promise<Response> => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Fetch order data for K7 check
+    const { data: orderData } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("id", orderId)
+      .single();
 
     // Fetch email template
     const { data: templateData } = await supabase
@@ -850,7 +1194,7 @@ serve(async (req: Request): Promise<Response> => {
       if (!response.startsWith("250")) throw new Error("Email sending failed: " + response);
       
       const attachmentCount = 2 + (agbPdfBytes ? 1 : 0) + (produktinfoPdfBytes ? 1 : 0);
-      console.log(`Email sent successfully with ${attachmentCount} PDF attachments`);
+      console.log(`Customer email sent successfully with ${attachmentCount} PDF attachments`);
 
       await sendTlsCommand("QUIT");
       tlsConn.close();
@@ -860,8 +1204,51 @@ serve(async (req: Request): Promise<Response> => {
       throw smtpError;
     }
 
+    // After customer email is sent, check for missing K7 IDs and send fallback if needed
+    let fallbackSent = false;
+    if (emailSettings.fallback_order_email && orderData) {
+      try {
+        console.log("Checking for missing K7 IDs...");
+        
+        // Get selected options with option IDs from vzfData
+        const selectedOptionsWithIds = vzfData?.selectedOptions || [];
+        
+        const missingK7Ids = await checkMissingK7Ids(
+          supabase,
+          orderId,
+          orderData.product_id,
+          orderData.street,
+          orderData.house_number,
+          orderData.city,
+          selectedOptionsWithIds
+        );
+        
+        if (missingK7Ids.length > 0) {
+          console.log(`Found ${missingK7Ids.length} missing K7 IDs:`, missingK7Ids);
+          
+          await sendFallbackEmail(
+            emailSettings,
+            emailSettings.fallback_order_email,
+            orderId,
+            orderData,
+            missingK7Ids,
+            fullVzfData
+          );
+          fallbackSent = true;
+        } else {
+          console.log("All K7 IDs are present, no fallback email needed");
+        }
+      } catch (fallbackError) {
+        console.error("Error checking/sending fallback email:", fallbackError);
+        // Don't fail the main response if fallback fails
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, message: `E-Mail mit PDF-Anhängen erfolgreich gesendet` }),
+      JSON.stringify({ 
+        success: true, 
+        message: `E-Mail mit PDF-Anhängen erfolgreich gesendet${fallbackSent ? ' (+ Fallback an Admin)' : ''}` 
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {

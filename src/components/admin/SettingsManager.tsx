@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff, Shield, Trash2, RefreshCw, Building2, Image } from 'lucide-react';
+import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff, Shield, Trash2, RefreshCw, Building2, Image, AlertTriangle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,7 @@ interface EmailSettings {
   sender_email: string;
   sender_name: string;
   use_ssl: boolean;
+  fallback_order_email: string;
 }
 
 interface DesignSettings {
@@ -124,6 +125,7 @@ const DEFAULT_EMAIL: EmailSettings = {
   sender_email: '',
   sender_name: 'COM-IN Glasfaser',
   use_ssl: true,
+  fallback_order_email: '',
 };
 
 const DEFAULT_RATE_LIMIT: RateLimitSettings = {
@@ -1077,6 +1079,27 @@ export const SettingsManager = () => {
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </Button>
                   </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4 mt-4">
+                <h4 className="font-medium mb-4 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-warning" />
+                  Fallback bei fehlenden K7-Daten
+                </h4>
+                <div className="space-y-2">
+                  <Label htmlFor="fallback_order_email">Fallback E-Mail-Adresse</Label>
+                  <Input
+                    id="fallback_order_email"
+                    type="email"
+                    value={emailSettings.fallback_order_email}
+                    onChange={(e) => setEmailSettings({ ...emailSettings, fallback_order_email: e.target.value })}
+                    placeholder="samuel.wunderle@comin-glasfaser.de"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    An diese Adresse werden Bestellungen gesendet, wenn K7-IDs für die XML-Generierung fehlen.
+                    Der Kunde erhält weiterhin seine normale Bestätigung.
+                  </p>
                 </div>
               </div>
 
