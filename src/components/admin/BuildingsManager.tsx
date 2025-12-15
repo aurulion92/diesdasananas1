@@ -40,6 +40,7 @@ import { ProductBuildingAssignment } from './ProductBuildingAssignment';
 import { PromotionBuildingAssignment } from './PromotionBuildingAssignment';
 import { BuildingK7ServicesManager } from './BuildingK7ServicesManager';
 import { K7DataImportDialog } from './K7DataImportDialog';
+import { K7ImportUndoButton } from './K7ImportUndoButton';
 
 interface Building {
   id: string;
@@ -417,6 +418,7 @@ export const BuildingsManager = () => {
               CSV Import
             </Button>
             <K7DataImportDialog onImportComplete={() => fetchBuildings(searchTerm)} />
+            <K7ImportUndoButton onUndoComplete={() => fetchBuildings(searchTerm)} />
             <Button variant="destructive" size="sm" onClick={deleteAllBuildings}>
               <Trash2 className="w-4 h-4 mr-2" />
               Alle löschen
