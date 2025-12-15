@@ -172,6 +172,10 @@ export function OrderSummary() {
           : selectedTariff.monthlyPrice,
         downloadSpeed: `${selectedTariff.downloadSpeed} Mbit/s`,
         uploadSpeed: `${selectedTariff.uploadSpeed} Mbit/s`,
+        downloadSpeedNormal: selectedTariff.downloadSpeedNormal ? `${selectedTariff.downloadSpeedNormal} Mbit/s` : undefined,
+        downloadSpeedMin: selectedTariff.downloadSpeedMin ? `${selectedTariff.downloadSpeedMin} Mbit/s` : undefined,
+        uploadSpeedNormal: selectedTariff.uploadSpeedNormal ? `${selectedTariff.uploadSpeedNormal} Mbit/s` : undefined,
+        uploadSpeedMin: selectedTariff.uploadSpeedMin ? `${selectedTariff.uploadSpeedMin} Mbit/s` : undefined,
         contractDuration: isFiberBasic ? contractDuration : 24,
         // Router
         routerName: selectedRouter?.id !== 'router-none' ? selectedRouter?.name : undefined,
@@ -486,6 +490,12 @@ export function OrderSummary() {
           tariffPrice: isFiberBasic && contractDuration === 12 
             ? selectedTariff.monthlyPrice12 || selectedTariff.monthlyPrice 
             : selectedTariff.monthlyPrice,
+          downloadSpeed: `${selectedTariff.downloadSpeed} Mbit/s`,
+          uploadSpeed: `${selectedTariff.uploadSpeed} Mbit/s`,
+          downloadSpeedNormal: selectedTariff.downloadSpeedNormal ? `${selectedTariff.downloadSpeedNormal} Mbit/s` : undefined,
+          downloadSpeedMin: selectedTariff.downloadSpeedMin ? `${selectedTariff.downloadSpeedMin} Mbit/s` : undefined,
+          uploadSpeedNormal: selectedTariff.uploadSpeedNormal ? `${selectedTariff.uploadSpeedNormal} Mbit/s` : undefined,
+          uploadSpeedMin: selectedTariff.uploadSpeedMin ? `${selectedTariff.uploadSpeedMin} Mbit/s` : undefined,
           monthlyTotal: getTotalMonthly(),
           oneTimeTotal: getTotalOneTime(),
           setupFee: getSetupFee(),

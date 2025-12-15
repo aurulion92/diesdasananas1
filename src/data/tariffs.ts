@@ -5,6 +5,10 @@ export interface TariffOption {
   speed: string;
   downloadSpeed: number;
   uploadSpeed: number;
+  downloadSpeedNormal?: number;
+  downloadSpeedMin?: number;
+  uploadSpeedNormal?: number;
+  uploadSpeedMin?: number;
   monthlyPrice: number;
   monthlyPrice12: number; // Price for 12-month contract
   setupFee: number;

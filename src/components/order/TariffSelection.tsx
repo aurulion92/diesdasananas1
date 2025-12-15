@@ -82,6 +82,10 @@ function dbProductToTariffOption(product: DatabaseProduct): TariffOption & {
     speed: speedNum > 0 ? `${speedNum} Mbit/s` : '',
     downloadSpeed: product.download_speed || 0,
     uploadSpeed: product.upload_speed || 0,
+    downloadSpeedNormal: product.download_speed_normal || undefined,
+    downloadSpeedMin: product.download_speed_min || undefined,
+    uploadSpeedNormal: product.upload_speed_normal || undefined,
+    uploadSpeedMin: product.upload_speed_min || undefined,
     monthlyPrice: product.monthly_price,
     monthlyPrice12: product.monthly_price * 1.4, // Approximate 12-month pricing
     setupFee: product.setup_fee,
