@@ -17,6 +17,30 @@ interface BankData {
   bic?: string;
 }
 
+// Abweichende Rechnungsadresse
+interface AlternateBillingAddress {
+  enabled: boolean;
+  salutation: string;
+  firstName: string;
+  lastName: string;
+  company?: string;
+  street: string;
+  houseNumber: string;
+  postalCode: string;
+  city: string;
+}
+
+// Abweichender Beitragszahler
+interface AlternatePaymentPerson {
+  enabled: boolean;
+  salutation: string;
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  email: string;
+  phone: string;
+}
+
 interface PhonePortingData {
   numberOfNumbers: number;
   phoneNumbers: string[];
@@ -25,6 +49,9 @@ interface PhonePortingData {
   connectionHolder: string; // Anschlussinhaber
   connectionAddress: string; // Anschlussadresse
   portingType: 'cancel_and_port' | 'port_only'; // Kündigung + Portierung ODER nur Portierung (bereits gekündigt)
+  // Abweichende Daten
+  hasDifferentHolder: boolean; // Abweichender Anschlussinhaber?
+  hasDifferentAddress: boolean; // Abweichende Anschlussadresse?
 }
 
 interface ApartmentData {
@@ -121,6 +148,9 @@ interface OrderState {
   vzfConfirmed: boolean;
   consentData: ConsentData;
   generatedOrderNumber: string | null;
+  // Abweichende Rechnungsadresse & Beitragszahler
+  alternateBillingAddress: AlternateBillingAddress;
+  alternatePaymentPerson: AlternatePaymentPerson;
 }
 
 interface OrderContextType extends OrderState {
@@ -149,6 +179,8 @@ interface OrderContextType extends OrderState {
   setVzfDownloaded: (downloaded: boolean) => void;
   setVzfConfirmed: (confirmed: boolean) => void;
   setConsentData: (data: ConsentData) => void;
+  setAlternateBillingAddress: (data: AlternateBillingAddress) => void;
+  setAlternatePaymentPerson: (data: AlternatePaymentPerson) => void;
   generateOrderNumber: () => string;
   getOrderNumber: () => string | null;
   getTotalMonthly: () => number;
@@ -199,6 +231,28 @@ const initialReferralData: ReferralData = {
   type: 'none',
 };
 
+const initialAlternateBillingAddress: AlternateBillingAddress = {
+  enabled: false,
+  salutation: '',
+  firstName: '',
+  lastName: '',
+  company: '',
+  street: '',
+  houseNumber: '',
+  postalCode: '',
+  city: '',
+};
+
+const initialAlternatePaymentPerson: AlternatePaymentPerson = {
+  enabled: false,
+  salutation: '',
+  firstName: '',
+  lastName: '',
+  birthDate: '',
+  email: '',
+  phone: '',
+};
+
 const initialState: OrderState = {
   step: 1,
   customerType: 'pk',
@@ -226,6 +280,8 @@ const initialState: OrderState = {
   vzfConfirmed: false,
   consentData: initialConsentData,
   generatedOrderNumber: null,
+  alternateBillingAddress: initialAlternateBillingAddress,
+  alternatePaymentPerson: initialAlternatePaymentPerson,
 };
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -378,6 +434,12 @@ export const OrderProvider = ({ children, initialCustomerType = 'pk' }: OrderPro
 
   const setReferralData = (referralData: ReferralData) =>
     setState(prev => ({ ...prev, referralData }));
+  
+  const setAlternateBillingAddress = (alternateBillingAddress: AlternateBillingAddress) =>
+    setState(prev => ({ ...prev, alternateBillingAddress }));
+  
+  const setAlternatePaymentPerson = (alternatePaymentPerson: AlternatePaymentPerson) =>
+    setState(prev => ({ ...prev, alternatePaymentPerson }));
 
   const validateReferralCustomerId = (customerId: string): boolean => {
     const normalizedId = customerId.toUpperCase().trim();
@@ -654,6 +716,8 @@ export const OrderProvider = ({ children, initialCustomerType = 'pk' }: OrderPro
       canNavigateToStep,
       isMFH,
       setConsentData,
+      setAlternateBillingAddress,
+      setAlternatePaymentPerson,
       hasPhoneBooked,
     }}>
       {children}

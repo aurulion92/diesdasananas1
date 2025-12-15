@@ -1106,6 +1106,8 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
                                   connectionHolder: '',
                                   connectionAddress: '',
                                   portingType: 'cancel_and_port',
+                                  hasDifferentHolder: false,
+                                  hasDifferentAddress: false,
                                 } : null,
                               })}
                             />
@@ -1147,39 +1149,81 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
                                 </RadioGroup>
                               </div>
 
-                              {/* Anschlussinhaber */}
-                              <div>
-                                <Label className="text-sm">Anschlussinhaber *</Label>
-                                <Input 
-                                  placeholder="Name des bisherigen Anschlussinhabers"
-                                  value={phoneSelection.portingData.connectionHolder}
-                                  onChange={(e) => setPhoneSelection({
+                              {/* Abweichender Anschlussinhaber Checkbox */}
+                              <div className="flex items-center space-x-3">
+                                <Checkbox 
+                                  id="different-holder" 
+                                  checked={phoneSelection.portingData.hasDifferentHolder}
+                                  onCheckedChange={(checked) => setPhoneSelection({
                                     ...phoneSelection,
                                     portingData: {
                                       ...phoneSelection.portingData!,
-                                      connectionHolder: e.target.value,
+                                      hasDifferentHolder: checked === true,
+                                      connectionHolder: checked ? phoneSelection.portingData!.connectionHolder : '',
                                     }
                                   })}
-                                  className="mt-1"
                                 />
+                                <Label htmlFor="different-holder" className="cursor-pointer text-sm">
+                                  Abweichender Anschlussinhaber
+                                </Label>
+                              </div>
+                              
+                              {/* Anschlussinhaber - nur wenn aktiviert */}
+                              {phoneSelection.portingData.hasDifferentHolder && (
+                                <div className="ml-6">
+                                  <Label className="text-sm">Anschlussinhaber *</Label>
+                                  <Input 
+                                    placeholder="Name des bisherigen Anschlussinhabers"
+                                    value={phoneSelection.portingData.connectionHolder}
+                                    onChange={(e) => setPhoneSelection({
+                                      ...phoneSelection,
+                                      portingData: {
+                                        ...phoneSelection.portingData!,
+                                        connectionHolder: e.target.value,
+                                      }
+                                    })}
+                                    className="mt-1"
+                                  />
+                                </div>
+                              )}
+                              
+                              {/* Abweichende Anschlussadresse Checkbox */}
+                              <div className="flex items-center space-x-3">
+                                <Checkbox 
+                                  id="different-address" 
+                                  checked={phoneSelection.portingData.hasDifferentAddress}
+                                  onCheckedChange={(checked) => setPhoneSelection({
+                                    ...phoneSelection,
+                                    portingData: {
+                                      ...phoneSelection.portingData!,
+                                      hasDifferentAddress: checked === true,
+                                      connectionAddress: checked ? phoneSelection.portingData!.connectionAddress : '',
+                                    }
+                                  })}
+                                />
+                                <Label htmlFor="different-address" className="cursor-pointer text-sm">
+                                  Abweichende Anschlussadresse
+                                </Label>
                               </div>
 
-                              {/* Anschlussadresse */}
-                              <div>
-                                <Label className="text-sm">Anschlussadresse *</Label>
-                                <Input 
-                                  placeholder="Adresse des bisherigen Anschlusses"
-                                  value={phoneSelection.portingData.connectionAddress}
-                                  onChange={(e) => setPhoneSelection({
-                                    ...phoneSelection,
-                                    portingData: {
-                                      ...phoneSelection.portingData!,
-                                      connectionAddress: e.target.value,
-                                    }
-                                  })}
-                                  className="mt-1"
-                                />
-                              </div>
+                              {/* Anschlussadresse - nur wenn aktiviert */}
+                              {phoneSelection.portingData.hasDifferentAddress && (
+                                <div className="ml-6">
+                                  <Label className="text-sm">Anschlussadresse *</Label>
+                                  <Input 
+                                    placeholder="Adresse des bisherigen Anschlusses"
+                                    value={phoneSelection.portingData.connectionAddress}
+                                    onChange={(e) => setPhoneSelection({
+                                      ...phoneSelection,
+                                      portingData: {
+                                        ...phoneSelection.portingData!,
+                                        connectionAddress: e.target.value,
+                                      }
+                                    })}
+                                    className="mt-1"
+                                  />
+                                </div>
+                              )}
 
                               {/* Bisheriger Anbieter - Select Dropdown */}
                               <div>
