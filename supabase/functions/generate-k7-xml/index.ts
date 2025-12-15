@@ -335,12 +335,6 @@ serve(async (req) => {
       console.log('KwK referral:', order.referral_customer_number);
     }
     
-    // Bemerkung zur Bestellung
-    if (orderNotes) {
-      userExtInfoXml += `
-        <ExtInfo5>${escapeXml(orderNotes)}</ExtInfo5>`;
-      console.log('Order notes:', orderNotes);
-    }
     
     userExtInfoXml += `
       </UserExtInfo>`;
@@ -547,7 +541,8 @@ serve(async (req) => {
         <LookupValue>${organisationsstufe}</LookupValue>
       </Organisationsstufe>
       <Name1>${escapeXml(lastName)}</Name1>
-      <Name2>${escapeXml(firstName)}</Name2>
+      <Name2>${escapeXml(firstName)}</Name2>${orderNotes ? `
+      <Bemerkung>${escapeXml(orderNotes)}</Bemerkung>` : ''}
       <Kundennummer AutoGenerate="true"/>
       <Versandpraeferenz>
         <LookupValue>${versandpraeferenz}</LookupValue>
