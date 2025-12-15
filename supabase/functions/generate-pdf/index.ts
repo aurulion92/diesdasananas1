@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
 
 const corsHeaders = {
@@ -7,33 +8,29 @@ const corsHeaders = {
 };
 
 interface VZFData {
-  orderNumber: string;
-  date: string;
-  // Customer data
-  customerName: string;
+  orderNumber?: string;
+  date?: string;
+  customerName?: string;
   customerFirstName?: string;
   customerLastName?: string;
   customerEmail?: string;
   customerPhone?: string;
   salutation?: string;
-  // Address
-  street: string;
-  houseNumber: string;
+  street?: string;
+  houseNumber?: string;
   apartment?: string;
   floor?: string;
-  city: string;
+  city?: string;
   postalCode?: string;
-  // Tariff
-  tariffName: string;
-  tariffPrice: number;
+  tariffName?: string;
+  tariffPrice?: number;
   downloadSpeed?: string;
   uploadSpeed?: string;
   downloadSpeedMin?: string;
   uploadSpeedMin?: string;
   downloadSpeedNormal?: string;
   uploadSpeedNormal?: string;
-  contractDuration: number;
-  // Options
+  contractDuration?: number;
   selectedOptions?: Array<{
     name: string;
     monthlyPrice?: number;
@@ -49,23 +46,18 @@ interface VZFData {
   phoneName?: string;
   phoneMonthlyPrice?: number;
   phoneLines?: number;
-  // Totals
-  monthlyTotal: number;
-  oneTimeTotal: number;
-  setupFee: number;
-  // Phone options
+  monthlyTotal?: number;
+  oneTimeTotal?: number;
+  setupFee?: number;
   phonePorting?: boolean;
   phonePortingProvider?: string;
   phonePortingNumbers?: string[];
   phoneBookEntry?: string;
   phoneEvn?: boolean;
-  // Bank
   bankAccountHolder?: string;
   bankIban?: string;
-  // Provider
   previousProvider?: string;
   cancelPreviousProvider?: boolean;
-  // Discounts
   discounts?: Array<{
     name: string;
     amount: number;
@@ -74,50 +66,153 @@ interface VZFData {
 }
 
 interface PDFRequest {
-  html?: string; // Legacy support
+  html?: string;
   filename?: string;
   vzfData?: VZFData;
 }
 
 // Helper to format currency
 function formatCurrency(amount: number): string {
-  return amount.toFixed(2).replace('.', ',') + ' EUR';
+  return amount.toFixed(2).replace('.', ',') + ' €';
 }
 
-// Helper to wrap text
-function wrapText(text: string, maxWidth: number, fontSize: number): string[] {
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let currentLine = '';
-  const avgCharWidth = fontSize * 0.5;
-  const maxChars = Math.floor(maxWidth / avgCharWidth);
-
-  for (const word of words) {
-    if ((currentLine + ' ' + word).trim().length <= maxChars) {
-      currentLine = (currentLine + ' ' + word).trim();
-    } else {
-      if (currentLine) lines.push(currentLine);
-      currentLine = word;
-    }
-  }
-  if (currentLine) lines.push(currentLine);
-  return lines;
+// Sanitize text for PDF (replace special chars that pdf-lib can't handle)
+function sanitizeText(text: string): string {
+  return text
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
+    .replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue')
+    .replace(/ß/g, 'ss').replace(/€/g, 'EUR');
 }
 
-async function generateVZFPdf(data: VZFData): Promise<Uint8Array> {
-  const pdfDoc = await PDFDocument.create();
-  
-  // Embed fonts
+// Try to fill form fields in template PDF
+async function fillTemplatePdf(templatePdfBytes: Uint8Array, data: VZFData): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.load(templatePdfBytes, { ignoreEncryption: true });
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   
-  // Colors
-  const primaryColor = rgb(0, 0.2, 0.4); // Dark blue
-  const textColor = rgb(0.2, 0.2, 0.2);
-  const lightGray = rgb(0.9, 0.9, 0.9);
-  const accentColor = rgb(0.93, 0.46, 0.05); // Orange
+  // Try to get form and fill fields
+  try {
+    const form = pdfDoc.getForm();
+    const fields = form.getFields();
+    
+    console.log(`Found ${fields.length} form fields in template`);
+    
+    // Map data to common field names
+    const fieldMappings: Record<string, string> = {
+      // Customer
+      'kunde_name': `${data.customerFirstName || ''} ${data.customerLastName || data.customerName || ''}`.trim(),
+      'kunde_vorname': data.customerFirstName || '',
+      'kunde_nachname': data.customerLastName || '',
+      'kunde_email': data.customerEmail || '',
+      'kunde_telefon': data.customerPhone || '',
+      'anrede': data.salutation || '',
+      // Address
+      'strasse': data.street || '',
+      'hausnummer': data.houseNumber || '',
+      'plz': data.postalCode || '',
+      'ort': data.city || '',
+      'adresse': `${data.street || ''} ${data.houseNumber || ''}, ${data.postalCode || ''} ${data.city || ''}`.trim(),
+      // Tariff
+      'tarif': data.tariffName || '',
+      'tarif_name': data.tariffName || '',
+      'tarif_preis': data.tariffPrice ? formatCurrency(data.tariffPrice) : '',
+      'download': data.downloadSpeed || '',
+      'upload': data.uploadSpeed || '',
+      'vertragslaufzeit': data.contractDuration ? `${data.contractDuration} Monate` : '24 Monate',
+      // Router
+      'router': data.routerName || '',
+      'router_preis': data.routerMonthlyPrice ? formatCurrency(data.routerMonthlyPrice) : '',
+      // TV
+      'tv': data.tvName || '',
+      'tv_preis': data.tvMonthlyPrice ? formatCurrency(data.tvMonthlyPrice) : '',
+      // Phone
+      'telefon': data.phoneName || '',
+      'telefon_preis': data.phoneMonthlyPrice ? formatCurrency(data.phoneMonthlyPrice) : '',
+      // Totals
+      'monatlich': data.monthlyTotal ? formatCurrency(data.monthlyTotal) : '',
+      'einmalig': data.oneTimeTotal ? formatCurrency(data.oneTimeTotal) : '',
+      'bereitstellung': data.setupFee ? formatCurrency(data.setupFee) : '',
+      // Bank
+      'kontoinhaber': data.bankAccountHolder || '',
+      'iban': data.bankIban || '',
+      // Meta
+      'bestellnummer': data.orderNumber || '',
+      'datum': data.date || new Date().toLocaleDateString('de-DE'),
+    };
+    
+    // Fill each field if it exists
+    for (const field of fields) {
+      const fieldName = field.getName().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+      console.log(`Field: ${field.getName()} -> normalized: ${fieldName}`);
+      
+      // Try to match field name
+      for (const [key, value] of Object.entries(fieldMappings)) {
+        if (fieldName.includes(key) || key.includes(fieldName)) {
+          try {
+            const textField = form.getTextField(field.getName());
+            textField.setText(sanitizeText(value));
+            console.log(`Filled field ${field.getName()} with: ${value.substring(0, 50)}`);
+          } catch (e) {
+            // Field might not be a text field
+          }
+          break;
+        }
+      }
+    }
+    
+    // Flatten form to make it non-editable
+    form.flatten();
+    
+  } catch (formError) {
+    console.log('No form fields found or error accessing form, will overlay text:', formError);
+    
+    // Overlay text on PDF if no form fields
+    const pages = pdfDoc.getPages();
+    if (pages.length > 0) {
+      const firstPage = pages[0];
+      const { height } = firstPage.getSize();
+      const textColor = rgb(0.1, 0.1, 0.1);
+      
+      // Overlay key information at typical positions
+      // These positions should be adjusted based on the actual template layout
+      const overlayData = [
+        { text: sanitizeText(data.orderNumber || ''), x: 450, y: height - 120 },
+        { text: sanitizeText(data.date || new Date().toLocaleDateString('de-DE')), x: 450, y: height - 140 },
+        { text: sanitizeText(`${data.customerFirstName || ''} ${data.customerLastName || ''}`), x: 100, y: height - 200 },
+        { text: sanitizeText(`${data.street || ''} ${data.houseNumber || ''}`), x: 100, y: height - 215 },
+        { text: sanitizeText(`${data.postalCode || ''} ${data.city || ''}`), x: 100, y: height - 230 },
+        { text: sanitizeText(data.tariffName || ''), x: 100, y: height - 300 },
+        { text: data.monthlyTotal ? formatCurrency(data.monthlyTotal) : '', x: 450, y: height - 300 },
+      ];
+      
+      for (const item of overlayData) {
+        if (item.text) {
+          firstPage.drawText(item.text, {
+            x: item.x,
+            y: item.y,
+            size: 10,
+            font: helvetica,
+            color: textColor,
+          });
+        }
+      }
+    }
+  }
   
-  // Page dimensions (A4)
+  return await pdfDoc.save();
+}
+
+// Generate VZF PDF from scratch (fallback)
+async function generateVZFPdfFromScratch(data: VZFData): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  
+  const primaryColor = rgb(0, 0.2, 0.4);
+  const textColor = rgb(0.2, 0.2, 0.2);
+  const lightGray = rgb(0.95, 0.95, 0.95);
+  const accentColor = rgb(0.93, 0.46, 0.05);
+  
   const pageWidth = 595;
   const pageHeight = 842;
   const margin = 50;
@@ -126,7 +221,6 @@ async function generateVZFPdf(data: VZFData): Promise<Uint8Array> {
   let page = pdfDoc.addPage([pageWidth, pageHeight]);
   let y = pageHeight - margin;
   
-  // Helper function to add new page if needed
   const checkNewPage = (requiredSpace: number) => {
     if (y < margin + requiredSpace) {
       page = pdfDoc.addPage([pageWidth, pageHeight]);
@@ -134,40 +228,21 @@ async function generateVZFPdf(data: VZFData): Promise<Uint8Array> {
     }
   };
   
-  // Helper to draw text
   const drawText = (text: string, x: number, yPos: number, options: { font?: any; size?: number; color?: any } = {}) => {
     const font = options.font || helvetica;
     const size = options.size || 10;
     const color = options.color || textColor;
-    page.drawText(text, { x, y: yPos, font, size, color });
+    page.drawText(sanitizeText(text), { x, y: yPos, font, size, color });
   };
   
-  // Helper to draw a horizontal line
-  const drawLine = (yPos: number, color = lightGray) => {
-    page.drawLine({
-      start: { x: margin, y: yPos },
-      end: { x: pageWidth - margin, y: yPos },
-      thickness: 1,
-      color,
-    });
-  };
-  
-  // Helper to draw section header
   const drawSectionHeader = (title: string) => {
     checkNewPage(40);
     y -= 20;
-    page.drawRectangle({
-      x: margin,
-      y: y - 5,
-      width: contentWidth,
-      height: 22,
-      color: primaryColor,
-    });
+    page.drawRectangle({ x: margin, y: y - 5, width: contentWidth, height: 22, color: primaryColor });
     drawText(title, margin + 10, y, { font: helveticaBold, size: 11, color: rgb(1, 1, 1) });
     y -= 25;
   };
   
-  // Helper to draw labeled row
   const drawRow = (label: string, value: string, indent = 0) => {
     checkNewPage(20);
     drawText(label, margin + indent, y, { font: helvetica, size: 9, color: rgb(0.4, 0.4, 0.4) });
@@ -175,221 +250,144 @@ async function generateVZFPdf(data: VZFData): Promise<Uint8Array> {
     y -= 14;
   };
   
-  // ========== HEADER ==========
-  // Company info (top right)
+  const orderNumber = data.orderNumber || `COMIN-${new Date().getFullYear()}-XXXX`;
+  const date = data.date || new Date().toLocaleDateString('de-DE');
+  
+  // Header
   drawText('COM-IN Telekommunikations GmbH', pageWidth - margin - 180, y, { font: helveticaBold, size: 9, color: primaryColor });
   y -= 12;
-  drawText('Manchinger Str. 115, 85053 Ingolstadt', pageWidth - margin - 180, y, { font: helvetica, size: 8 });
+  drawText('Erni-Singerl-Strasse 2b, 85053 Ingolstadt', pageWidth - margin - 180, y, { font: helvetica, size: 8 });
   y -= 11;
   drawText('Tel: 0841 88511-0', pageWidth - margin - 180, y, { font: helvetica, size: 8 });
-  y -= 11;
-  drawText('kontakt@comin-glasfaser.de', pageWidth - margin - 180, y, { font: helvetica, size: 8 });
   
-  // Reset Y for title
   y = pageHeight - margin - 20;
-  
-  // Title
   drawText('VERTRAGSZUSAMMENFASSUNG', margin, y, { font: helveticaBold, size: 18, color: primaryColor });
   y -= 25;
   
-  // Order info line
-  page.drawRectangle({
-    x: margin,
-    y: y - 8,
-    width: contentWidth,
-    height: 24,
-    color: lightGray,
-  });
-  drawText(`Bestellnummer: ${data.orderNumber}`, margin + 10, y, { font: helveticaBold, size: 10 });
-  drawText(`Datum: ${data.date}`, margin + 300, y, { font: helvetica, size: 10 });
+  page.drawRectangle({ x: margin, y: y - 8, width: contentWidth, height: 24, color: lightGray });
+  drawText(`Bestellnummer: ${orderNumber}  |  Datum: ${date}`, margin + 10, y, { font: helvetica, size: 10 });
   y -= 35;
   
-  // ========== KUNDENDATEN ==========
-  drawSectionHeader('KUNDENDATEN');
-  
-  const fullName = data.salutation 
-    ? `${data.salutation} ${data.customerFirstName || ''} ${data.customerLastName || data.customerName}`.trim()
-    : data.customerName;
+  // Kundendaten
+  drawSectionHeader('Kundendaten');
+  const fullName = `${data.salutation || ''} ${data.customerFirstName || ''} ${data.customerLastName || data.customerName || ''}`.trim();
   drawRow('Name:', fullName);
-  
-  const fullAddress = `${data.street} ${data.houseNumber}${data.apartment ? ', ' + data.apartment : ''}${data.floor ? ' (' + data.floor + ')' : ''}`;
-  drawRow('Anschlussadresse:', fullAddress);
-  drawRow('', `${data.postalCode || ''} ${data.city}`);
-  
+  drawRow('Adresse:', `${data.street || ''} ${data.houseNumber || ''}, ${data.postalCode || ''} ${data.city || ''}`);
   if (data.customerEmail) drawRow('E-Mail:', data.customerEmail);
   if (data.customerPhone) drawRow('Telefon:', data.customerPhone);
-  
   y -= 10;
   
-  // ========== TARIFDETAILS ==========
-  drawSectionHeader('TARIFDETAILS');
-  
-  drawRow('Gewählter Tarif:', data.tariffName);
-  drawRow('Monatlicher Grundpreis:', formatCurrency(data.tariffPrice));
-  drawRow('Mindestvertragslaufzeit:', `${data.contractDuration} Monate`);
-  
-  if (data.downloadSpeed) {
-    y -= 5;
-    drawText('Geschwindigkeiten:', margin, y, { font: helveticaBold, size: 9 });
-    y -= 14;
-    drawRow('Download (max.):', data.downloadSpeed, 10);
-    if (data.downloadSpeedNormal) drawRow('Download (normal):', data.downloadSpeedNormal, 10);
-    if (data.downloadSpeedMin) drawRow('Download (min.):', data.downloadSpeedMin, 10);
-    drawRow('Upload (max.):', data.uploadSpeed || '-', 10);
-    if (data.uploadSpeedNormal) drawRow('Upload (normal):', data.uploadSpeedNormal, 10);
-    if (data.uploadSpeedMin) drawRow('Upload (min.):', data.uploadSpeedMin, 10);
+  // Dienste und Geräte
+  drawSectionHeader('Dienste und Geraete');
+  if (data.tariffName) drawRow('Tarif:', data.tariffName);
+  if (data.routerName) drawRow('Router:', data.routerName);
+  if (data.tvName) drawRow('TV:', data.tvName);
+  if (data.phoneName) {
+    const phoneQty = data.phoneLines && data.phoneLines > 1 ? `${data.phoneLines}x ` : '';
+    drawRow('Telefon:', `${phoneQty}${data.phoneName}`);
   }
-  
+  if (data.selectedOptions) {
+    for (const opt of data.selectedOptions) {
+      const qty = opt.quantity && opt.quantity > 1 ? `${opt.quantity}x ` : '';
+      drawRow('Option:', `${qty}${opt.name}`);
+    }
+  }
   y -= 10;
   
-  // ========== GEWÄHLTE OPTIONEN ==========
-  if ((data.selectedOptions && data.selectedOptions.length > 0) || data.routerName || data.tvName || data.phoneName) {
-    drawSectionHeader('GEWÄHLTE OPTIONEN');
-    
-    // Router
-    if (data.routerName) {
-      const routerPrice = data.routerMonthlyPrice 
-        ? formatCurrency(data.routerMonthlyPrice) + '/Monat'
-        : data.routerOneTimePrice 
-          ? formatCurrency(data.routerOneTimePrice) + ' einmalig'
-          : 'inkl.';
-      drawRow('Router:', `${data.routerName} (${routerPrice})`);
-    }
-    
-    // TV
-    if (data.tvName) {
-      const tvPrice = data.tvMonthlyPrice ? formatCurrency(data.tvMonthlyPrice) + '/Monat' : 'inkl.';
-      drawRow('TV:', `${data.tvName} (${tvPrice})`);
-    }
-    
-    // Phone
-    if (data.phoneName) {
-      const phonePrice = data.phoneMonthlyPrice ? formatCurrency(data.phoneMonthlyPrice) + '/Monat' : 'inkl.';
-      const phoneLines = data.phoneLines && data.phoneLines > 1 ? ` (${data.phoneLines}x)` : '';
-      drawRow('Telefon:', `${data.phoneName}${phoneLines} (${phonePrice})`);
-    }
-    
-    // Other options
-    if (data.selectedOptions) {
-      for (const opt of data.selectedOptions) {
-        const qty = opt.quantity && opt.quantity > 1 ? `${opt.quantity}x ` : '';
-        const monthly = opt.monthlyPrice ? formatCurrency(opt.monthlyPrice) + '/Monat' : '';
-        const oneTime = opt.oneTimePrice ? formatCurrency(opt.oneTimePrice) + ' einmalig' : '';
-        const priceStr = [monthly, oneTime].filter(Boolean).join(', ') || 'inkl.';
-        drawRow('Option:', `${qty}${opt.name} (${priceStr})`);
-      }
-    }
-    
-    y -= 10;
-  }
+  // Geschwindigkeiten
+  drawSectionHeader('Geschwindigkeiten des Internetdienstes');
+  drawRow('', 'Im Download          Im Upload');
+  if (data.downloadSpeed) drawRow('Maximal:', `${data.downloadSpeed}          ${data.uploadSpeed || ''}`);
+  if (data.downloadSpeedNormal) drawRow('Normalerweise:', `${data.downloadSpeedNormal}          ${data.uploadSpeedNormal || ''}`);
+  if (data.downloadSpeedMin) drawRow('Minimal:', `${data.downloadSpeedMin}          ${data.uploadSpeedMin || ''}`);
+  y -= 10;
   
-  // ========== TELEFONIE-OPTIONEN ==========
-  if (data.phonePorting || data.phoneBookEntry || data.phoneEvn) {
-    drawSectionHeader('TELEFONIE-OPTIONEN');
-    
-    if (data.phonePorting) {
-      drawRow('Rufnummernmitnahme:', 'Ja');
-      if (data.phonePortingProvider) drawRow('Bisheriger Anbieter:', data.phonePortingProvider);
-      if (data.phonePortingNumbers && data.phonePortingNumbers.length > 0) {
-        drawRow('Rufnummern:', data.phonePortingNumbers.join(', '));
-      }
-    }
-    
-    if (data.phoneBookEntry) drawRow('Telefonbucheintrag:', data.phoneBookEntry);
-    if (data.phoneEvn) drawRow('Einzelverbindungsnachweis:', 'Ja');
-    
-    y -= 10;
-  }
-  
-  // ========== VORHERIGER ANBIETER ==========
-  if (data.previousProvider || data.cancelPreviousProvider) {
-    drawSectionHeader('BISHERIGER ANBIETER');
-    
-    if (data.previousProvider) drawRow('Anbieter:', data.previousProvider);
-    drawRow('Kündigung durch COM-IN:', data.cancelPreviousProvider ? 'Ja' : 'Nein');
-    
-    y -= 10;
-  }
-  
-  // ========== RABATTE ==========
-  if (data.discounts && data.discounts.length > 0) {
-    drawSectionHeader('AKTIONEN & RABATTE');
-    
-    for (const discount of data.discounts) {
-      const typeStr = discount.type === 'monthly' ? '/Monat' : ' einmalig';
-      drawRow(discount.name + ':', `-${formatCurrency(discount.amount)}${typeStr}`);
-    }
-    
-    y -= 10;
-  }
-  
-  // ========== KOSTENÜBERSICHT ==========
-  drawSectionHeader('KOSTENÜBERSICHT');
-  
-  // Draw a box for costs
-  checkNewPage(80);
-  page.drawRectangle({
-    x: margin,
-    y: y - 60,
-    width: contentWidth,
-    height: 70,
-    color: lightGray,
-  });
-  
+  // Preis
+  drawSectionHeader('Preis');
   y -= 5;
-  drawText('Monatliche Kosten:', margin + 20, y, { font: helveticaBold, size: 11 });
-  drawText(formatCurrency(data.monthlyTotal), margin + contentWidth - 120, y, { font: helveticaBold, size: 14, color: accentColor });
-  y -= 18;
-  
-  drawText('Einmalige Kosten:', margin + 20, y, { font: helvetica, size: 10 });
-  drawText(formatCurrency(data.oneTimeTotal), margin + contentWidth - 120, y, { font: helvetica, size: 11 });
+  drawText('Monatliche Grundbetraege', margin, y, { font: helveticaBold, size: 9 });
   y -= 14;
-  
-  drawText(`  davon Bereitstellung:`, margin + 20, y, { font: helvetica, size: 9, color: rgb(0.5, 0.5, 0.5) });
-  drawText(formatCurrency(data.setupFee), margin + contentWidth - 120, y, { font: helvetica, size: 9, color: rgb(0.5, 0.5, 0.5) });
-  
-  y -= 35;
-  
-  // ========== BANKVERBINDUNG ==========
-  if (data.bankAccountHolder || data.bankIban) {
-    drawSectionHeader('BANKVERBINDUNG');
-    
-    if (data.bankAccountHolder) drawRow('Kontoinhaber:', data.bankAccountHolder);
-    if (data.bankIban) drawRow('IBAN:', data.bankIban);
-    
-    y -= 10;
+  if (data.tariffName && data.tariffPrice) drawRow(data.tariffName, formatCurrency(data.tariffPrice));
+  if (data.routerName && data.routerMonthlyPrice) drawRow(data.routerName, formatCurrency(data.routerMonthlyPrice));
+  if (data.tvName && data.tvMonthlyPrice) drawRow(data.tvName, formatCurrency(data.tvMonthlyPrice));
+  if (data.phoneName && data.phoneMonthlyPrice) {
+    const phoneQty = data.phoneLines && data.phoneLines > 1 ? `${data.phoneLines}x ` : '';
+    drawRow(`${phoneQty}${data.phoneName}`, formatCurrency(data.phoneMonthlyPrice * (data.phoneLines || 1)));
+  }
+  if (data.selectedOptions) {
+    for (const opt of data.selectedOptions) {
+      if (opt.monthlyPrice && opt.monthlyPrice > 0) {
+        const qty = opt.quantity && opt.quantity > 1 ? `${opt.quantity}x ` : '';
+        drawRow(`${qty}${opt.name}`, formatCurrency(opt.monthlyPrice * (opt.quantity || 1)));
+      }
+    }
+  }
+  if (data.discounts) {
+    for (const discount of data.discounts) {
+      if (discount.type === 'monthly') {
+        drawRow(discount.name, `-${formatCurrency(discount.amount)}`);
+      }
+    }
   }
   
-  // ========== FOOTER ==========
+  page.drawRectangle({ x: margin, y: y - 5, width: contentWidth, height: 18, color: lightGray });
+  drawText('Summe der monatlichen Grundbetraege', margin + 5, y, { font: helveticaBold, size: 9 });
+  drawText(formatCurrency(data.monthlyTotal || 0), margin + contentWidth - 80, y, { font: helveticaBold, size: 10, color: accentColor });
+  y -= 25;
+  
+  drawText('Einmalige Betraege', margin, y, { font: helveticaBold, size: 9 });
+  y -= 14;
+  if (data.setupFee) drawRow('Bereitstellungspreis:', formatCurrency(data.setupFee));
+  if (data.routerOneTimePrice) drawRow(data.routerName || 'Router', formatCurrency(data.routerOneTimePrice));
+  if (data.selectedOptions) {
+    for (const opt of data.selectedOptions) {
+      if (opt.oneTimePrice && opt.oneTimePrice > 0) {
+        const qty = opt.quantity && opt.quantity > 1 ? `${opt.quantity}x ` : '';
+        drawRow(`${qty}${opt.name}`, formatCurrency(opt.oneTimePrice * (opt.quantity || 1)));
+      }
+    }
+  }
+  if (data.discounts) {
+    for (const discount of data.discounts) {
+      if (discount.type === 'one_time') {
+        drawRow(discount.name, `-${formatCurrency(discount.amount)}`);
+      }
+    }
+  }
+  
+  page.drawRectangle({ x: margin, y: y - 5, width: contentWidth, height: 18, color: lightGray });
+  drawText('Summe der einmaligen Betraege', margin + 5, y, { font: helveticaBold, size: 9 });
+  drawText(formatCurrency(data.oneTimeTotal || 0), margin + contentWidth - 80, y, { font: helveticaBold, size: 10 });
+  y -= 25;
+  
+  // Laufzeit
+  drawSectionHeader('Laufzeit, Verlaengerung und Kuendigung');
+  const duration = data.contractDuration || 24;
+  drawText(`Die Mindestvertragslaufzeit betraegt ${duration} Monat(e), beginnend ab dem Tag der Dienstbereitstellung.`, margin, y, { font: helvetica, size: 9 });
+  y -= 14;
+  drawText('Das Vertragsverhaeltnis verlaengert sich um jeweils einen weiteren Monat, sofern es nicht mit einer', margin, y, { font: helvetica, size: 9 });
+  y -= 12;
+  drawText('Frist von einem (1) Monat zum Ende der Mindestvertragslaufzeit gekuendigt wird.', margin, y, { font: helvetica, size: 9 });
+  
+  // Footer
   checkNewPage(60);
-  y -= 20;
-  drawLine(y, rgb(0.8, 0.8, 0.8));
-  y -= 15;
+  y = margin + 30;
+  page.drawLine({ start: { x: margin, y: y + 10 }, end: { x: pageWidth - margin, y: y + 10 }, thickness: 1, color: rgb(0.8, 0.8, 0.8) });
+  drawText('COM-IN Telekommunikations GmbH | Erni-Singerl-Strasse 2b | 85053 Ingolstadt', margin, y - 5, { font: helvetica, size: 8, color: rgb(0.5, 0.5, 0.5) });
   
-  const footerText = 'Diese Vertragszusammenfassung wurde automatisch erstellt und dient als Nachweis gemäß § 312d BGB.';
-  const footerLines = wrapText(footerText, contentWidth, 8);
-  for (const line of footerLines) {
-    drawText(line, margin, y, { font: helvetica, size: 8, color: rgb(0.5, 0.5, 0.5) });
-    y -= 11;
-  }
-  
-  y -= 5;
-  drawText('COM-IN Telekommunikations GmbH | Manchinger Str. 115 | 85053 Ingolstadt', margin, y, { font: helvetica, size: 8, color: rgb(0.5, 0.5, 0.5) });
-  y -= 11;
-  drawText('Tel: 0841 88511-0 | kontakt@comin-glasfaser.de | www.comin-glasfaser.de', margin, y, { font: helvetica, size: 8, color: rgb(0.5, 0.5, 0.5) });
-  
-  // Generate PDF bytes
-  const pdfBytes = await pdfDoc.save();
-  return pdfBytes;
+  return await pdfDoc.save();
 }
 
 serve(async (req: Request): Promise<Response> => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     const requestData: PDFRequest = await req.json();
     const { filename = "VZF.pdf", vzfData } = requestData;
 
@@ -405,8 +403,42 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log("VZF Data received:", JSON.stringify(vzfData).substring(0, 500));
 
-    // Generate PDF using pdf-lib
-    const pdfBytes = await generateVZFPdf(vzfData);
+    let pdfBytes: Uint8Array;
+    
+    // Try to fetch VZF template from database
+    const { data: templateData } = await supabase
+      .from("document_templates")
+      .select("pdf_url, name")
+      .eq("is_active", true)
+      .or("use_case.eq.order_vzf,use_cases.cs.{order_vzf}")
+      .not("pdf_url", "is", null)
+      .maybeSingle();
+    
+    if (templateData?.pdf_url) {
+      console.log(`Using VZF template: ${templateData.name} from ${templateData.pdf_url}`);
+      
+      try {
+        // Fetch the template PDF
+        const templateResponse = await fetch(templateData.pdf_url);
+        if (!templateResponse.ok) {
+          throw new Error(`Failed to fetch template: ${templateResponse.status}`);
+        }
+        
+        const templatePdfBytes = new Uint8Array(await templateResponse.arrayBuffer());
+        console.log(`Template PDF loaded, size: ${templatePdfBytes.length} bytes`);
+        
+        // Fill the template with data
+        pdfBytes = await fillTemplatePdf(templatePdfBytes, vzfData);
+        console.log("Template PDF filled successfully");
+        
+      } catch (templateError) {
+        console.error("Error using template, falling back to generated PDF:", templateError);
+        pdfBytes = await generateVZFPdfFromScratch(vzfData);
+      }
+    } else {
+      console.log("No VZF template found in database, generating from scratch");
+      pdfBytes = await generateVZFPdfFromScratch(vzfData);
+    }
     
     // Convert to base64
     const base64 = btoa(String.fromCharCode(...pdfBytes));
