@@ -33,7 +33,11 @@ export function CustomerForm() {
     isMFH,
     setStep,
     phoneSelection,
-    customerType, // Get customer type from context
+    customerType,
+    alternateBillingAddress,
+    setAlternateBillingAddress,
+    alternatePaymentPerson,
+    setAlternatePaymentPerson,
   } = useOrder();
   
   const [expressOptionFromDb, setExpressOptionFromDb] = useState<{
@@ -437,6 +441,252 @@ export function CustomerForm() {
               className="mt-1.5 h-12 rounded-xl font-mono"
             />
           </div>
+          
+          {/* Abweichender Beitragszahler */}
+          <div className="space-y-4">
+            <div className="flex items-center space-x-3">
+              <Checkbox 
+                id="alternate-payment-person" 
+                checked={alternatePaymentPerson.enabled}
+                onCheckedChange={(checked) => setAlternatePaymentPerson({
+                  ...alternatePaymentPerson,
+                  enabled: checked === true,
+                })}
+              />
+              <Label htmlFor="alternate-payment-person" className="cursor-pointer font-medium">
+                Abweichender Beitragszahler
+              </Label>
+            </div>
+            
+            {alternatePaymentPerson.enabled && (
+              <div className="ml-6 p-4 bg-muted/30 rounded-xl space-y-4">
+                <div>
+                  <Label className="text-foreground font-medium">Anrede *</Label>
+                  <Select 
+                    value={alternatePaymentPerson.salutation} 
+                    onValueChange={(value) => setAlternatePaymentPerson({
+                      ...alternatePaymentPerson,
+                      salutation: value,
+                    })}
+                  >
+                    <SelectTrigger className="mt-1.5 h-12 rounded-xl">
+                      <SelectValue placeholder="Bitte wählen" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border border-border z-50">
+                      <SelectItem value="herr">Herr</SelectItem>
+                      <SelectItem value="frau">Frau</SelectItem>
+                      <SelectItem value="divers">Divers</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-foreground font-medium">Vorname *</Label>
+                    <Input
+                      placeholder="Max"
+                      value={alternatePaymentPerson.firstName}
+                      onChange={(e) => setAlternatePaymentPerson({
+                        ...alternatePaymentPerson,
+                        firstName: e.target.value,
+                      })}
+                      className="mt-1.5 h-12 rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-foreground font-medium">Nachname *</Label>
+                    <Input
+                      placeholder="Mustermann"
+                      value={alternatePaymentPerson.lastName}
+                      onChange={(e) => setAlternatePaymentPerson({
+                        ...alternatePaymentPerson,
+                        lastName: e.target.value,
+                      })}
+                      className="mt-1.5 h-12 rounded-xl"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label className="text-foreground font-medium">Geburtsdatum *</Label>
+                  <Input
+                    type="date"
+                    value={alternatePaymentPerson.birthDate}
+                    onChange={(e) => setAlternatePaymentPerson({
+                      ...alternatePaymentPerson,
+                      birthDate: e.target.value,
+                    })}
+                    className="mt-1.5 h-12 rounded-xl"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-foreground font-medium">E-Mail *</Label>
+                    <Input
+                      type="email"
+                      placeholder="email@beispiel.de"
+                      value={alternatePaymentPerson.email}
+                      onChange={(e) => setAlternatePaymentPerson({
+                        ...alternatePaymentPerson,
+                        email: e.target.value,
+                      })}
+                      className="mt-1.5 h-12 rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-foreground font-medium">Telefon *</Label>
+                    <Input
+                      type="tel"
+                      placeholder="0841/12345"
+                      value={alternatePaymentPerson.phone}
+                      onChange={(e) => setAlternatePaymentPerson({
+                        ...alternatePaymentPerson,
+                        phone: e.target.value,
+                      })}
+                      className="mt-1.5 h-12 rounded-xl"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Abweichende Rechnungsadresse */}
+        <div className="space-y-5 pt-4 border-t border-border">
+          <div className="flex items-center space-x-3">
+            <Checkbox 
+              id="alternate-billing-address" 
+              checked={alternateBillingAddress.enabled}
+              onCheckedChange={(checked) => setAlternateBillingAddress({
+                ...alternateBillingAddress,
+                enabled: checked === true,
+              })}
+            />
+            <Label htmlFor="alternate-billing-address" className="cursor-pointer font-semibold text-primary">
+              Abweichende Rechnungsadresse
+            </Label>
+          </div>
+          
+          {alternateBillingAddress.enabled && (
+            <div className="ml-6 p-4 bg-muted/30 rounded-xl space-y-4">
+              <div>
+                <Label className="text-foreground font-medium">Anrede *</Label>
+                <Select 
+                  value={alternateBillingAddress.salutation} 
+                  onValueChange={(value) => setAlternateBillingAddress({
+                    ...alternateBillingAddress,
+                    salutation: value,
+                  })}
+                >
+                  <SelectTrigger className="mt-1.5 h-12 rounded-xl">
+                    <SelectValue placeholder="Bitte wählen" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border border-border z-50">
+                    <SelectItem value="herr">Herr</SelectItem>
+                    <SelectItem value="frau">Frau</SelectItem>
+                    <SelectItem value="divers">Divers</SelectItem>
+                    <SelectItem value="firma">Firma</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-foreground font-medium">Vorname *</Label>
+                  <Input
+                    placeholder="Max"
+                    value={alternateBillingAddress.firstName}
+                    onChange={(e) => setAlternateBillingAddress({
+                      ...alternateBillingAddress,
+                      firstName: e.target.value,
+                    })}
+                    className="mt-1.5 h-12 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label className="text-foreground font-medium">Nachname *</Label>
+                  <Input
+                    placeholder="Mustermann"
+                    value={alternateBillingAddress.lastName}
+                    onChange={(e) => setAlternateBillingAddress({
+                      ...alternateBillingAddress,
+                      lastName: e.target.value,
+                    })}
+                    className="mt-1.5 h-12 rounded-xl"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label className="text-foreground font-medium">Firma (optional)</Label>
+                <Input
+                  placeholder="Firmenname"
+                  value={alternateBillingAddress.company || ''}
+                  onChange={(e) => setAlternateBillingAddress({
+                    ...alternateBillingAddress,
+                    company: e.target.value,
+                  })}
+                  className="mt-1.5 h-12 rounded-xl"
+                />
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2">
+                  <Label className="text-foreground font-medium">Straße *</Label>
+                  <Input
+                    placeholder="Musterstraße"
+                    value={alternateBillingAddress.street}
+                    onChange={(e) => setAlternateBillingAddress({
+                      ...alternateBillingAddress,
+                      street: e.target.value,
+                    })}
+                    className="mt-1.5 h-12 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label className="text-foreground font-medium">Hausnr. *</Label>
+                  <Input
+                    placeholder="1a"
+                    value={alternateBillingAddress.houseNumber}
+                    onChange={(e) => setAlternateBillingAddress({
+                      ...alternateBillingAddress,
+                      houseNumber: e.target.value,
+                    })}
+                    className="mt-1.5 h-12 rounded-xl"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-foreground font-medium">PLZ *</Label>
+                  <Input
+                    placeholder="12345"
+                    value={alternateBillingAddress.postalCode}
+                    onChange={(e) => setAlternateBillingAddress({
+                      ...alternateBillingAddress,
+                      postalCode: e.target.value,
+                    })}
+                    className="mt-1.5 h-12 rounded-xl"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-foreground font-medium">Ort *</Label>
+                  <Input
+                    placeholder="Musterstadt"
+                    value={alternateBillingAddress.city}
+                    onChange={(e) => setAlternateBillingAddress({
+                      ...alternateBillingAddress,
+                      city: e.target.value,
+                    })}
+                    className="mt-1.5 h-12 rounded-xl"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Wunschtermin */}
