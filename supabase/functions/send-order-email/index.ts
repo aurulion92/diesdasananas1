@@ -1243,7 +1243,7 @@ serve(async (req: Request): Promise<Response> => {
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
 
-    const SMTP_READ_TIMEOUT_MS = 15000;
+    const SMTP_READ_TIMEOUT_MS = 60000; // 60 seconds for large emails with attachments
 
     const conn = await Deno.connect({
       hostname: emailSettings.smtp_host,
@@ -1339,8 +1339,11 @@ serve(async (req: Request): Promise<Response> => {
         `.`,
       ].join("\r\n");
 
+      console.log(`Sending email content, size: ${emailContent.length} bytes`);
       await tlsConn.write(encoder.encode(emailContent + "\r\n"));
+      console.log("Email content sent, waiting for server response...");
       response = await readTlsResponse();
+      console.log("Server response:", response.substring(0, 100));
       
       if (!response.startsWith("250")) throw new Error("Email sending failed: " + response);
       
@@ -1348,10 +1351,18 @@ serve(async (req: Request): Promise<Response> => {
       console.log(`Customer email sent successfully with ${attachmentCount} PDF attachments`);
 
       await sendTlsCommand("QUIT");
-      tlsConn.close();
+      try {
+        tlsConn.close();
+      } catch (closeError) {
+        console.log("TLS connection already closed");
+      }
 
     } catch (smtpError) {
-      conn.close();
+      try {
+        conn.close();
+      } catch (closeError) {
+        console.log("Connection already closed or upgraded");
+      }
       throw smtpError;
     }
 
