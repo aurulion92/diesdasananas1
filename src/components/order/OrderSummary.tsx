@@ -4,6 +4,8 @@ import { useOrderPromotions } from '@/hooks/useOrderPromotions';
 import { usePromotionsContext } from '@/context/PromotionsContext';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { 
   FileText, 
   Download, 
@@ -72,7 +74,9 @@ export function OrderSummary() {
     getReferralBonus,
     generateOrderNumber,
     getOrderNumber,
-    setStep 
+    setStep,
+    orderNotes,
+    setOrderNotes,
   } = useOrder();
 
   // Get promotion data for applied promotions
@@ -86,6 +90,7 @@ export function OrderSummary() {
 
   const [orderComplete, setOrderComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showNotesField, setShowNotesField] = useState(orderNotes.length > 0);
   // Check for FiberBasic by name since id is now UUID
   const isFiberBasic = selectedTariff?.name?.toLowerCase().includes('fiberbasic') || 
                        selectedTariff?.name?.toLowerCase().includes('fiber basic') || false;
@@ -264,6 +269,7 @@ export function OrderSummary() {
         promoCode: appliedPromoCode?.code,
         isFiberBasic,
         referralBonus: getReferralBonus(),
+        orderNotes: orderNotes || null, // Bemerkung zur Bestellung
       }));
 
       // Build selected options array with optionId for K7 mapping
@@ -988,6 +994,35 @@ export function OrderSummary() {
             {expressActivation && (
               <p className="text-accent text-sm">✓ Express-Anschaltung: +200,00 € einmalig</p>
             )}
+          </div>
+        </div>
+
+        {/* Bemerkung zur Bestellung */}
+        <div className="bg-card rounded-xl shadow-soft p-5">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="showNotes"
+              checked={showNotesField}
+              onCheckedChange={(checked) => {
+                setShowNotesField(!!checked);
+                if (!checked) setOrderNotes('');
+              }}
+            />
+            <div className="flex-1">
+              <Label htmlFor="showNotes" className="font-medium cursor-pointer">
+                Möchten Sie uns etwas zur Bestellung mitteilen?
+              </Label>
+              {showNotesField && (
+                <Textarea
+                  className="mt-3"
+                  placeholder="Ihre Bemerkung zur Bestellung..."
+                  value={orderNotes}
+                  onChange={(e) => setOrderNotes(e.target.value)}
+                  rows={3}
+                  maxLength={500}
+                />
+              )}
+            </div>
           </div>
         </div>
 

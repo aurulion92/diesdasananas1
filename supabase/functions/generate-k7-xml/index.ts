@@ -125,6 +125,7 @@ serve(async (req) => {
     const alternateBillingAddress = vzfData.alternateBillingAddress;
     const alternatePaymentPerson = vzfData.alternatePaymentPerson;
     const phonePortingData = vzfData.phonePortingData;
+    const orderNotes = vzfData.orderNotes || null; // Bemerkung zur Bestellung
 
     // Fetch product with speeds for bandwidth matching
     let productK7Id = '';
@@ -332,6 +333,13 @@ serve(async (req) => {
       userExtInfoXml += `
         <ExtInfo4>${escapeXml(order.referral_customer_number)} - 50/50</ExtInfo4>`;
       console.log('KwK referral:', order.referral_customer_number);
+    }
+    
+    // Bemerkung zur Bestellung
+    if (orderNotes) {
+      userExtInfoXml += `
+        <ExtInfo5>${escapeXml(orderNotes)}</ExtInfo5>`;
+      console.log('Order notes:', orderNotes);
     }
     
     userExtInfoXml += `
