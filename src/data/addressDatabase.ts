@@ -48,43 +48,91 @@ export interface BuildingAvailabilityResult {
 
 // Check if building exists and what tariffs are available
 export async function checkBuildingAvailability(
-  street: string, 
-  houseNumber: string, 
+  street: string,
+  houseNumber: string,
   city: string
 ): Promise<BuildingAvailabilityResult> {
   try {
-    // Get building without customer type filter to see what's available
-    const { data: buildingData, error } = await supabase
-      .from('buildings')
-      .select('id, street, house_number, city, ausbau_art, ausbau_status, kabel_tv_available, residential_units, pk_tariffs_available, kmu_tariffs_available')
-      .ilike('street', street)
-      .ilike('house_number', houseNumber)
-      .ilike('city', city)
-      .limit(1)
-      .maybeSingle();
+    // First, resolve the building via the secure RPC (respects RLS)
+    const { data, error } = await supabase.rpc('check_address_availability', {
+      p_street: street,
+      p_house_number: houseNumber,
+      p_city: city,
+    });
 
-    if (error || !buildingData) {
+    if (error) {
+      console.error('Error checking building availability (RPC):', error);
       return { exists: false, pkAvailable: false, kmuAvailable: false, addressData: null };
     }
 
-    // Building exists - check availability
-    const pkAvailable = buildingData.pk_tariffs_available && buildingData.ausbau_status === 'abgeschlossen';
-    const kmuAvailable = buildingData.kmu_tariffs_available === true;
+    if (!data || data.length === 0) {
+      return { exists: false, pkAvailable: false, kmuAvailable: false, addressData: null };
+    }
+
+    const result = data[0] as {
+      street: string;
+      house_number: string;
+      city: string;
+      ausbau_art: string | null;
+      ausbau_status: string | null;
+      kabel_tv_available: boolean | null;
+      residential_units: number | null;
+      building_id: string | null;
+    };
+
+    const addressData: AddressData = {
+      street: result.street,
+      houseNumber: result.house_number,
+      city: result.city,
+      ausbauart: result.ausbau_art || '',
+      connectionType: getConnectionType(result.ausbau_art),
+      kabelTvAvailable: result.kabel_tv_available || false,
+      buildingId: result.building_id || undefined,
+      residentialUnits: result.residential_units || 1,
+    };
+
+    // If we for some reason don't have a building_id, we can't determine PK/KMU products
+    if (!result.building_id) {
+      return { exists: true, pkAvailable: false, kmuAvailable: false, addressData };
+    }
+
+    // Load all products assigned to this building
+    const { data: productBuildingRows, error: mappingError } = await supabase
+      .from('product_buildings')
+      .select('product_id')
+      .eq('building_id', result.building_id);
+
+    if (mappingError) {
+      console.error('Error loading product_buildings:', mappingError);
+      return { exists: true, pkAvailable: false, kmuAvailable: false, addressData };
+    }
+
+    const productIds = (productBuildingRows || []).map((row: { product_id: string }) => row.product_id);
+
+    if (productIds.length === 0) {
+      return { exists: true, pkAvailable: false, kmuAvailable: false, addressData };
+    }
+
+    // Fetch products to see which customer types are available
+    const { data: products, error: productsError } = await supabase
+      .from('products')
+      .select('id, customer_type')
+      .in('id', productIds)
+      .eq('is_active', true);
+
+    if (productsError) {
+      console.error('Error loading products for availability:', productsError);
+      return { exists: true, pkAvailable: false, kmuAvailable: false, addressData };
+    }
+
+    const pkAvailable = (products || []).some((p: { customer_type: string }) => p.customer_type === 'pk');
+    const kmuAvailable = (products || []).some((p: { customer_type: string }) => p.customer_type === 'kmu');
 
     return {
       exists: true,
       pkAvailable,
       kmuAvailable,
-      addressData: {
-        street: buildingData.street,
-        houseNumber: buildingData.house_number,
-        city: buildingData.city,
-        ausbauart: buildingData.ausbau_art || '',
-        connectionType: getConnectionType(buildingData.ausbau_art),
-        kabelTvAvailable: buildingData.kabel_tv_available || false,
-        buildingId: buildingData.id,
-        residentialUnits: buildingData.residential_units || 1
-      }
+      addressData,
     };
   } catch (error) {
     console.error('Error checking building availability:', error);
@@ -92,77 +140,29 @@ export async function checkBuildingAvailability(
   }
 }
 
-// Check address against Supabase database - get full building info including ID
-// customerType parameter filters by pk_tariffs_available or kmu_tariffs_available
+// Check address against database for a specific customer type using building availability
 export async function checkAddress(
-  street: string, 
-  houseNumber: string, 
+  street: string,
+  houseNumber: string,
   city: string,
-  customerType: 'pk' | 'kmu' = 'pk'
+  customerType: 'pk' | 'kmu' = 'pk',
 ): Promise<AddressData | null> {
   try {
-    // First try to get from buildings table directly to get the building ID and residential units
-    let query = supabase
-      .from('buildings')
-      .select('id, street, house_number, city, ausbau_art, ausbau_status, kabel_tv_available, residential_units, pk_tariffs_available, kmu_tariffs_available')
-      .ilike('street', street)
-      .ilike('house_number', houseNumber)
-      .ilike('city', city);
-    
-    // Filter by customer type tariff availability
-    if (customerType === 'pk') {
-      query = query.eq('pk_tariffs_available', true);
-    } else {
-      query = query.eq('kmu_tariffs_available', true);
-    }
-    
-    // For PK, also require ausbau_status = abgeschlossen; for KMU, manual enable overrides this
-    if (customerType === 'pk') {
-      query = query.eq('ausbau_status', 'abgeschlossen');
-    }
-    
-    const { data: buildingData, error: buildingError } = await query.limit(1).maybeSingle();
+    const availability = await checkBuildingAvailability(street, houseNumber, city);
 
-    if (!buildingError && buildingData) {
-      return {
-        street: buildingData.street,
-        houseNumber: buildingData.house_number,
-        city: buildingData.city,
-        ausbauart: buildingData.ausbau_art || '',
-        connectionType: getConnectionType(buildingData.ausbau_art),
-        kabelTvAvailable: buildingData.kabel_tv_available || false,
-        buildingId: buildingData.id,
-        residentialUnits: buildingData.residential_units || 1
-      };
-    }
-
-    // Fallback to RPC if direct query fails (also gets residential_units now)
-    const { data, error } = await supabase.rpc('check_address_availability', {
-      p_street: street,
-      p_house_number: houseNumber,
-      p_city: city
-    });
-
-    if (error) {
-      console.error('Error checking address:', error);
+    if (!availability.exists || !availability.addressData) {
       return null;
     }
 
-    if (data && data.length > 0) {
-      const result = data[0];
-      return {
-        street: result.street,
-        houseNumber: result.house_number,
-        city: result.city,
-        ausbauart: result.ausbau_art || '',
-        connectionType: getConnectionType(result.ausbau_art),
-        kabelTvAvailable: result.kabel_tv_available || false,
-        buildingId: result.building_id,
-        residentialUnits: result.residential_units || 1
-      };
+    if (customerType === 'pk' && !availability.pkAvailable) {
+      return null;
     }
 
-    return null;
+    if (customerType === 'kmu' && !availability.kmuAvailable) {
+      return null;
+    }
+
+    return availability.addressData;
   } catch (error) {
     console.error('Error checking address:', error);
     return null;
