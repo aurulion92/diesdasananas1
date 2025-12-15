@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
+import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -927,105 +928,30 @@ async function sendFallbackEmail(
   `;
   
   const subjectText = `⚠️ Neue Bestellung - Elektronische Verarbeitung nicht möglich (${orderNumber})`;
-  const subjectEncoded = btoa(unescape(encodeURIComponent(subjectText)));
-  
-  const boundary = "----=_Fallback_" + Date.now().toString(36);
   
   console.log(`Sending fallback email to ${fallbackEmail}...`);
   
-  const conn = await Deno.connect({
-    hostname: emailSettings.smtp_host,
-    port: parseInt(emailSettings.smtp_port) || 587,
+  // Use Resend for fallback email
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  if (!resendApiKey) {
+    console.error("RESEND_API_KEY not configured for fallback email");
+    throw new Error("RESEND_API_KEY nicht konfiguriert");
+  }
+  const resend = new Resend(resendApiKey);
+
+  const { data, error } = await resend.emails.send({
+    from: `${emailSettings.sender_name} <${emailSettings.sender_email}>`,
+    to: [fallbackEmail],
+    subject: subjectText,
+    html: emailHtml,
   });
 
-  const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
-
-  const readResponse = async (): Promise<string> => {
-    const buffer = new Uint8Array(4096);
-    const n = await conn.read(buffer);
-    if (n === null) return "";
-    return decoder.decode(buffer.subarray(0, n));
-  };
-
-  const sendCommand = async (cmd: string): Promise<string> => {
-    await conn.write(encoder.encode(cmd + "\r\n"));
-    return await readResponse();
-  };
-
-  try {
-    await readResponse();
-    await sendCommand(`EHLO localhost`);
-    const tlsResponse = await sendCommand("STARTTLS");
-
-    if (!tlsResponse.startsWith("220")) {
-      throw new Error("STARTTLS not supported: " + tlsResponse);
-    }
-
-    const tlsConn = await Deno.startTls(conn, { hostname: emailSettings.smtp_host });
-
-    const readTlsResponse = async (): Promise<string> => {
-      const buffer = new Uint8Array(4096);
-      const n = await tlsConn.read(buffer);
-      if (n === null) return "";
-      return decoder.decode(buffer.subarray(0, n));
-    };
-
-    const sendTlsCommand = async (cmd: string): Promise<string> => {
-      await tlsConn.write(encoder.encode(cmd + "\r\n"));
-      return await readTlsResponse();
-    };
-
-    await sendTlsCommand(`EHLO localhost`);
-    let response = await sendTlsCommand("AUTH LOGIN");
-    
-    if (!response.startsWith("334")) throw new Error("AUTH LOGIN failed: " + response);
-    
-    response = await sendTlsCommand(btoa(emailSettings.smtp_user));
-    if (!response.startsWith("334")) throw new Error("Username rejected: " + response);
-    
-    response = await sendTlsCommand(btoa(emailSettings.smtp_password));
-    if (!response.startsWith("235")) throw new Error("Authentication failed: " + response);
-
-    response = await sendTlsCommand(`MAIL FROM:<${emailSettings.sender_email}>`);
-    if (!response.startsWith("250")) throw new Error("MAIL FROM failed: " + response);
-
-    response = await sendTlsCommand(`RCPT TO:<${fallbackEmail}>`);
-    if (!response.startsWith("250")) throw new Error("RCPT TO failed: " + response);
-
-    response = await sendTlsCommand("DATA");
-    if (!response.startsWith("354")) throw new Error("DATA command failed: " + response);
-
-    const emailContent = [
-      `From: ${emailSettings.sender_name} <${emailSettings.sender_email}>`,
-      `To: ${fallbackEmail}`,
-      `Subject: =?UTF-8?B?${subjectEncoded}?=`,
-      `MIME-Version: 1.0`,
-      `Content-Type: multipart/mixed; boundary="${boundary}"`,
-      ``,
-      `--${boundary}`,
-      `Content-Type: text/html; charset=UTF-8`,
-      `Content-Transfer-Encoding: base64`,
-      ``,
-      btoa(unescape(encodeURIComponent(emailHtml))),
-      ``,
-      `--${boundary}--`,
-      `.`,
-    ].join("\r\n");
-
-    await tlsConn.write(encoder.encode(emailContent + "\r\n"));
-    response = await readTlsResponse();
-    
-    if (!response.startsWith("250")) throw new Error("Email sending failed: " + response);
-    
-    console.log(`Fallback email sent successfully to ${fallbackEmail}`);
-
-    await sendTlsCommand("QUIT");
-    tlsConn.close();
-  } catch (error) {
-    conn.close();
-    throw error;
+  if (error) {
+    console.error("Fallback email error:", error);
+    throw new Error(error.message);
   }
+
+  console.log(`Fallback email sent successfully to ${fallbackEmail}, id:`, data?.id);
 }
 
 // Main email sending logic extracted to separate function
@@ -1168,179 +1094,72 @@ async function processOrderEmail(requestData: OrderEmailRequest): Promise<{ succ
     produktinfoPdfBytes = await fetchPdfFromUrl(produktinfoTemplate.pdf_url);
   }
 
-  // SMTP Configuration
-  const SMTP_READ_TIMEOUT_MS = 120000; // 120 seconds
-  const MAX_RETRIES = 3;
-  const RETRY_DELAY_MS = 5000; // 5 seconds base delay
+  // Initialize Resend
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  if (!resendApiKey) {
+    console.error("RESEND_API_KEY not configured");
+    return { success: false, error: "RESEND_API_KEY nicht konfiguriert" };
+  }
+  const resend = new Resend(resendApiKey);
 
-  // Helper to send a single email with retry logic
-  async function sendEmailWithRetry(
+  // Helper to send a single email via Resend
+  async function sendEmailWithResend(
     recipientEmail: string,
     subject: string,
     htmlContent: string,
-    attachments: Array<{ filename: string; base64: string }>,
+    attachments: Array<{ filename: string; content: Uint8Array }>,
     emailNumber: number
   ): Promise<{ success: boolean; error?: string }> {
-    
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        console.log(`[Email ${emailNumber}] Attempt ${attempt}/${MAX_RETRIES} to ${recipientEmail}`);
-        
-        const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-        const subjectEncoded = btoa(unescape(encodeURIComponent(subject)));
-        const encoder = new TextEncoder();
-        const decoder = new TextDecoder();
+    try {
+      console.log(`[Email ${emailNumber}] Sending to ${recipientEmail} via Resend...`);
+      
+      // Convert attachments to Resend format (base64)
+      const resendAttachments = attachments.map(att => ({
+        filename: att.filename,
+        content: uint8ArrayToBase64(att.content),
+      }));
 
-        const conn = await Deno.connect({
-          hostname: emailSettings.smtp_host,
-          port: parseInt(emailSettings.smtp_port) || 587,
-        });
+      const { data, error } = await resend.emails.send({
+        from: `${emailSettings.sender_name} <${emailSettings.sender_email}>`,
+        to: [recipientEmail],
+        subject: subject,
+        html: htmlContent,
+        attachments: resendAttachments,
+      });
 
-        const readResponse = async (): Promise<string> => {
-          const buffer = new Uint8Array(4096);
-          const n = await Promise.race([
-            conn.read(buffer),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('SMTP timeout')), SMTP_READ_TIMEOUT_MS)
-            ),
-          ]) as number | null;
-          if (n === null) return '';
-          return decoder.decode(buffer.subarray(0, n));
-        };
-
-        const sendCommand = async (cmd: string): Promise<string> => {
-          await conn.write(encoder.encode(cmd + "\r\n"));
-          return await readResponse();
-        };
-
-        let response = await readResponse();
-        response = await sendCommand(`EHLO localhost`);
-        response = await sendCommand("STARTTLS");
-
-        if (!response.startsWith("220")) {
-          conn.close();
-          throw new Error("STARTTLS not supported: " + response);
-        }
-
-        const tlsConn = await Deno.startTls(conn, { hostname: emailSettings.smtp_host });
-
-        const readTlsResponse = async (): Promise<string> => {
-          const buffer = new Uint8Array(4096);
-          const n = await Promise.race([
-            tlsConn.read(buffer),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('SMTP TLS timeout')), SMTP_READ_TIMEOUT_MS)
-            ),
-          ]) as number | null;
-          if (n === null) return '';
-          return decoder.decode(buffer.subarray(0, n));
-        };
-
-        const sendTlsCommand = async (cmd: string): Promise<string> => {
-          await tlsConn.write(encoder.encode(cmd + "\r\n"));
-          return await readTlsResponse();
-        };
-
-        response = await sendTlsCommand(`EHLO localhost`);
-        response = await sendTlsCommand("AUTH LOGIN");
-        if (!response.startsWith("334")) throw new Error("AUTH failed: " + response);
-        
-        response = await sendTlsCommand(btoa(emailSettings.smtp_user));
-        if (!response.startsWith("334")) throw new Error("Username rejected");
-        
-        response = await sendTlsCommand(btoa(emailSettings.smtp_password));
-        if (!response.startsWith("235")) throw new Error("Auth failed");
-
-        response = await sendTlsCommand(`MAIL FROM:<${emailSettings.sender_email}>`);
-        if (!response.startsWith("250")) throw new Error("MAIL FROM failed");
-
-        response = await sendTlsCommand(`RCPT TO:<${recipientEmail}>`);
-        if (!response.startsWith("250")) throw new Error("RCPT TO failed");
-
-        response = await sendTlsCommand("DATA");
-        if (!response.startsWith("354")) throw new Error("DATA failed");
-
-        // Build attachment parts
-        const attachmentParts: string[] = [];
-        for (const att of attachments) {
-          attachmentParts.push(
-            `--${boundary}`,
-            `Content-Type: application/pdf; name="${att.filename}"`,
-            `Content-Disposition: attachment; filename="${att.filename}"`,
-            `Content-Transfer-Encoding: base64`,
-            ``,
-            ...att.base64.match(/.{1,76}/g) || [att.base64],
-            ``
-          );
-        }
-
-        const emailContent = [
-          `From: ${emailSettings.sender_name} <${emailSettings.sender_email}>`,
-          `To: ${recipientEmail}`,
-          `Subject: =?UTF-8?B?${subjectEncoded}?=`,
-          `MIME-Version: 1.0`,
-          `Content-Type: multipart/mixed; boundary="${boundary}"`,
-          ``,
-          `--${boundary}`,
-          `Content-Type: text/html; charset=UTF-8`,
-          `Content-Transfer-Encoding: base64`,
-          ``,
-          btoa(unescape(encodeURIComponent(htmlContent))),
-          ``,
-          ...attachmentParts,
-          `--${boundary}--`,
-          `.`,
-        ].join("\r\n");
-
-        console.log(`[Email ${emailNumber}] Sending ${emailContent.length} bytes with ${attachments.length} attachments...`);
-        await tlsConn.write(encoder.encode(emailContent + "\r\n"));
-        response = await readTlsResponse();
-        
-        if (!response.startsWith("250")) {
-          throw new Error("Send failed: " + response);
-        }
-
-        await sendTlsCommand("QUIT");
-        try { tlsConn.close(); } catch {}
-        
-        console.log(`[Email ${emailNumber}] Sent successfully on attempt ${attempt}`);
-        return { success: true };
-
-      } catch (error: any) {
-        console.error(`[Email ${emailNumber}] Attempt ${attempt} failed:`, error.message);
-        
-        if (attempt < MAX_RETRIES) {
-          const delay = RETRY_DELAY_MS * Math.pow(2, attempt - 1); // Exponential backoff
-          console.log(`[Email ${emailNumber}] Retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        } else {
-          return { success: false, error: error.message };
-        }
+      if (error) {
+        console.error(`[Email ${emailNumber}] Resend error:`, error);
+        return { success: false, error: error.message };
       }
+
+      console.log(`[Email ${emailNumber}] Sent successfully via Resend, id:`, data?.id);
+      return { success: true };
+    } catch (error: any) {
+      console.error(`[Email ${emailNumber}] Exception:`, error.message);
+      return { success: false, error: error.message };
     }
-    return { success: false, error: "Max retries exceeded" };
   }
 
-  // Email 1: VZF + AGB + Produktinfo (smaller documents)
-  const email1Attachments: Array<{ filename: string; base64: string }> = [
-    { filename: `Vertragszusammenfassung_${orderNumber}.pdf`, base64: uint8ArrayToBase64(vzfPdfBytes) }
+  // Email 1: VZF + AGB + Produktinfo
+  const email1Attachments: Array<{ filename: string; content: Uint8Array }> = [
+    { filename: `Vertragszusammenfassung_${orderNumber}.pdf`, content: vzfPdfBytes }
   ];
   if (agbPdfBytes) {
-    email1Attachments.push({ filename: "AGB.pdf", base64: uint8ArrayToBase64(agbPdfBytes) });
+    email1Attachments.push({ filename: "AGB.pdf", content: agbPdfBytes });
   }
   if (produktinfoPdfBytes) {
-    email1Attachments.push({ filename: "Produktinformationsblatt.pdf", base64: uint8ArrayToBase64(produktinfoPdfBytes) });
+    email1Attachments.push({ filename: "Produktinformationsblatt.pdf", content: produktinfoPdfBytes });
   }
 
   const email1Html = emailHtml; // Main confirmation email
   const email1Subject = `Ihre Bestellung ${orderNumber} bei COM-IN - Vertragsunterlagen`;
 
   console.log("Sending Email 1 (VZF + AGB + Produktinfo)...");
-  const email1Result = await sendEmailWithRetry(customerEmail, email1Subject, email1Html, email1Attachments, 1);
+  const email1Result = await sendEmailWithResend(customerEmail, email1Subject, email1Html, email1Attachments, 1);
 
-  // Email 2: Auftragsformular (larger document, separate)
-  const email2Attachments: Array<{ filename: string; base64: string }> = [
-    { filename: `Auftragsformular_${orderNumber}.pdf`, base64: uint8ArrayToBase64(auftragPdfBytes) }
+  // Email 2: Auftragsformular
+  const email2Attachments: Array<{ filename: string; content: Uint8Array }> = [
+    { filename: `Auftragsformular_${orderNumber}.pdf`, content: auftragPdfBytes }
   ];
 
   const email2Html = `
@@ -1358,7 +1177,7 @@ async function processOrderEmail(requestData: OrderEmailRequest): Promise<{ succ
   const email2Subject = `Ihre Bestellung ${orderNumber} bei COM-IN - Auftragsformular`;
 
   console.log("Sending Email 2 (Auftragsformular)...");
-  const email2Result = await sendEmailWithRetry(customerEmail, email2Subject, email2Html, email2Attachments, 2);
+  const email2Result = await sendEmailWithResend(customerEmail, email2Subject, email2Html, email2Attachments, 2);
 
   // Log results
   const allSuccess = email1Result.success && email2Result.success;
