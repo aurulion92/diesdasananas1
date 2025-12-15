@@ -23,7 +23,8 @@ import {
   RefreshCw,
   Package,
   Trash2,
-  Tag
+  Tag,
+  Database
 } from 'lucide-react';
 import {
   Table,
@@ -37,6 +38,8 @@ import { CSVImportDialog } from './CSVImportDialog';
 import { CSVImportUndoButton } from './CSVImportUndoButton';
 import { ProductBuildingAssignment } from './ProductBuildingAssignment';
 import { PromotionBuildingAssignment } from './PromotionBuildingAssignment';
+import { BuildingK7ServicesManager } from './BuildingK7ServicesManager';
+import { K7DataImportDialog } from './K7DataImportDialog';
 
 interface Building {
   id: string;
@@ -413,6 +416,7 @@ export const BuildingsManager = () => {
               <Upload className="w-4 h-4 mr-2" />
               CSV Import
             </Button>
+            <K7DataImportDialog onImportComplete={() => fetchBuildings(searchTerm)} />
             <Button variant="destructive" size="sm" onClick={deleteAllBuildings}>
               <Trash2 className="w-4 h-4 mr-2" />
               Alle löschen
@@ -742,6 +746,11 @@ export const BuildingsManager = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <BuildingK7ServicesManager
+                            buildingId={building.id}
+                            buildingAddress={`${building.street} ${building.house_number}, ${building.city}`}
+                            gebaudeIdK7={building.gebaeude_id_k7}
+                          />
                           <Button
                             variant="ghost"
                             size="sm"
