@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useOrder } from '@/context/OrderContext';
+import { useOrderPromotions } from '@/hooks/useOrderPromotions';
+import { usePromotionsContext } from '@/context/PromotionsContext';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
@@ -72,6 +74,15 @@ export function OrderSummary() {
     getOrderNumber,
     setStep 
   } = useOrder();
+
+  // Get promotion data for applied promotions
+  const { 
+    getEffectiveRouterMonthlyDiscount,
+    getEffectiveRouterOneTimeDiscount,
+    isSetupFeeWaivedByPromotions,
+  } = useOrderPromotions();
+  
+  const { promotions } = usePromotionsContext();
 
   const [orderComplete, setOrderComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -267,11 +278,12 @@ export function OrderSummary() {
         referralBonus: getReferralBonus(),
       }));
 
-      // Build selected options array
+      // Build selected options array with optionId for K7 mapping
       const selectedOptions = [];
       if (selectedRouter && selectedRouter.id !== 'router-none') {
         selectedOptions.push({
           type: 'router',
+          optionId: selectedRouter.databaseId || null, // Database UUID for K7 mapping
           name: selectedRouter.name,
           monthlyPrice: getRouterPrice(),
           discount: routerDiscount
@@ -280,6 +292,7 @@ export function OrderSummary() {
       if (tvSelection.type !== 'none') {
         selectedOptions.push({
           type: 'tv',
+          optionId: tvSelection.package?.databaseId || null,
           tvType: tvSelection.type,
           package: tvSelection.package,
           hdAddon: tvSelection.hdAddon,
@@ -290,6 +303,7 @@ export function OrderSummary() {
       if (phoneSelection.enabled && !isFiberBasic) {
         selectedOptions.push({
           type: 'phone',
+          optionId: phoneSelection.selectedOptionId || null,
           lines: phoneSelection.lines,
           portingRequired: phoneSelection.portingRequired,
           portingData: phoneSelection.portingData
@@ -300,6 +314,7 @@ export function OrderSummary() {
       selectedAddons.forEach(addon => {
         selectedOptions.push({
           type: 'service',
+          optionId: addon.databaseId || addon.id || null,
           id: addon.id,
           name: addon.name,
           description: addon.description,
@@ -309,16 +324,64 @@ export function OrderSummary() {
         });
       });
 
-      // Build applied promotions
+      // Build applied promotions - include automatically applied database promotions
       const appliedPromotions = [];
+      
+      // Add manual promo code if present
       if (appliedPromoCode) {
         appliedPromotions.push({
+          type: 'promo_code',
           code: appliedPromoCode.code,
           description: appliedPromoCode.description,
           routerDiscount: appliedPromoCode.routerDiscount,
           setupFeeWaived: appliedPromoCode.setupFeeWaived
         });
       }
+      
+      // Add automatic database promotions (like FTTH Aktion)
+      const buildingId = (address as any)?.buildingId || null;
+      promotions.forEach(promo => {
+        // Check if this promotion applies to the selected tariff
+        const appliesToTariff = promo.target_product_ids.length === 0 || 
+                               promo.target_product_ids.includes(selectedTariff.id);
+        // Check building restrictions
+        const appliesToBuilding = promo.building_ids.length === 0 || 
+                                  (buildingId && promo.building_ids.includes(buildingId));
+        
+        if (appliesToTariff && appliesToBuilding && !promo.requires_customer_number) {
+          // Check if any discount from this promotion actually applies
+          const hasApplicableDiscount = promo.discounts.some(d => {
+            if (d.applies_to === 'option' && d.target_option_id) {
+              // Check if this option is selected
+              const routerOptionId = selectedRouter?.databaseId || null;
+              return d.target_option_id === routerOptionId;
+            }
+            if (d.applies_to === 'setup_fee' && d.target_product_id === selectedTariff.id) {
+              return true;
+            }
+            if (d.applies_to === 'product' && d.target_product_id === selectedTariff.id) {
+              return true;
+            }
+            return false;
+          });
+          
+          if (hasApplicableDiscount) {
+            appliedPromotions.push({
+              type: 'database_promotion',
+              id: promo.id,
+              name: promo.name,
+              description: promo.description,
+              discounts: promo.discounts.filter(d => {
+                if (d.applies_to === 'option' && d.target_option_id) {
+                  const routerOptionId = selectedRouter?.databaseId || null;
+                  return d.target_option_id === routerOptionId;
+                }
+                return d.target_product_id === selectedTariff.id;
+              })
+            });
+          }
+        }
+      });
 
       const orderData = {
         // Customer data
@@ -336,7 +399,8 @@ export function OrderSummary() {
         apartment: apartmentData?.apartment || null,
         connection_type: address.connectionType,
         
-        // Product
+        // Product - IMPORTANT: Include product_id for K7 XML generation
+        product_id: selectedTariff.id,
         product_name: selectedTariff.name,
         product_monthly_price: isFiberBasic && contractDuration === 12 
           ? selectedTariff.monthlyPrice12 || selectedTariff.monthlyPrice 

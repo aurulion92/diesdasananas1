@@ -114,6 +114,18 @@ function cleanNumericId(value: string | null): string {
   return value.replace(/,\d+$/, '').replace(/\.\d+$/, '').trim();
 }
 
+// Convert Uint8Array to base64 string without Stack Overflow
+// Uses chunked approach instead of spread operator
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000; // 32KB chunks to avoid stack overflow
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  return btoa(binary);
+}
+
 // Fill Vertragszusammenfassung PDF
 async function fillVZFPdf(data: VZFData, orderId: string, customerName: string): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
@@ -1047,8 +1059,8 @@ serve(async (req: Request): Promise<Response> => {
 
     const attachments: string[] = [];
 
-    // Add VZF PDF
-    const vzfBase64 = btoa(String.fromCharCode(...vzfPdfBytes));
+    // Add VZF PDF - use chunked base64 encoding to avoid stack overflow
+    const vzfBase64 = uint8ArrayToBase64(vzfPdfBytes);
     attachments.push(
       `--${boundary}`,
       `Content-Type: application/pdf; name="Vertragszusammenfassung_${orderNumber}.pdf"`,
@@ -1060,7 +1072,7 @@ serve(async (req: Request): Promise<Response> => {
     );
 
     // Add Auftrag PDF
-    const auftragBase64 = btoa(String.fromCharCode(...auftragPdfBytes));
+    const auftragBase64 = uint8ArrayToBase64(auftragPdfBytes);
     attachments.push(
       `--${boundary}`,
       `Content-Type: application/pdf; name="Auftragsformular_${orderNumber}.pdf"`,
@@ -1073,7 +1085,7 @@ serve(async (req: Request): Promise<Response> => {
 
     // Add AGB PDF if available
     if (agbPdfBytes) {
-      const agbBase64 = btoa(String.fromCharCode(...agbPdfBytes));
+      const agbBase64 = uint8ArrayToBase64(agbPdfBytes);
       attachments.push(
         `--${boundary}`,
         `Content-Type: application/pdf; name="AGB.pdf"`,
@@ -1088,7 +1100,7 @@ serve(async (req: Request): Promise<Response> => {
 
     // Add Produktinfo PDF if available
     if (produktinfoPdfBytes) {
-      const produktinfoBase64 = btoa(String.fromCharCode(...produktinfoPdfBytes));
+      const produktinfoBase64 = uint8ArrayToBase64(produktinfoPdfBytes);
       attachments.push(
         `--${boundary}`,
         `Content-Type: application/pdf; name="Produktinformationsblatt.pdf"`,
