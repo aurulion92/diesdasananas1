@@ -53,22 +53,29 @@ serve(async (req) => {
 
     console.log('Order loaded:', order.customer_name);
 
-    // Fetch product K7 ID
+    // Fetch product with speeds for bandwidth matching
     let productK7Id = '';
+    let productDownloadSpeed = 0;
+    let productUploadSpeed = 0;
+    
     if (order.product_id) {
       const { data: product } = await supabase
         .from('products')
-        .select('product_id_k7, name')
+        .select('product_id_k7, name, download_speed, upload_speed')
         .eq('id', order.product_id)
         .single();
       
-      if (product?.product_id_k7) {
-        productK7Id = cleanNumericId(product.product_id_k7);
-        console.log('Product K7 ID:', productK7Id, 'for', product.name);
+      if (product) {
+        if (product.product_id_k7) {
+          productK7Id = cleanNumericId(product.product_id_k7);
+        }
+        productDownloadSpeed = product.download_speed || 0;
+        productUploadSpeed = product.upload_speed || 0;
+        console.log('Product:', product.name, 'K7 ID:', productK7Id, 'Speeds:', productDownloadSpeed + '/' + productUploadSpeed);
       }
     }
 
-    // Fetch building K7 data
+    // Fetch building K7 data with bandwidth matching
     let buildingK7Id = '';
     let bandbreiteId = '';
     let vorleistungsproduktId = '';
@@ -86,19 +93,43 @@ serve(async (req) => {
       const building = buildings[0];
       buildingK7Id = cleanNumericId(building.gebaeude_id_k7);
       
-      // Fetch K7 services for bandwidth and vorleistungsprodukt
+      // Fetch ALL K7 services for this building
       const { data: k7Services } = await supabase
         .from('building_k7_services')
         .select('*')
-        .eq('building_id', building.id)
-        .limit(1);
+        .eq('building_id', building.id);
 
       if (k7Services && k7Services.length > 0) {
-        const k7 = k7Services[0];
-        buildingK7Id = cleanNumericId(k7.std_kabel_gebaeude_id) || buildingK7Id;
-        bandbreiteId = cleanNumericId(k7.nt_dsl_bandbreite_id);
-        vorleistungsproduktId = cleanNumericId(k7.leistungsprodukt_id);
-        console.log('K7 Data:', { buildingK7Id, bandbreiteId, vorleistungsproduktId });
+        // Try to find matching K7 service based on bandwidth
+        // Format in DB: "1000/250", "500/100", "100/10", etc.
+        const targetBandwidth = `${productDownloadSpeed}/${productUploadSpeed}`;
+        
+        let matchedK7 = k7Services.find(k7 => {
+          if (!k7.bandbreite) return false;
+          // Direct match
+          if (k7.bandbreite === targetBandwidth) return true;
+          // Try parsing the bandwidth string
+          const parts = k7.bandbreite.split('/');
+          if (parts.length === 2) {
+            const down = parseInt(parts[0], 10);
+            const up = parseInt(parts[1], 10);
+            return down === productDownloadSpeed && up === productUploadSpeed;
+          }
+          return false;
+        });
+        
+        // Fallback to first entry if no match found
+        if (!matchedK7) {
+          console.log('No bandwidth match found for', targetBandwidth, '- using first K7 service');
+          matchedK7 = k7Services[0];
+        } else {
+          console.log('Matched K7 service for bandwidth:', targetBandwidth);
+        }
+        
+        buildingK7Id = cleanNumericId(matchedK7.std_kabel_gebaeude_id) || buildingK7Id;
+        bandbreiteId = cleanNumericId(matchedK7.nt_dsl_bandbreite_id);
+        vorleistungsproduktId = cleanNumericId(matchedK7.leistungsprodukt_id);
+        console.log('K7 Data:', { buildingK7Id, bandbreiteId, vorleistungsproduktId, matchedBandwidth: matchedK7.bandbreite });
       }
     }
 
