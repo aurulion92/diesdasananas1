@@ -507,12 +507,12 @@ export function OrderSummary() {
           // Bank data
           bankAccountHolder: bankData?.accountHolder,
           bankIban: bankData?.iban,
-          // Discounts (including FTTH Aktion)
-          discounts: routerDiscount > 0 ? [{ name: 'FTTH Aktion Router-Rabatt', amount: routerDiscount, type: 'monthly' as const }] : undefined,
-          // Router with discounted price
+          // Discounts (including FTTH Aktion) - show as separate line item
+          discounts: routerDiscount > 0 ? [{ name: 'FTTH Aktion', amount: routerDiscount, type: 'monthly' as const }] : undefined,
+          // Router with FULL price (discount shown separately)
           routerName: selectedRouter?.id !== 'router-none' ? selectedRouter?.name : undefined,
-          routerMonthlyPrice: selectedRouter?.monthlyPrice ? getRouterPrice() : undefined,
-          routerOneTimePrice: selectedRouter?.oneTimePrice,
+          routerMonthlyPrice: selectedRouter?.id !== 'router-none' ? selectedRouter?.monthlyPrice : undefined,
+          routerOneTimePrice: selectedRouter?.id !== 'router-none' ? selectedRouter?.oneTimePrice : undefined,
           // TV
           tvName: tvSelection.type === 'comin' ? 'COM-IN TV' : tvSelection.package?.name,
           tvMonthlyPrice: tvSelection.package?.monthlyPrice,
