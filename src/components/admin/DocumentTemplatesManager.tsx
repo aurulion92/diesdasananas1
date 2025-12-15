@@ -40,7 +40,8 @@ import {
   Upload,
   FileUp,
   X,
-  Loader2
+  Loader2,
+  Image as ImageIcon
 } from 'lucide-react';
 
 import { TEMPLATE_USE_CASES } from '@/services/templateService';
@@ -60,6 +61,7 @@ interface DocumentTemplate {
   use_cases: string[];
   content: string;
   pdf_url: string | null;
+  image_url: string | null;
   placeholders: Placeholder[];
   is_active: boolean;
   created_at: string;
@@ -107,6 +109,7 @@ const DEFAULT_PLACEHOLDERS: Placeholder[] = [
   { key: '{{iban}}', description: 'IBAN', example: 'DE89 3704 0044 0532 0130 00' },
   { key: '{{kontoinhaber}}', description: 'Kontoinhaber', example: 'Max Mustermann' },
   { key: '{{wunschtermin}}', description: 'Gewünschter Anschlusstermin', example: '01.07.2025' },
+  { key: '{{logo_url}}', description: 'Logo-URL (aus E-Mail Logo Template)', example: 'https://...' },
 ];
 
 export function DocumentTemplatesManager() {
@@ -117,7 +120,9 @@ export function DocumentTemplatesManager() {
   const [editingTemplate, setEditingTemplate] = useState<DocumentTemplate | null>(null);
   const [previewHtml, setPreviewHtml] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -127,6 +132,7 @@ export function DocumentTemplatesManager() {
     use_cases: [] as string[],
     content: '',
     pdf_url: '',
+    image_url: '',
     is_active: true,
   });
 
@@ -149,6 +155,7 @@ export function DocumentTemplatesManager() {
         placeholders: Array.isArray(t.placeholders) ? t.placeholders as Placeholder[] : [],
         use_cases: Array.isArray(t.use_cases) ? t.use_cases : (t.use_case ? [t.use_case] : []),
         pdf_url: t.pdf_url || null,
+        image_url: t.image_url || null,
       })) as DocumentTemplate[];
       setTemplates(parsed);
     }
@@ -164,6 +171,7 @@ export function DocumentTemplatesManager() {
       use_cases: [],
       content: getDefaultTemplate(),
       pdf_url: '',
+      image_url: '',
       is_active: true,
     });
     setIsDialogOpen(true);
@@ -178,6 +186,7 @@ export function DocumentTemplatesManager() {
       use_cases: template.use_cases || [],
       content: template.content,
       pdf_url: template.pdf_url || '',
+      image_url: template.image_url || '',
       is_active: template.is_active,
     });
     setIsDialogOpen(true);
@@ -263,6 +272,53 @@ export function DocumentTemplatesManager() {
     setFormData(prev => ({ ...prev, pdf_url: '' }));
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Nur Bilddateien erlaubt (PNG, JPG, etc.)', variant: 'destructive' });
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const fileName = `images/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      
+      const { data, error } = await supabase.storage
+        .from('admin-uploads')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage
+        .from('admin-uploads')
+        .getPublicUrl(fileName);
+
+      setFormData(prev => ({ 
+        ...prev, 
+        image_url: urlData.publicUrl,
+      }));
+      
+      toast({ title: 'Bild hochgeladen', description: file.name });
+    } catch (error: any) {
+      console.error('Image upload error:', error);
+      toast({ title: 'Upload fehlgeschlagen', description: error.message, variant: 'destructive' });
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+      }
+    }
+  };
+
+  const removeImage = () => {
+    setFormData(prev => ({ ...prev, image_url: '' }));
+  };
+
   const handleSave = async () => {
     if (!formData.name || (!formData.content && !formData.pdf_url)) {
       toast({ title: 'Bitte Name und Inhalt/PDF ausfüllen', variant: 'destructive' });
@@ -277,6 +333,7 @@ export function DocumentTemplatesManager() {
       use_cases: formData.use_cases,
       content: formData.content,
       pdf_url: formData.pdf_url || null,
+      image_url: formData.image_url || null,
       placeholders: JSON.parse(JSON.stringify(DEFAULT_PLACEHOLDERS)),
       is_active: formData.is_active,
     };
@@ -464,7 +521,9 @@ export function DocumentTemplatesManager() {
                 <TableRow key={template.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
-                      {template.pdf_url ? (
+                      {template.image_url ? (
+                        <img src={template.image_url} alt="" className="w-6 h-6 object-contain rounded" />
+                      ) : template.pdf_url ? (
                         <FileUp className="w-4 h-4 text-red-500" />
                       ) : (
                         <FileText className="w-4 h-4 text-muted-foreground" />
@@ -588,67 +647,129 @@ export function DocumentTemplatesManager() {
                 </p>
               </div>
 
-              {/* PDF Upload Section */}
-              <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Upload className="w-5 h-5 text-muted-foreground" />
-                    <Label>PDF-Vorlage hochladen (optional)</Label>
+              {/* File Upload Sections - PDF and Image */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* PDF Upload Section */}
+                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Upload className="w-5 h-5 text-muted-foreground" />
+                      <Label className="text-sm">PDF-Vorlage</Label>
+                    </div>
+                    {formData.pdf_url && (
+                      <Button variant="ghost" size="sm" onClick={removePdf}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
-                  {formData.pdf_url && (
-                    <Button variant="ghost" size="sm" onClick={removePdf}>
-                      <X className="w-4 h-4 mr-1" />
-                      Entfernen
-                    </Button>
+                  
+                  {formData.pdf_url ? (
+                    <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-950/30 rounded-lg">
+                      <FileUp className="w-8 h-8 text-red-500" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">PDF hochgeladen</p>
+                        <a 
+                          href={formData.pdf_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-500 hover:underline truncate block"
+                        >
+                          Ansehen
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf"
+                        onChange={handlePdfUpload}
+                        className="hidden"
+                        id="pdf-upload"
+                      />
+                      <label 
+                        htmlFor="pdf-upload"
+                        className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors text-sm"
+                      >
+                        {uploading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Hochladen...
+                          </>
+                        ) : (
+                          <>
+                            <FileUp className="w-4 h-4" />
+                            PDF auswählen
+                          </>
+                        )}
+                      </label>
+                    </div>
                   )}
                 </div>
-                
-                {formData.pdf_url ? (
-                  <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-950/30 rounded-lg">
-                    <FileUp className="w-8 h-8 text-red-500" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">PDF hochgeladen</p>
-                      <a 
-                        href={formData.pdf_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-500 hover:underline truncate block"
-                      >
-                        PDF ansehen
-                      </a>
+
+                {/* Image Upload Section */}
+                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                      <Label className="text-sm">Bild (z.B. Logo)</Label>
                     </div>
+                    {formData.image_url && (
+                      <Button variant="ghost" size="sm" onClick={removeImage}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
-                ) : (
-                  <div className="text-center">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".pdf"
-                      onChange={handlePdfUpload}
-                      className="hidden"
-                      id="pdf-upload"
-                    />
-                    <label 
-                      htmlFor="pdf-upload"
-                      className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
-                    >
-                      {uploading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Hochladen...
-                        </>
-                      ) : (
-                        <>
-                          <FileUp className="w-4 h-4" />
-                          PDF auswählen
-                        </>
-                      )}
-                    </label>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      PDF mit Platzhaltern wie {"{{kunde_name}}"} hochladen
-                    </p>
-                  </div>
-                )}
+                  
+                  {formData.image_url ? (
+                    <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                      <img 
+                        src={formData.image_url} 
+                        alt="Hochgeladenes Bild" 
+                        className="w-12 h-12 object-contain rounded"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">Bild hochgeladen</p>
+                        <a 
+                          href={formData.image_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-500 hover:underline truncate block"
+                        >
+                          Ansehen
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        id="image-upload"
+                      />
+                      <label 
+                        htmlFor="image-upload"
+                        className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors text-sm"
+                      >
+                        {uploadingImage ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Hochladen...
+                          </>
+                        ) : (
+                          <>
+                            <ImageIcon className="w-4 h-4" />
+                            Bild auswählen
+                          </>
+                        )}
+                      </label>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
