@@ -281,6 +281,8 @@ serve(async (req) => {
     const voipRAccountGuid = generateGuid();
 
     const today = formatDate(new Date());
+    const orderDate = order.created_at ? formatDate(new Date(order.created_at)) : today;
+    const installationDate = order.desired_start_date || today;
     
     // Determine customer type
     const isKmu = vzfData.customerType === 'kmu';
@@ -533,7 +535,7 @@ serve(async (req) => {
         <Zahlungsart>
           <LookupValue>LB</LookupValue>
         </Zahlungsart>
-        <IBAN>${escapeXml(order.bank_iban || '')}</IBAN>${abweichenderKontoinhaberXml}
+        <IBAN>${(order.bank_iban || '').replace(/\s/g, '').toUpperCase()}</IBAN>${abweichenderKontoinhaberXml}
         <SEPALastschriftmandate>
           <SEPALastschriftmandat xsi:type="SEPALastschriftmandatType">
             <MandatsReferenz AutoGenerate="true"/>
@@ -601,8 +603,8 @@ serve(async (req) => {
               </Produkt>
               <Vertragsbeginn>${today}</Vertragsbeginn>
               <Vertragsende AutoGenerate="true"/>
-              <ZuletztErfasstAm>${today}</ZuletztErfasstAm>
-              <ZuletztUnterzeichhnetAm>${today}</ZuletztUnterzeichhnetAm>
+              <ZuletztErfasstAm>${orderDate}</ZuletztErfasstAm>
+              <ZuletztUnterzeichhnetAm>${orderDate}</ZuletztUnterzeichhnetAm>
               <Optionen>${optionsXml}
               </Optionen>
             </Produkt>
@@ -640,7 +642,7 @@ serve(async (req) => {
       </Dienste>
       <Anschluesse>
         <Anschluss xsi:type="AnschlussType" Guid="${anschlussGuid}">
-          <Installationstermin>${order.desired_start_date || ''}</Installationstermin>
+          <Installationstermin>${installationDate}</Installationstermin>
           <Standort>
             <LookupGuid>${anschlussAdresseGuid}</LookupGuid>
           </Standort>
