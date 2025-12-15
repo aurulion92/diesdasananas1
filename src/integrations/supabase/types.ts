@@ -38,6 +38,50 @@ export type Database = {
         }
         Relationships: []
       }
+      building_k7_services: {
+        Row: {
+          bandbreite: string | null
+          building_id: string
+          created_at: string
+          id: string
+          leistungsprodukt: string | null
+          leistungsprodukt_id: string | null
+          nt_dsl_bandbreite_id: string | null
+          std_kabel_gebaeude_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          bandbreite?: string | null
+          building_id: string
+          created_at?: string
+          id?: string
+          leistungsprodukt?: string | null
+          leistungsprodukt_id?: string | null
+          nt_dsl_bandbreite_id?: string | null
+          std_kabel_gebaeude_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bandbreite?: string | null
+          building_id?: string
+          created_at?: string
+          id?: string
+          leistungsprodukt?: string | null
+          leistungsprodukt_id?: string | null
+          nt_dsl_bandbreite_id?: string | null
+          std_kabel_gebaeude_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_k7_services_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       buildings: {
         Row: {
           apl_set: boolean | null
