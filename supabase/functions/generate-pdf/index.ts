@@ -134,9 +134,19 @@ async function fillTemplatePdf(templatePdfBytes: Uint8Array, data: VZFData): Pro
       monthlyNames.push(data.tariffName);
       monthlyAmounts.push(formatCurrency(data.tariffPrice));
     }
-    if (data.routerName && data.routerMonthlyPrice && data.routerMonthlyPrice > 0) {
+    // Show router even if price is 0 (e.g. with FTTH Aktion discount)
+    if (data.routerName && data.routerMonthlyPrice !== undefined) {
       monthlyNames.push(data.routerName);
       monthlyAmounts.push(formatCurrency(data.routerMonthlyPrice));
+    }
+    // Add monthly discounts as separate line items with negative amounts
+    if (data.discounts && data.discounts.length > 0) {
+      for (const discount of data.discounts) {
+        if (discount.type === 'monthly' && discount.amount > 0) {
+          monthlyNames.push(discount.name);
+          monthlyAmounts.push(`-${formatCurrency(discount.amount)}`);
+        }
+      }
     }
     if (data.tvName && data.tvMonthlyPrice && data.tvMonthlyPrice > 0) {
       monthlyNames.push(data.tvName);
