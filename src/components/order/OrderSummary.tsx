@@ -111,6 +111,8 @@ export function OrderSummary() {
       waipuStickPrice: tvSelection.waipuStickPrice,
       phoneEnabled: phoneIsBooked,
       phoneLines: phoneSelection.lines || (hasPhoneAddon ? 1 : 0),
+      phonePrice: phoneSelection.selectedOptionPrice || 0,
+      phoneName: phoneSelection.selectedOptionName || undefined,
       routerDiscount: routerDiscount,
       setupFee: getSetupFee(),
       setupFeeWaived: isSetupFeeWaived(),
@@ -186,9 +188,9 @@ export function OrderSummary() {
         // TV
         tvName: tvSelection.type === 'comin' ? 'COM-IN TV' : tvSelection.package?.name,
         tvMonthlyPrice: tvSelection.package?.monthlyPrice,
-        // Phone
-        phoneName: phoneIsBooked ? 'Telefonie' : undefined,
-        phoneMonthlyPrice: phoneSelection.enabled && !isFiberBasic ? phoneSelection.lines * 2.95 : undefined,
+        // Phone - use selectedOptionPrice from database
+        phoneName: phoneIsBooked ? (phoneSelection.selectedOptionName || 'Telefonie') : undefined,
+        phoneMonthlyPrice: phoneSelection.enabled ? phoneSelection.selectedOptionPrice * phoneSelection.lines : undefined,
         phoneLines: phoneSelection.lines,
         // Totals
         monthlyTotal: getTotalMonthly(),
@@ -518,9 +520,10 @@ export function OrderSummary() {
           // TV
           tvName: tvSelection.type === 'comin' ? 'COM-IN TV' : tvSelection.package?.name,
           tvMonthlyPrice: tvSelection.package?.monthlyPrice,
-          // Phone
-          phoneName: phoneSelection.enabled && !isFiberBasic ? `Telefon (${phoneSelection.lines} Leitung${phoneSelection.lines > 1 ? 'en' : ''})` : undefined,
-          phoneMonthlyPrice: phoneSelection.enabled && !isFiberBasic ? phoneSelection.lines * 2.95 : undefined,
+          // Phone - use selectedOptionPrice from database instead of hardcoded value
+          phoneName: phoneSelection.enabled && phoneSelection.selectedOptionName ? 
+            `${phoneSelection.selectedOptionName} (${phoneSelection.lines} Leitung${phoneSelection.lines > 1 ? 'en' : ''})` : undefined,
+          phoneMonthlyPrice: phoneSelection.enabled ? phoneSelection.selectedOptionPrice * phoneSelection.lines : undefined,
           phoneLines: phoneSelection.lines,
           // Phone porting
           phonePorting: phoneSelection.portingRequired,
@@ -931,7 +934,7 @@ export function OrderSummary() {
                       </p>
                     )}
                   </div>
-                  <p className="font-bold text-accent">{(phoneSelection.lines * 2.95).toFixed(2).replace('.', ',')} €/Monat</p>
+                  <p className="font-bold text-accent">{(phoneSelection.lines * phoneSelection.selectedOptionPrice).toFixed(2).replace('.', ',')} €/Monat</p>
                 </div>
               </div>
             </div>
