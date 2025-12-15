@@ -88,7 +88,6 @@ function sanitizeText(text: string): string {
 async function fillTemplatePdf(templatePdfBytes: Uint8Array, data: VZFData): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(templatePdfBytes, { ignoreEncryption: true });
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   
   // Try to get form and fill fields
   try {
@@ -97,65 +96,98 @@ async function fillTemplatePdf(templatePdfBytes: Uint8Array, data: VZFData): Pro
     
     console.log(`Found ${fields.length} form fields in template`);
     
-    // Map data to common field names
-    const fieldMappings: Record<string, string> = {
-      // Customer
-      'kunde_name': `${data.customerFirstName || ''} ${data.customerLastName || data.customerName || ''}`.trim(),
-      'kunde_vorname': data.customerFirstName || '',
-      'kunde_nachname': data.customerLastName || '',
-      'kunde_email': data.customerEmail || '',
-      'kunde_telefon': data.customerPhone || '',
-      'anrede': data.salutation || '',
-      // Address
-      'strasse': data.street || '',
-      'hausnummer': data.houseNumber || '',
-      'plz': data.postalCode || '',
-      'ort': data.city || '',
-      'adresse': `${data.street || ''} ${data.houseNumber || ''}, ${data.postalCode || ''} ${data.city || ''}`.trim(),
-      // Tariff
-      'tarif': data.tariffName || '',
-      'tarif_name': data.tariffName || '',
-      'tarif_preis': data.tariffPrice ? formatCurrency(data.tariffPrice) : '',
-      'download': data.downloadSpeed || '',
-      'upload': data.uploadSpeed || '',
-      'vertragslaufzeit': data.contractDuration ? `${data.contractDuration} Monate` : '24 Monate',
-      // Router
-      'router': data.routerName || '',
-      'router_preis': data.routerMonthlyPrice ? formatCurrency(data.routerMonthlyPrice) : '',
-      // TV
-      'tv': data.tvName || '',
-      'tv_preis': data.tvMonthlyPrice ? formatCurrency(data.tvMonthlyPrice) : '',
-      // Phone
-      'telefon': data.phoneName || '',
-      'telefon_preis': data.phoneMonthlyPrice ? formatCurrency(data.phoneMonthlyPrice) : '',
-      // Totals
-      'monatlich': data.monthlyTotal ? formatCurrency(data.monthlyTotal) : '',
-      'einmalig': data.oneTimeTotal ? formatCurrency(data.oneTimeTotal) : '',
-      'bereitstellung': data.setupFee ? formatCurrency(data.setupFee) : '',
-      // Bank
-      'kontoinhaber': data.bankAccountHolder || '',
-      'iban': data.bankIban || '',
-      // Meta
-      'bestellnummer': data.orderNumber || '',
-      'datum': data.date || new Date().toLocaleDateString('de-DE'),
+    // Build content for each field based on actual VZF PDF field names
+    // Fields from the uploaded template:
+    // - Dienste und Geräte (services and devices - multiline)
+    // - monatliche Grundbeträge_Name_Leistung (monthly services names)
+    // - monatliche Grundbeträge_Betrag (monthly services amounts)
+    // - einmalige Beträge_Name_Leistung (one-time services names)
+    // - einmalige Beträge_Betrag (one-time services amounts)
+    // - Summe mntl. Grundbeträge (monthly total)
+    // - Summe mntl. einmalige Beträge (one-time total)
+    // - Mbit/s_1 through Mbit/s_6 (speeds)
+    // - Datum (date)
+    
+    // Build services and devices text
+    const servicesLines: string[] = [];
+    if (data.tariffName) servicesLines.push(data.tariffName);
+    if (data.tvName) servicesLines.push(data.tvName || 'Kein TV');
+    if (data.routerName) servicesLines.push(data.routerName);
+    if (data.phoneName) servicesLines.push(data.phoneName);
+    
+    // Build monthly costs
+    const monthlyNames: string[] = [];
+    const monthlyAmounts: string[] = [];
+    
+    if (data.tariffName && data.tariffPrice) {
+      monthlyNames.push(data.tariffName);
+      monthlyAmounts.push(formatCurrency(data.tariffPrice));
+    }
+    if (data.routerName && data.routerMonthlyPrice && data.routerMonthlyPrice > 0) {
+      monthlyNames.push(data.routerName);
+      monthlyAmounts.push(formatCurrency(data.routerMonthlyPrice));
+    }
+    if (data.tvName && data.tvMonthlyPrice && data.tvMonthlyPrice > 0) {
+      monthlyNames.push(data.tvName);
+      monthlyAmounts.push(formatCurrency(data.tvMonthlyPrice));
+    }
+    if (data.phoneName && data.phoneMonthlyPrice && data.phoneMonthlyPrice > 0) {
+      monthlyNames.push(data.phoneName);
+      monthlyAmounts.push(formatCurrency(data.phoneMonthlyPrice));
+    }
+    
+    // Build one-time costs
+    const oneTimeNames: string[] = [];
+    const oneTimeAmounts: string[] = [];
+    
+    if (data.setupFee && data.setupFee > 0) {
+      oneTimeNames.push('Bereitstellungspreis');
+      oneTimeAmounts.push(formatCurrency(data.setupFee));
+    }
+    if (data.routerOneTimePrice && data.routerOneTimePrice > 0) {
+      oneTimeNames.push(data.routerName || 'Router');
+      oneTimeAmounts.push(formatCurrency(data.routerOneTimePrice));
+    }
+    
+    // Extract speed values
+    const downloadMax = data.downloadSpeed?.replace(' Mbit/s', '') || '';
+    const downloadNormal = data.downloadSpeedNormal?.replace(' Mbit/s', '') || '';
+    const downloadMin = data.downloadSpeedMin?.replace(' Mbit/s', '') || '';
+    const uploadMax = data.uploadSpeed?.replace(' Mbit/s', '') || '';
+    const uploadNormal = data.uploadSpeedNormal?.replace(' Mbit/s', '') || '';
+    const uploadMin = data.uploadSpeedMin?.replace(' Mbit/s', '') || '';
+    
+    // Map exact field names to values
+    const exactFieldMappings: Record<string, string> = {
+      'Dienste und Geräte': servicesLines.join('\n'),
+      'monatliche Grundbeträge_Name_Leistung': monthlyNames.join('\n'),
+      'monatliche Grundbeträge_Betrag': monthlyAmounts.join('\n'),
+      'einmalige Beträge_Name_Leistung': oneTimeNames.join('\n'),
+      'einmalige Beträge_Betrag': oneTimeAmounts.join('\n'),
+      'Summe mntl. Grundbeträge': data.monthlyTotal ? formatCurrency(data.monthlyTotal) : '',
+      'Summe mntl. einmalige Beträge': data.oneTimeTotal ? formatCurrency(data.oneTimeTotal) : '',
+      'Mbit/s_1': downloadMax,
+      'Mbit/s_2': downloadNormal,
+      'Mbit/s_3': downloadMin,
+      'Mbit/s_4': uploadMax,
+      'Mbit/s_5': uploadNormal,
+      'Mbit/s_6': uploadMin,
+      'Datum': data.date || new Date().toLocaleDateString('de-DE'),
     };
     
-    // Fill each field if it exists
+    // Fill each field using exact name matching
     for (const field of fields) {
-      const fieldName = field.getName().toLowerCase().replace(/[^a-z0-9_]/g, '_');
-      console.log(`Field: ${field.getName()} -> normalized: ${fieldName}`);
+      const fieldName = field.getName();
+      console.log(`Field: ${fieldName}`);
       
-      // Try to match field name
-      for (const [key, value] of Object.entries(fieldMappings)) {
-        if (fieldName.includes(key) || key.includes(fieldName)) {
-          try {
-            const textField = form.getTextField(field.getName());
-            textField.setText(sanitizeText(value));
-            console.log(`Filled field ${field.getName()} with: ${value.substring(0, 50)}`);
-          } catch (e) {
-            // Field might not be a text field
-          }
-          break;
+      if (exactFieldMappings[fieldName] !== undefined) {
+        try {
+          const textField = form.getTextField(fieldName);
+          const value = exactFieldMappings[fieldName];
+          textField.setText(sanitizeText(value));
+          console.log(`Filled field "${fieldName}" with: ${value.substring(0, 80)}`);
+        } catch (e) {
+          console.log(`Could not fill field "${fieldName}":`, e);
         }
       }
     }
