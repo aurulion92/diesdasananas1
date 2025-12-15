@@ -21,6 +21,10 @@ interface PhonePortingData {
   numberOfNumbers: number;
   phoneNumbers: string[];
   previousProvider: string;
+  // Extended porting fields
+  connectionHolder: string; // Anschlussinhaber
+  connectionAddress: string; // Anschlussadresse
+  portingType: 'cancel_and_port' | 'port_only'; // Kündigung + Portierung ODER nur Portierung (bereits gekündigt)
 }
 
 interface ApartmentData {
@@ -31,6 +35,8 @@ interface ApartmentData {
 interface ProviderCancellationData {
   providerName: string;
   customerNumber: string; // Phone number for cancellation (Telefonnummer zum Kündigen)
+  connectionHolder: string; // Anschlussinhaber
+  connectionAddress: string; // Anschlussadresse
   portToNewConnection: boolean; // Seamless transition
   preferredDate: 'asap' | 'specific' | null;
   specificDate: string | null;
@@ -351,6 +357,8 @@ export const OrderProvider = ({ children, initialCustomerType = 'pk' }: OrderPro
       providerCancellationData: cancelPreviousProvider ? {
         providerName: '',
         customerNumber: '',
+        connectionHolder: '',
+        connectionAddress: '',
         portToNewConnection: true,
         preferredDate: null,
         specificDate: null,
