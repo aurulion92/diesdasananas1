@@ -38,6 +38,7 @@ export function CustomerForm() {
     setAlternateBillingAddress,
     alternatePaymentPerson,
     setAlternatePaymentPerson,
+    address,
   } = useOrder();
   
   const [expressOptionFromDb, setExpressOptionFromDb] = useState<{
@@ -149,12 +150,16 @@ export function CustomerForm() {
   useEffect(() => {
     if (phoneSelection.portingRequired && phoneSelection.portingData) {
       const portingData = phoneSelection.portingData;
+      // If no different holder/address specified in porting, use order address
+      const orderAddress = address ? `${address.street} ${address.houseNumber}` : '';
+      
       setCancellationData(prev => ({
         ...prev,
         providerName: portingData.previousProvider || prev.providerName,
         customerNumber: portingData.phoneNumbers?.[0] || prev.customerNumber,
+        // Use porting data if provided, otherwise use order address (connection holder will be set by form data)
         connectionHolder: portingData.connectionHolder || prev.connectionHolder,
-        connectionAddress: portingData.connectionAddress || prev.connectionAddress,
+        connectionAddress: portingData.connectionAddress || orderAddress || prev.connectionAddress,
         portToNewConnection: portingData.portingType === 'cancel_and_port',
       }));
       // Automatically enable cancel previous provider if porting is requested with cancel_and_port
@@ -162,7 +167,31 @@ export function CustomerForm() {
         setCancelPreviousProvider(true);
       }
     }
-  }, [phoneSelection.portingRequired, phoneSelection.portingData, cancelPreviousProvider, setCancelPreviousProvider]);
+  }, [phoneSelection.portingRequired, phoneSelection.portingData, cancelPreviousProvider, setCancelPreviousProvider, address]);
+
+  // Auto-fill connectionHolder and connectionAddress when cancel provider is enabled and fields are empty
+  useEffect(() => {
+    if (cancelPreviousProvider) {
+      setCancellationData(prev => {
+        const updates: Partial<typeof prev> = {};
+        
+        // Auto-fill connectionHolder with customer name if empty
+        if (!prev.connectionHolder && formData.firstName && formData.lastName) {
+          updates.connectionHolder = `${formData.firstName} ${formData.lastName}`;
+        }
+        
+        // Auto-fill connectionAddress with order address if empty
+        if (!prev.connectionAddress && address) {
+          updates.connectionAddress = `${address.street} ${address.houseNumber}`;
+        }
+        
+        if (Object.keys(updates).length > 0) {
+          return { ...prev, ...updates };
+        }
+        return prev;
+      });
+    }
+  }, [cancelPreviousProvider, formData.firstName, formData.lastName, address]);
 
   const [dateType, setDateType] = useState<'asap' | 'specific' | ''>('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
