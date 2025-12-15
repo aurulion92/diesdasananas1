@@ -1039,6 +1039,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      search_cities: {
+        Args: { p_query: string }
+        Returns: {
+          city: string
+        }[]
+      }
       search_streets: {
         Args: { p_city?: string; p_query: string }
         Returns: {

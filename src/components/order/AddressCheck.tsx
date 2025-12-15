@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useOrder } from '@/context/OrderContext';
-import { checkAddress, searchStreets, getHouseNumbers, ConnectionType, checkBuildingAvailability } from '@/data/addressDatabase';
+import { checkAddress, searchStreets, getHouseNumbers, ConnectionType, checkBuildingAvailability, searchCities } from '@/data/addressDatabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Rocket, Loader2, AlertCircle, CheckCircle2, AlertTriangle, ChevronDown, Building2 } from 'lucide-react';
@@ -23,21 +23,46 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
   const [showLimitedContactForm, setShowLimitedContactForm] = useState(false);
 
   // Autocomplete states
+  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
   const [streetSuggestions, setStreetSuggestions] = useState<string[]>([]);
   const [houseNumberSuggestions, setHouseNumberSuggestions] = useState<string[]>([]);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
   const [showStreetDropdown, setShowStreetDropdown] = useState(false);
   const [showHouseNumberDropdown, setShowHouseNumberDropdown] = useState(false);
+  const [isLoadingCities, setIsLoadingCities] = useState(false);
   const [isLoadingStreets, setIsLoadingStreets] = useState(false);
   const [isLoadingHouseNumbers, setIsLoadingHouseNumbers] = useState(false);
   
   // Keyboard navigation states
+  const [cityHighlightIndex, setCityHighlightIndex] = useState(-1);
   const [streetHighlightIndex, setStreetHighlightIndex] = useState(-1);
   const [houseNumberHighlightIndex, setHouseNumberHighlightIndex] = useState(-1);
 
+  const cityInputRef = useRef<HTMLInputElement>(null);
   const streetInputRef = useRef<HTMLInputElement>(null);
   const houseNumberInputRef = useRef<HTMLInputElement>(null);
+  const cityDropdownRef = useRef<HTMLDivElement>(null);
   const streetDropdownRef = useRef<HTMLDivElement>(null);
   const houseNumberDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Search cities when typing (min 2 chars)
+  useEffect(() => {
+    const searchCitiesAsync = async () => {
+      if (city.length >= 2) {
+        setIsLoadingCities(true);
+        const results = await searchCities(city);
+        setCitySuggestions(results);
+        setShowCityDropdown(results.length > 0 && !results.some(r => r.toLowerCase() === city.toLowerCase()));
+        setIsLoadingCities(false);
+      } else {
+        setCitySuggestions([]);
+        setShowCityDropdown(false);
+      }
+    };
+
+    const debounce = setTimeout(searchCitiesAsync, 200);
+    return () => clearTimeout(debounce);
+  }, [city]);
 
   // Search streets when typing (min 3 chars)
   useEffect(() => {
@@ -77,6 +102,10 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      if (cityDropdownRef.current && !cityDropdownRef.current.contains(event.target as Node) &&
+          !cityInputRef.current?.contains(event.target as Node)) {
+        setShowCityDropdown(false);
+      }
       if (streetDropdownRef.current && !streetDropdownRef.current.contains(event.target as Node) &&
           !streetInputRef.current?.contains(event.target as Node)) {
         setShowStreetDropdown(false);
@@ -90,6 +119,17 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleCitySelect = (selectedCity: string) => {
+    setCity(selectedCity);
+    setShowCityDropdown(false);
+    setCityHighlightIndex(-1);
+    setStreet('');
+    setHouseNumber('');
+    setResult(null);
+    // Focus street input after selecting city
+    setTimeout(() => streetInputRef.current?.focus(), 100);
+  };
 
   const handleStreetSelect = (selectedStreet: string) => {
     setStreet(selectedStreet);
@@ -106,6 +146,43 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
     setShowHouseNumberDropdown(false);
     setHouseNumberHighlightIndex(-1);
     setResult(null);
+  };
+
+  // Keyboard navigation for city dropdown
+  const handleCityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const filteredCities = citySuggestions.filter(s => 
+      s.toLowerCase().startsWith(city.toLowerCase())
+    );
+    
+    if (!showCityDropdown || filteredCities.length === 0) {
+      if (e.key === 'ArrowDown' && filteredCities.length > 0) {
+        setShowCityDropdown(true);
+        setCityHighlightIndex(0);
+        e.preventDefault();
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setCityHighlightIndex(prev => prev < filteredCities.length - 1 ? prev + 1 : prev);
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setCityHighlightIndex(prev => prev > 0 ? prev - 1 : 0);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (cityHighlightIndex >= 0 && cityHighlightIndex < filteredCities.length) {
+          handleCitySelect(filteredCities[cityHighlightIndex]);
+        }
+        break;
+      case 'Escape':
+        setShowCityDropdown(false);
+        setCityHighlightIndex(-1);
+        break;
+    }
   };
 
   // Keyboard navigation for street dropdown
@@ -256,19 +333,66 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          {/* Stadt */}
-          <div>
-            <Input
-              placeholder="Stadt"
-              value={city}
-              onChange={(e) => {
-                setCity(e.target.value);
-                setStreet('');
-                setHouseNumber('');
-                setResult(null);
-              }}
-              className="h-12 rounded-full bg-background border-border text-center"
-            />
+          {/* Stadt mit Autocomplete */}
+          <div className="relative">
+            <div className="relative">
+              <Input
+                ref={cityInputRef}
+                placeholder="Stadt"
+                value={city}
+                onChange={(e) => {
+                  setCity(e.target.value);
+                  setStreet('');
+                  setHouseNumber('');
+                  setResult(null);
+                  setCityHighlightIndex(-1);
+                }}
+                onFocus={() => {
+                  if (citySuggestions.length > 0 && !citySuggestions.some(s => s.toLowerCase() === city.toLowerCase())) {
+                    setShowCityDropdown(true);
+                  }
+                }}
+                onKeyDown={handleCityKeyDown}
+                className={cn(
+                  "h-12 rounded-full bg-background border-border text-center pr-10",
+                  isLoadingCities && "pr-10"
+                )}
+              />
+              {isLoadingCities && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 animate-spin text-muted-foreground" />
+              )}
+              {!isLoadingCities && citySuggestions.length > 0 && (
+                <ChevronDown 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground cursor-pointer"
+                  onClick={() => setShowCityDropdown(!showCityDropdown)}
+                />
+              )}
+            </div>
+            
+            {showCityDropdown && citySuggestions.length > 0 && (
+              <div 
+                ref={cityDropdownRef}
+                className="absolute z-50 w-full mt-1 bg-card border border-border rounded-xl shadow-lg max-h-60 overflow-auto"
+              >
+                {citySuggestions
+                  .filter(suggestion => suggestion.toLowerCase().startsWith(city.toLowerCase()))
+                  .map((suggestion, index) => (
+                    <button
+                      key={index}
+                      className={cn(
+                        "w-full px-4 py-3 text-left transition-colors first:rounded-t-xl last:rounded-b-xl",
+                        index === cityHighlightIndex 
+                          ? "bg-primary/10 text-primary" 
+                          : "hover:bg-accent/10"
+                      )}
+                      onClick={() => handleCitySelect(suggestion)}
+                      onMouseEnter={() => setCityHighlightIndex(index)}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+              </div>
+            )}
           </div>
 
           {/* Straße mit Autocomplete */}
