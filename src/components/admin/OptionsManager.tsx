@@ -472,7 +472,17 @@ export const OptionsManager = () => {
               Verwalten Sie Hardware, TV und Telefon-Optionen und deren Produkt-Zuordnungen.
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <Select value={customerTypeFilter} onValueChange={(v: 'all' | 'pk' | 'kmu') => setCustomerTypeFilter(v)}>
+              <SelectTrigger className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle</SelectItem>
+                <SelectItem value="pk">PK</SelectItem>
+                <SelectItem value="kmu">KMU</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Alle Kategorien" />

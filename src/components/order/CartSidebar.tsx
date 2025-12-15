@@ -2,8 +2,14 @@ import { useOrder } from '@/context/OrderContext';
 import { useOrderPromotions } from '@/hooks/useOrderPromotions';
 import { ShoppingCart, MapPin, Wifi, Package, Check, Globe, Router, Tv, Phone, Tag, Gift, X, Zap, Home, Building2, Building } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useBranding } from '@/hooks/useBranding';
 
-export function CartSidebar() {
+interface CartSidebarProps {
+  customerType?: 'pk' | 'kmu';
+}
+
+export function CartSidebar({ customerType = 'pk' }: CartSidebarProps) {
+  const { branding } = useBranding();
   const { 
     address, 
     selectedTariff, 
@@ -19,6 +25,8 @@ export function CartSidebar() {
     getTotalOneTime,
     isMFH,
   } = useOrder();
+  
+  const isKMU = customerType === 'kmu';
 
   // Use promotions from database
   const { 
@@ -549,7 +557,10 @@ export function CartSidebar() {
           
           <div className="mt-4 p-3 bg-accent/5 rounded-lg border border-accent/10">
             <p className="text-xs text-center text-muted-foreground">
-              Alle Preise inkl. MwSt.
+              {isKMU 
+                ? (branding.kmu_cart_netto_label || 'Alle Preise zzgl. MwSt.')
+                : 'Alle Preise inkl. MwSt.'
+              }
             </p>
           </div>
         </div>

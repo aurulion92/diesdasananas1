@@ -591,6 +591,148 @@ export const SettingsManager = () => {
                 </div>
               </div>
 
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-4">Kundentyp-Auswahl (PK/KMU)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="customer_type_title">Überschrift</Label>
+                    <Input
+                      id="customer_type_title"
+                      value={brandingSettings.customer_type_title || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, customer_type_title: e.target.value })}
+                      placeholder="Sind Sie..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customer_type_subtitle">Unterüberschrift</Label>
+                    <Input
+                      id="customer_type_subtitle"
+                      value={brandingSettings.customer_type_subtitle || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, customer_type_subtitle: e.target.value })}
+                      placeholder="Wählen Sie Ihren Kundentyp"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="private_customer_title">Privatkunde Titel</Label>
+                    <Input
+                      id="private_customer_title"
+                      value={brandingSettings.private_customer_title || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, private_customer_title: e.target.value })}
+                      placeholder="Privatkunde"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="private_customer_description">Privatkunde Beschreibung</Label>
+                    <Textarea
+                      id="private_customer_description"
+                      value={brandingSettings.private_customer_description || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, private_customer_description: e.target.value })}
+                      placeholder="Internet für Ihr Zuhause"
+                      rows={2}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="business_customer_title">Geschäftskunde Titel</Label>
+                    <Input
+                      id="business_customer_title"
+                      value={brandingSettings.business_customer_title || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, business_customer_title: e.target.value })}
+                      placeholder="Geschäftskunde"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="business_customer_description">Geschäftskunde Beschreibung</Label>
+                    <Textarea
+                      id="business_customer_description"
+                      value={brandingSettings.business_customer_description || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, business_customer_description: e.target.value })}
+                      placeholder="Business-Internet für Unternehmen"
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-4">Geschäftskunden-Typ (EasyBusiness / Individuell)</h4>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="easy_business_title">EasyBusiness Titel</Label>
+                    <Input
+                      id="easy_business_title"
+                      value={brandingSettings.easy_business_title || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, easy_business_title: e.target.value })}
+                      placeholder="Business-Internet (EasyBusiness)"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="easy_business_subtitle">EasyBusiness Beschreibung</Label>
+                    <Textarea
+                      id="easy_business_subtitle"
+                      value={brandingSettings.easy_business_subtitle || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, easy_business_subtitle: e.target.value })}
+                      placeholder="Klassischer Internetanschluss für Unternehmen..."
+                      rows={4}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="individual_solutions_title">Individuelle Lösungen Titel</Label>
+                    <Input
+                      id="individual_solutions_title"
+                      value={brandingSettings.individual_solutions_title || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, individual_solutions_title: e.target.value })}
+                      placeholder="Individuelle Unternehmenslösungen"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="individual_solutions_subtitle">Individuelle Lösungen Beschreibung</Label>
+                    <Textarea
+                      id="individual_solutions_subtitle"
+                      value={brandingSettings.individual_solutions_subtitle || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, individual_solutions_subtitle: e.target.value })}
+                      placeholder="D-Dienste & Dark Fiber..."
+                      rows={4}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="easy_business_ideal">EasyBusiness ideal für...</Label>
+                    <Textarea
+                      id="easy_business_ideal"
+                      value={brandingSettings.easy_business_ideal || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, easy_business_ideal: e.target.value })}
+                      placeholder="➡️ Ideal für Büros, Praxen, Handel..."
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-4">KMU Preishinweis</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="kmu_netto_hint">NETTO-Hinweis im Warenkorb</Label>
+                    <Input
+                      id="kmu_netto_hint"
+                      value={brandingSettings.kmu_netto_hint || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, kmu_netto_hint: e.target.value })}
+                      placeholder="Alle Preise verstehen sich zzgl. MwSt."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="kmu_cart_netto_label">Warenkorb Preislabel (KMU)</Label>
+                    <Input
+                      id="kmu_cart_netto_label"
+                      value={brandingSettings.kmu_cart_netto_label || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, kmu_cart_netto_label: e.target.value })}
+                      placeholder="Alle Preise zzgl. MwSt."
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="pt-4 flex justify-between">
                 <Button variant="outline" onClick={resetBranding}>
                   <RotateCcw className="w-4 h-4 mr-2" />
