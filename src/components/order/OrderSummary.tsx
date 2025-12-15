@@ -533,8 +533,8 @@ export function OrderSummary() {
           ]
         };
 
-        // Call edge function to send email with PDF
-        await supabase.functions.invoke('send-order-email', {
+        // Call backend function to send email with PDFs
+        const { data: emailResult, error: invokeError } = await supabase.functions.invoke('send-order-email', {
           body: {
             orderId: insertedOrder.id,
             customerEmail: customerData.email,
@@ -544,11 +544,20 @@ export function OrderSummary() {
             customerPhone: customerData.phone,
             salutation: customerData.salutation === 'herr' ? 'Herr' : 'Frau',
             vzfHtml: vzfHtmlForEmail,
-            vzfData: vzfDataForPdf
-          }
+            vzfData: vzfDataForPdf,
+          },
         });
-        
-        console.log('Confirmation email sent successfully');
+
+        if (invokeError) {
+          console.error('Confirmation email failed:', invokeError);
+          toast({
+            title: 'Bestellung gespeichert, aber E-Mail fehlgeschlagen',
+            description: invokeError.message || 'Die Bestätigungs-E-Mail konnte nicht versendet werden.',
+            variant: 'destructive',
+          });
+        } else {
+          console.log('Confirmation email sent successfully:', emailResult);
+        }
       } catch (emailError) {
         console.error('Email sending failed (order still successful):', emailError);
         // Don't fail the order if email fails

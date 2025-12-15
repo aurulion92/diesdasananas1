@@ -1117,7 +1117,9 @@ serve(async (req: Request): Promise<Response> => {
     console.log(`Connecting to ${emailSettings.smtp_host}:${emailSettings.smtp_port}`);
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
-    
+
+    const SMTP_READ_TIMEOUT_MS = 15000;
+
     const conn = await Deno.connect({
       hostname: emailSettings.smtp_host,
       port: parseInt(emailSettings.smtp_port) || 587,
@@ -1125,8 +1127,14 @@ serve(async (req: Request): Promise<Response> => {
 
     const readResponse = async (): Promise<string> => {
       const buffer = new Uint8Array(4096);
-      const n = await conn.read(buffer);
-      if (n === null) return "";
+      const n = await Promise.race([
+        conn.read(buffer),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('SMTP timeout while reading response')), SMTP_READ_TIMEOUT_MS)
+        ),
+      ]) as number | null;
+
+      if (n === null) return '';
       return decoder.decode(buffer.subarray(0, n));
     };
 
@@ -1150,8 +1158,14 @@ serve(async (req: Request): Promise<Response> => {
 
       const readTlsResponse = async (): Promise<string> => {
         const buffer = new Uint8Array(4096);
-        const n = await tlsConn.read(buffer);
-        if (n === null) return "";
+        const n = await Promise.race([
+          tlsConn.read(buffer),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('SMTP TLS timeout while reading response')), SMTP_READ_TIMEOUT_MS)
+          ),
+        ]) as number | null;
+
+        if (n === null) return '';
         return decoder.decode(buffer.subarray(0, n));
       };
 
