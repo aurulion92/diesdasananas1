@@ -146,9 +146,14 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
 
   // Keyboard navigation for house number dropdown
   const handleHouseNumberKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!showHouseNumberDropdown || houseNumberSuggestions.length === 0) {
+    // Get filtered suggestions for keyboard navigation
+    const filteredSuggestions = houseNumberSuggestions.filter(suggestion => 
+      !houseNumber || suggestion.toLowerCase().startsWith(houseNumber.toLowerCase())
+    );
+
+    if (!showHouseNumberDropdown || filteredSuggestions.length === 0) {
       // Open dropdown on arrow down if there are suggestions
-      if (e.key === 'ArrowDown' && houseNumberSuggestions.length > 0) {
+      if (e.key === 'ArrowDown' && filteredSuggestions.length > 0) {
         setShowHouseNumberDropdown(true);
         setHouseNumberHighlightIndex(0);
         e.preventDefault();
@@ -160,7 +165,7 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
       case 'ArrowDown':
         e.preventDefault();
         setHouseNumberHighlightIndex(prev => 
-          prev < houseNumberSuggestions.length - 1 ? prev + 1 : prev
+          prev < filteredSuggestions.length - 1 ? prev + 1 : prev
         );
         break;
       case 'ArrowUp':
@@ -169,8 +174,8 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
         break;
       case 'Enter':
         e.preventDefault();
-        if (houseNumberHighlightIndex >= 0 && houseNumberHighlightIndex < houseNumberSuggestions.length) {
-          handleHouseNumberSelect(houseNumberSuggestions[houseNumberHighlightIndex]);
+        if (houseNumberHighlightIndex >= 0 && houseNumberHighlightIndex < filteredSuggestions.length) {
+          handleHouseNumberSelect(filteredSuggestions[houseNumberHighlightIndex]);
         }
         break;
       case 'Escape':
@@ -358,21 +363,25 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
                 ref={houseNumberDropdownRef}
                 className="absolute z-50 w-full mt-1 bg-card border border-border rounded-xl shadow-lg max-h-60 overflow-auto"
               >
-                {houseNumberSuggestions.map((suggestion, index) => (
-                  <button
-                    key={index}
-                    className={cn(
-                      "w-full px-4 py-3 text-left transition-colors first:rounded-t-xl last:rounded-b-xl",
-                      index === houseNumberHighlightIndex 
-                        ? "bg-primary/10 text-primary" 
-                        : "hover:bg-accent/10"
-                    )}
-                    onClick={() => handleHouseNumberSelect(suggestion)}
-                    onMouseEnter={() => setHouseNumberHighlightIndex(index)}
-                  >
-                    {suggestion}
-                  </button>
-                ))}
+                {houseNumberSuggestions
+                  .filter(suggestion => 
+                    !houseNumber || suggestion.toLowerCase().startsWith(houseNumber.toLowerCase())
+                  )
+                  .map((suggestion, index) => (
+                    <button
+                      key={index}
+                      className={cn(
+                        "w-full px-4 py-3 text-left transition-colors first:rounded-t-xl last:rounded-b-xl",
+                        index === houseNumberHighlightIndex 
+                          ? "bg-primary/10 text-primary" 
+                          : "hover:bg-accent/10"
+                      )}
+                      onClick={() => handleHouseNumberSelect(suggestion)}
+                      onMouseEnter={() => setHouseNumberHighlightIndex(index)}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
               </div>
             )}
           </div>
