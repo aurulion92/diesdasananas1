@@ -69,7 +69,12 @@ const LandingChoice = ({ onNewCustomer, onExistingCustomer, onLogoClick }: { onN
   );
 };
 
-const OrderFlowInner = ({ onBackToStart }: { onBackToStart: () => void }) => {
+interface OrderFlowInnerProps {
+  onBackToStart: () => void;
+  customerType: CustomerType;
+}
+
+const OrderFlowInner = ({ onBackToStart, customerType }: OrderFlowInnerProps) => {
   const { step, connectionType } = useOrder();
 
   return (
@@ -83,14 +88,14 @@ const OrderFlowInner = ({ onBackToStart }: { onBackToStart: () => void }) => {
 
             <div className="mt-8">
               {step === 1 && <AddressCheck />}
-              {step === 2 && connectionType && connectionType !== 'not-connected' && <TariffSelection />}
+              {step === 2 && connectionType && connectionType !== 'not-connected' && <TariffSelection customerType={customerType} />}
               {step === 3 && <CustomerForm />}
               {step === 4 && <OrderSummary />}
             </div>
           </div>
           
           <div className="hidden lg:block">
-            <CartSidebar />
+            <CartSidebar customerType={customerType} />
           </div>
         </div>
       </main>
@@ -106,7 +111,7 @@ interface OrderFlowProps {
 const OrderFlow = ({ onBackToStart, customerType }: OrderFlowProps) => {
   return (
     <OrderProvider initialCustomerType={customerType}>
-      <OrderFlowInner onBackToStart={onBackToStart} />
+      <OrderFlowInner onBackToStart={onBackToStart} customerType={customerType} />
     </OrderProvider>
   );
 };

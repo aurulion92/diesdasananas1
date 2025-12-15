@@ -136,7 +136,11 @@ function dbOptionToTariffAddon(option: any): TariffAddon {
   };
 }
 
-export function TariffSelection() {
+interface TariffSelectionProps {
+  customerType?: 'pk' | 'kmu';
+}
+
+export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
   const { 
     connectionType, 
     address,
@@ -169,10 +173,10 @@ export function TariffSelection() {
     getPromotedRouterPrice 
   } = useOrderPromotions();
 
-  // Fetch products from database based on building
+  // Fetch products from database based on building AND customer type
   const buildingId = (address as any)?.buildingId;
   const ausbauart = (address as any)?.ausbauart;
-  const { products: dbProducts, loading: productsLoading, hasManualAssignment } = useBuildingProducts(buildingId, ausbauart);
+  const { products: dbProducts, loading: productsLoading, hasManualAssignment } = useBuildingProducts(buildingId, ausbauart, customerType);
 
   // Fetch options assigned to the selected product
   // Pass buildingId to filter building-restricted options
@@ -185,7 +189,7 @@ export function TariffSelection() {
     tvHardwareOptions,
     serviceOptions,
     installationOptions,
-  } = useProductOptions(selectedTariff?.id || null, buildingId);
+  } = useProductOptions(selectedTariff?.id || null, buildingId, customerType);
 
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [referralInput, setReferralInput] = useState('');

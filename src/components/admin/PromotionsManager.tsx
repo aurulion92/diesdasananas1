@@ -45,6 +45,7 @@ interface Promotion {
   end_date: string | null;
   created_at: string;
   updated_at: string;
+  customer_type: string;
 }
 
 interface Building {
@@ -94,6 +95,7 @@ export const PromotionsManager = () => {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [buildingSearch, setBuildingSearch] = useState('');
   const [discountEntries, setDiscountEntries] = useState<DiscountEntry[]>([]);
+  const [customerTypeFilter, setCustomerTypeFilter] = useState<'all' | 'pk' | 'kmu'>('all');
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -107,6 +109,7 @@ export const PromotionsManager = () => {
     unavailable_text: '',
     start_date: '',
     end_date: '',
+    customer_type: 'pk',
   });
 
   useEffect(() => {
@@ -260,6 +263,7 @@ export const PromotionsManager = () => {
         unavailable_text: formData.unavailable_text || null,
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
+        customer_type: formData.customer_type,
       };
 
       let promotionId: string;
@@ -385,6 +389,7 @@ export const PromotionsManager = () => {
       unavailable_text: '',
       start_date: '',
       end_date: '',
+      customer_type: 'pk',
     });
     setEditingPromotion(null);
     setSelectedBuildings([]);
@@ -435,6 +440,7 @@ export const PromotionsManager = () => {
       unavailable_text: promotion.unavailable_text || '',
       start_date: promotion.start_date || '',
       end_date: promotion.end_date || '',
+      customer_type: promotion.customer_type || 'pk',
     });
     
     if (scope === 'building' || scope === 'building_and_product') {
@@ -516,6 +522,12 @@ export const PromotionsManager = () => {
     }
   };
 
+  // Filter promotions by customer type
+  const filteredPromotions = promotions.filter(p => {
+    if (customerTypeFilter === 'all') return true;
+    return p.customer_type === customerTypeFilter;
+  });
+
   return (
     <Card>
       <CardHeader>
@@ -529,7 +541,17 @@ export const PromotionsManager = () => {
               Verwalten Sie Aktionscodes, Rabatte und Promotions.
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <Select value={customerTypeFilter} onValueChange={(v: 'all' | 'pk' | 'kmu') => setCustomerTypeFilter(v)}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle</SelectItem>
+                <SelectItem value="pk">PK</SelectItem>
+                <SelectItem value="kmu">KMU</SelectItem>
+              </SelectContent>
+            </Select>
             <Button variant="outline" size="sm" onClick={fetchPromotions}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Aktualisieren
@@ -905,6 +927,21 @@ export const PromotionsManager = () => {
                   <div className="space-y-4 border-t pt-4">
                     <h4 className="font-medium">Weitere Optionen</h4>
                     <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="customer_type">Kundentyp</Label>
+                        <Select
+                          value={formData.customer_type}
+                          onValueChange={(value) => setFormData({...formData, customer_type: value})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pk">Privatkunde (PK)</SelectItem>
+                            <SelectItem value="kmu">Geschäftskunde (KMU)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <div className="flex items-center justify-between">
                         <Label htmlFor="requires_customer_number">Kundennummer erforderlich</Label>
                         <Switch
@@ -965,19 +1002,24 @@ export const PromotionsManager = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  promotions.map((promotion) => (
+                  filteredPromotions.map((promotion) => (
                     <TableRow key={promotion.id} className={!promotion.is_active ? 'opacity-50' : ''}>
                       <TableCell>
-                        <div>
-                          <span className="font-medium">{promotion.name}</span>
-                          {promotion.requires_customer_number && (
-                            <Badge variant="outline" className="ml-2 text-xs">KD-Nr.</Badge>
-                          )}
-                          {promotion.description && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                              {promotion.description}
-                            </p>
-                          )}
+                        <div className="flex items-center gap-2">
+                          <Badge variant={promotion.customer_type === 'kmu' ? 'secondary' : 'outline'} className="text-xs">
+                            {promotion.customer_type === 'kmu' ? 'KMU' : 'PK'}
+                          </Badge>
+                          <div>
+                            <span className="font-medium">{promotion.name}</span>
+                            {promotion.requires_customer_number && (
+                              <Badge variant="outline" className="ml-2 text-xs">KD-Nr.</Badge>
+                            )}
+                            {promotion.description && (
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                                {promotion.description}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
