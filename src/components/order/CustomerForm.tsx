@@ -31,7 +31,8 @@ export function CustomerForm() {
     expressOption,
     connectionType,
     isMFH,
-    setStep 
+    setStep,
+    phoneSelection,
   } = useOrder();
   
   const [expressOptionFromDb, setExpressOptionFromDb] = useState<{
@@ -94,13 +95,38 @@ export function CustomerForm() {
     apartment: '',
   });
 
-  const [cancellationData, setCancellationData] = useState({
-    providerName: '',
-    customerNumber: '',
-    portToNewConnection: true,
-    preferredDate: null as 'asap' | 'specific' | null,
-    specificDate: null as string | null,
+  // Initialize cancellation data with porting data if available
+  const [cancellationData, setCancellationData] = useState(() => {
+    const portingData = phoneSelection.portingData;
+    return {
+      providerName: portingData?.previousProvider || '',
+      customerNumber: portingData?.phoneNumbers?.[0] || '',
+      connectionHolder: portingData?.connectionHolder || '',
+      connectionAddress: portingData?.connectionAddress || '',
+      portToNewConnection: portingData?.portingType === 'cancel_and_port' ? true : false,
+      preferredDate: null as 'asap' | 'specific' | null,
+      specificDate: null as string | null,
+    };
   });
+
+  // Sync cancellation data when porting data changes
+  useEffect(() => {
+    if (phoneSelection.portingRequired && phoneSelection.portingData) {
+      const portingData = phoneSelection.portingData;
+      setCancellationData(prev => ({
+        ...prev,
+        providerName: portingData.previousProvider || prev.providerName,
+        customerNumber: portingData.phoneNumbers?.[0] || prev.customerNumber,
+        connectionHolder: portingData.connectionHolder || prev.connectionHolder,
+        connectionAddress: portingData.connectionAddress || prev.connectionAddress,
+        portToNewConnection: portingData.portingType === 'cancel_and_port',
+      }));
+      // Automatically enable cancel previous provider if porting is requested with cancel_and_port
+      if (portingData.portingType === 'cancel_and_port' && !cancelPreviousProvider) {
+        setCancelPreviousProvider(true);
+      }
+    }
+  }, [phoneSelection.portingRequired, phoneSelection.portingData, cancelPreviousProvider, setCancelPreviousProvider]);
 
   const [dateType, setDateType] = useState<'asap' | 'specific' | ''>('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -144,10 +170,12 @@ export function CustomerForm() {
 
   const isApartmentValid = !isMFHBuilding || (apartmentLocal.floor && apartmentLocal.apartment);
 
-  // Cancellation validation - need provider name and customer number
+  // Cancellation validation - need all required fields
   const isCancellationValid = !cancelPreviousProvider || (
     cancellationData.providerName.trim() !== '' &&
     cancellationData.customerNumber.trim() !== '' &&
+    cancellationData.connectionHolder.trim() !== '' &&
+    cancellationData.connectionAddress.trim() !== '' &&
     (cancellationData.portToNewConnection || cancellationData.preferredDate !== null) &&
     (cancellationData.preferredDate !== 'specific' || cancellationData.specificDate !== null)
   );
@@ -188,6 +216,8 @@ export function CustomerForm() {
         setProviderCancellationData({
           providerName: cancellationData.providerName,
           customerNumber: cancellationData.customerNumber,
+          connectionHolder: cancellationData.connectionHolder,
+          connectionAddress: cancellationData.connectionAddress,
           portToNewConnection: cancellationData.portToNewConnection,
           preferredDate: cancellationData.portToNewConnection ? null : cancellationData.preferredDate,
           specificDate: cancellationData.portToNewConnection ? null : cancellationData.specificDate,
@@ -557,9 +587,40 @@ export function CustomerForm() {
             {/* Cancellation Details */}
             {cancelPreviousProvider && (
               <div className="ml-6 space-y-4 p-4 bg-muted/30 rounded-xl">
+                {/* Info when data comes from porting form */}
+                {phoneSelection.portingRequired && phoneSelection.portingData && (
+                  <div className="p-3 bg-accent/10 rounded-lg border border-accent/20">
+                    <p className="text-sm text-accent flex items-center gap-2">
+                      <Phone className="w-4 h-4" />
+                      Daten aus der Rufnummernportierung übernommen
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-foreground font-medium">Bisheriger Anbieter *</Label>
+                    <Label className="text-foreground font-medium">Anschlussinhaber *</Label>
+                    <Input
+                      placeholder="Name des bisherigen Anschlussinhabers"
+                      value={cancellationData.connectionHolder}
+                      onChange={(e) => handleCancellationChange('connectionHolder', e.target.value)}
+                      className="mt-1.5 h-12 rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-foreground font-medium">Anschlussadresse *</Label>
+                    <Input
+                      placeholder="Adresse des bisherigen Anschlusses"
+                      value={cancellationData.connectionAddress}
+                      onChange={(e) => handleCancellationChange('connectionAddress', e.target.value)}
+                      className="mt-1.5 h-12 rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-foreground font-medium">Abgebender Anbieter *</Label>
                     <Input
                       placeholder="z.B. Telekom, Vodafone..."
                       value={cancellationData.providerName}

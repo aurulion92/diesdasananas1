@@ -1067,6 +1067,9 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
                                   numberOfNumbers: 1,
                                   phoneNumbers: [''],
                                   previousProvider: '',
+                                  connectionHolder: '',
+                                  connectionAddress: '',
+                                  portingType: 'cancel_and_port',
                                 } : null,
                               })}
                             />
@@ -1077,6 +1080,89 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
                           
                           {phoneSelection.portingRequired && phoneSelection.portingData && (
                             <div className="bg-muted/50 rounded-lg p-4 space-y-4">
+                              {/* Portierungstyp */}
+                              <div>
+                                <Label className="text-sm font-medium mb-2 block">Art der Portierung</Label>
+                                <RadioGroup 
+                                  value={phoneSelection.portingData.portingType}
+                                  onValueChange={(value: 'cancel_and_port' | 'port_only') => setPhoneSelection({
+                                    ...phoneSelection,
+                                    portingData: {
+                                      ...phoneSelection.portingData!,
+                                      portingType: value,
+                                    }
+                                  })}
+                                  className="space-y-2"
+                                >
+                                  <div className="flex items-start space-x-3">
+                                    <RadioGroupItem value="cancel_and_port" id="porting-cancel" />
+                                    <Label htmlFor="porting-cancel" className="cursor-pointer">
+                                      <span className="font-medium">Kündigung + Portierung</span>
+                                      <span className="block text-xs text-muted-foreground">COM-IN kündigt Ihren bisherigen Anbieter und portiert die Rufnummer(n)</span>
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-start space-x-3">
+                                    <RadioGroupItem value="port_only" id="porting-only" />
+                                    <Label htmlFor="porting-only" className="cursor-pointer">
+                                      <span className="font-medium">Nur Portierung (bereits gekündigt)</span>
+                                      <span className="block text-xs text-muted-foreground">Ihr bisheriger Vertrag ist bereits gekündigt, nur Rufnummer(n) übernehmen</span>
+                                    </Label>
+                                  </div>
+                                </RadioGroup>
+                              </div>
+
+                              {/* Anschlussinhaber */}
+                              <div>
+                                <Label className="text-sm">Anschlussinhaber *</Label>
+                                <Input 
+                                  placeholder="Name des bisherigen Anschlussinhabers"
+                                  value={phoneSelection.portingData.connectionHolder}
+                                  onChange={(e) => setPhoneSelection({
+                                    ...phoneSelection,
+                                    portingData: {
+                                      ...phoneSelection.portingData!,
+                                      connectionHolder: e.target.value,
+                                    }
+                                  })}
+                                  className="mt-1"
+                                />
+                              </div>
+
+                              {/* Anschlussadresse */}
+                              <div>
+                                <Label className="text-sm">Anschlussadresse *</Label>
+                                <Input 
+                                  placeholder="Adresse des bisherigen Anschlusses"
+                                  value={phoneSelection.portingData.connectionAddress}
+                                  onChange={(e) => setPhoneSelection({
+                                    ...phoneSelection,
+                                    portingData: {
+                                      ...phoneSelection.portingData!,
+                                      connectionAddress: e.target.value,
+                                    }
+                                  })}
+                                  className="mt-1"
+                                />
+                              </div>
+
+                              {/* Bisheriger Anbieter */}
+                              <div>
+                                <Label className="text-sm">Abgebender Anbieter *</Label>
+                                <Input 
+                                  placeholder="z.B. Telekom, Vodafone..."
+                                  value={phoneSelection.portingData.previousProvider}
+                                  onChange={(e) => setPhoneSelection({
+                                    ...phoneSelection,
+                                    portingData: {
+                                      ...phoneSelection.portingData!,
+                                      previousProvider: e.target.value,
+                                    }
+                                  })}
+                                  className="mt-1"
+                                />
+                              </div>
+
+                              {/* Anzahl und Rufnummern */}
                               <div>
                                 <Label className="text-sm">Anzahl der Rufnummern</Label>
                                 <Input 
@@ -1103,7 +1189,7 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
                               </div>
                               
                               <div>
-                                <Label className="text-sm">Rufnummern</Label>
+                                <Label className="text-sm">Zu portierende Rufnummern</Label>
                                 <Textarea 
                                   placeholder="Eine Rufnummer pro Zeile"
                                   value={phoneSelection.portingData.phoneNumbers.join('\n')}
@@ -1112,22 +1198,6 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
                                     portingData: {
                                       ...phoneSelection.portingData!,
                                       phoneNumbers: e.target.value.split('\n'),
-                                    }
-                                  })}
-                                  className="mt-1"
-                                />
-                              </div>
-                              
-                              <div>
-                                <Label className="text-sm">Bisheriger Anbieter</Label>
-                                <Input 
-                                  placeholder="z.B. Telekom, Vodafone..."
-                                  value={phoneSelection.portingData.previousProvider}
-                                  onChange={(e) => setPhoneSelection({
-                                    ...phoneSelection,
-                                    portingData: {
-                                      ...phoneSelection.portingData!,
-                                      previousProvider: e.target.value,
                                     }
                                   })}
                                   className="mt-1"
