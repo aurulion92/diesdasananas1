@@ -709,9 +709,6 @@ export function CustomerForm() {
                           <RadioGroupItem value="asap" id="cancel-asap" />
                           <Label htmlFor="cancel-asap" className="cursor-pointer flex-1">
                             <span className="font-medium">Schnellstmöglich</span>
-                            <span className="block text-xs text-muted-foreground">
-                              Synchronisiert mit Ihrem Anschalttermin
-                            </span>
                           </Label>
                         </div>
                         {!cancellationData.portToNewConnection && cancellationData.preferredDate === 'asap' && (
@@ -725,7 +722,7 @@ export function CustomerForm() {
                       </div>
 
                       <div className={cn(
-                        "p-3 rounded-lg border transition-all",
+                        "p-3 rounded-lg border transition-all cursor-pointer",
                         !cancellationData.portToNewConnection && cancellationData.preferredDate === 'specific' ? "border-accent bg-accent/5" : "border-border"
                       )}>
                         <div className="flex items-center space-x-3">
