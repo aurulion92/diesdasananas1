@@ -79,6 +79,7 @@ interface Product {
   is_archived: boolean;
   archived_at: string | null;
   customer_type: string;
+  is_sondertarif: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -137,6 +138,7 @@ export const ProductsManager = () => {
     includes_fiber_tv: false,
     hide_for_ftth: false,
     customer_type: 'pk',
+    is_sondertarif: false,
   });
 
   useEffect(() => {
@@ -245,6 +247,7 @@ export const ProductsManager = () => {
       includes_fiber_tv: false,
       hide_for_ftth: false,
       customer_type: 'pk',
+      is_sondertarif: false,
     });
     setEditingProduct(null);
   };
@@ -279,6 +282,7 @@ export const ProductsManager = () => {
       includes_fiber_tv: product.includes_fiber_tv ?? false,
       hide_for_ftth: product.hide_for_ftth || false,
       customer_type: product.customer_type || 'pk',
+      is_sondertarif: product.is_sondertarif || false,
     });
     setIsDialogOpen(true);
   };
@@ -857,6 +861,21 @@ export const ProductsManager = () => {
                           id="hide_for_ftth"
                           checked={formData.hide_for_ftth}
                           onCheckedChange={(checked) => setFormData({...formData, hide_for_ftth: checked})}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between col-span-2 bg-amber-500/10 border border-amber-500/30 p-3 rounded-lg">
+                        <div>
+                          <Label htmlFor="is_sondertarif" className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-amber-500/20 text-amber-700 border-amber-500/50">Sondertarif</Badge>
+                          </Label>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Markiert dieses Produkt als Sondertarif (Lebenshilfe, Mitarbeiter, etc.)
+                          </p>
+                        </div>
+                        <Switch
+                          id="is_sondertarif"
+                          checked={formData.is_sondertarif}
+                          onCheckedChange={(checked) => setFormData({...formData, is_sondertarif: checked})}
                         />
                       </div>
                     </div>

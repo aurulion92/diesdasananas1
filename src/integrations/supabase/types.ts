@@ -655,6 +655,7 @@ export type Database = {
           is_fttb: boolean | null
           is_ftth: boolean | null
           is_quantitative: boolean | null
+          is_sondertarif_only: boolean | null
           max_quantity: number | null
           monthly_price: number | null
           name: string
@@ -685,6 +686,7 @@ export type Database = {
           is_fttb?: boolean | null
           is_ftth?: boolean | null
           is_quantitative?: boolean | null
+          is_sondertarif_only?: boolean | null
           max_quantity?: number | null
           monthly_price?: number | null
           name: string
@@ -715,6 +717,7 @@ export type Database = {
           is_fttb?: boolean | null
           is_ftth?: boolean | null
           is_quantitative?: boolean | null
+          is_sondertarif_only?: boolean | null
           max_quantity?: number | null
           monthly_price?: number | null
           name?: string
@@ -753,6 +756,7 @@ export type Database = {
           is_fttb: boolean | null
           is_ftth: boolean | null
           is_ftth_limited: boolean | null
+          is_sondertarif: boolean | null
           monthly_price: number
           name: string
           phone_terms_text: string | null
@@ -788,6 +792,7 @@ export type Database = {
           is_fttb?: boolean | null
           is_ftth?: boolean | null
           is_ftth_limited?: boolean | null
+          is_sondertarif?: boolean | null
           monthly_price: number
           name: string
           phone_terms_text?: string | null
@@ -823,6 +828,7 @@ export type Database = {
           is_fttb?: boolean | null
           is_ftth?: boolean | null
           is_ftth_limited?: boolean | null
+          is_sondertarif?: boolean | null
           monthly_price?: number
           name?: string
           phone_terms_text?: string | null
