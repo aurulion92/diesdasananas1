@@ -425,8 +425,12 @@ export function CustomerForm() {
                 // Bei Wunschtermin: Express deaktivieren
                 setExpressActivation(false);
               }
-              // Synchronisiere Wechselservice-Zeitpunkt
-              if (cancelPreviousProvider && !cancellationData.portToNewConnection) {
+
+              // Wechselzeitpunkt immer mit dem oberen Termin matchen,
+              // sobald ein konkreter Anschalttermin gewählt wird
+              if (cancelPreviousProvider) {
+                // Expliziter Termin bedeutet: keine Portierungssteuerung mehr
+                handleCancellationChange('portToNewConnection', false);
                 handleCancellationChange('preferredDate', value);
                 if (value === 'asap') {
                   handleCancellationChange('specificDate', null);
