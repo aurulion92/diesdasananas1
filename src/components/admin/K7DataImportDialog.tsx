@@ -83,41 +83,36 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
         throw new Error('Keine Daten in der Datei gefunden');
       }
 
-      setStatusMessage(`${rows.length.toLocaleString()} Zeilen gefunden. Verarbeite...`);
+      setStatusMessage(`${rows.length.toLocaleString()} Zeilen gefunden. Lade Gebäude...`);
       
-      // Group rows by GEBAEUDE_N (building identifier)
-      const groupedByBuilding = new Map<string, typeof rows>();
-      
-      for (const row of rows) {
-        const gebaudeN = row['GEBAEUDE_N'] || row['gebaeude_n'];
-        if (!gebaudeN) continue;
-        
-        if (!groupedByBuilding.has(gebaudeN)) {
-          groupedByBuilding.set(gebaudeN, []);
-        }
-        groupedByBuilding.get(gebaudeN)!.push(row);
-      }
-
-      setStatusMessage(`${groupedByBuilding.size.toLocaleString()} Gebäude identifiziert. Suche Matches...`);
-
-      // Fetch all buildings with gebaeude_id_v2
+      // Fetch all buildings for address matching
       const { data: buildings, error: buildingsError } = await supabase
         .from('buildings')
-        .select('id, gebaeude_id_v2, gebaeude_id_k7')
-        .not('gebaeude_id_v2', 'is', null);
+        .select('id, street, house_number, postal_code, city, gebaeude_id_k7');
 
       if (buildingsError) throw buildingsError;
 
-      // Create lookup map
+      // Create lookup map by normalized address (street + house_number + postal_code/city)
       const buildingLookup = new Map<string, { id: string; gebaeude_id_k7: string | null }>();
       for (const building of buildings || []) {
-        if (building.gebaeude_id_v2) {
-          buildingLookup.set(building.gebaeude_id_v2, {
-            id: building.id,
-            gebaeude_id_k7: building.gebaeude_id_k7
-          });
+        // Create multiple keys for flexible matching
+        const normalizeStr = (s: string) => s?.toLowerCase().trim().replace(/\s+/g, ' ') || '';
+        const street = normalizeStr(building.street);
+        const houseNum = normalizeStr(building.house_number);
+        const plz = building.postal_code?.trim() || '';
+        const city = normalizeStr(building.city);
+        
+        // Key with PLZ
+        if (plz) {
+          const keyWithPlz = `${street}|${houseNum}|${plz}`;
+          buildingLookup.set(keyWithPlz, { id: building.id, gebaeude_id_k7: building.gebaeude_id_k7 });
         }
+        // Key with city
+        const keyWithCity = `${street}|${houseNum}|${city}`;
+        buildingLookup.set(keyWithCity, { id: building.id, gebaeude_id_k7: building.gebaeude_id_k7 });
       }
+
+      setStatusMessage(`${buildingLookup.size} Gebäude geladen. Verarbeite Daten...`);
 
       const importStats: ImportStats = {
         totalRows: rows.length,
@@ -127,7 +122,7 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
         errors: []
       };
 
-      // Process in batches
+      // Process rows and match to buildings
       const BATCH_SIZE = 500;
       const entriesToInsert: Array<{
         building_id: string;
@@ -138,44 +133,68 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
         bandbreite: string | null;
       }> = [];
 
-      let processedBuildings = 0;
-      const totalBuildings = groupedByBuilding.size;
-
-      for (const [gebaudeN, buildingRows] of groupedByBuilding) {
-        const building = buildingLookup.get(gebaudeN);
+      const matchedBuildingIds = new Set<string>();
+      
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
         
-        if (building) {
-          importStats.matchedBuildings++;
-          
-          for (const row of buildingRows) {
-            const stdKabelGebaudeId = row['STD_KABEL_GEBAEUDE_ID'] || row['std_kabel_gebaeude_id'] || '';
-            const leistungsproduktId = row['LEISTUNGSPRODUKT_ID'] || row['leistungsprodukt_id'] || '';
-            const leistungsprodukt = row['LEISTUNGSPRODUKT'] || row['leistungsprodukt'] || '';
-            const ntDslBandbreiteId = row['NT_DSL_BANDBREITE_ID'] || row['nt_dsl_bandbreite_id'] || '';
-            const bandbreite = row['BANDBREITE'] || row['bandbreite'] || '';
+        // Get address fields from CSV (handle different column name cases)
+        const street = (row['STRASSE'] || row['Strasse'] || row['strasse'] || '').toLowerCase().trim().replace(/\s+/g, ' ');
+        const houseNum = (row['HAUSNUMMER'] || row['Hausnummer'] || row['hausnummer'] || row['HAUSNUMME'] || '').toLowerCase().trim();
+        const plz = (row['PLZ'] || row['Plz'] || row['plz'] || '').trim();
+        const city = (row['ORT'] || row['Ort'] || row['ort'] || row['TEILORT_NAME'] || '').toLowerCase().trim().replace(/\s+/g, ' ');
 
-            // Skip if no meaningful data
-            if (!leistungsproduktId && !ntDslBandbreiteId) {
-              importStats.skippedRows++;
-              continue;
-            }
-
-            entriesToInsert.push({
-              building_id: building.id,
-              std_kabel_gebaeude_id: stdKabelGebaudeId || null,
-              leistungsprodukt_id: leistungsproduktId || null,
-              leistungsprodukt: leistungsprodukt || null,
-              nt_dsl_bandbreite_id: ntDslBandbreiteId || null,
-              bandbreite: bandbreite || null
-            });
-          }
-        } else {
-          importStats.skippedRows += buildingRows.length;
+        if (!street || !houseNum) {
+          importStats.skippedRows++;
+          continue;
         }
 
-        processedBuildings++;
-        setProgress(Math.round((processedBuildings / totalBuildings) * 50));
+        // Try to find building - first by PLZ, then by city
+        let building = null;
+        if (plz) {
+          const keyWithPlz = `${street}|${houseNum}|${plz}`;
+          building = buildingLookup.get(keyWithPlz);
+        }
+        if (!building && city) {
+          const keyWithCity = `${street}|${houseNum}|${city}`;
+          building = buildingLookup.get(keyWithCity);
+        }
+
+        if (building) {
+          matchedBuildingIds.add(building.id);
+          
+          const stdKabelGebaudeId = row['STD_KABEL_GEBAEUDE_ID'] || row['std_kabel_gebaeude_id'] || '';
+          const leistungsproduktId = row['LEISTUNGSPRODUKT_ID'] || row['leistungsprodukt_id'] || '';
+          const leistungsprodukt = row['LEISTUNGSPRODUKT'] || row['leistungsprodukt'] || '';
+          const ntDslBandbreiteId = row['NT_DSL_BANDBREITE_ID'] || row['nt_dsl_bandbreite_id'] || '';
+          const bandbreite = row['BANDBREITE'] || row['bandbreite'] || '';
+
+          // Skip if no meaningful K7 data
+          if (!leistungsproduktId && !ntDslBandbreiteId && !stdKabelGebaudeId) {
+            importStats.skippedRows++;
+            continue;
+          }
+
+          entriesToInsert.push({
+            building_id: building.id,
+            std_kabel_gebaeude_id: stdKabelGebaudeId || null,
+            leistungsprodukt_id: leistungsproduktId || null,
+            leistungsprodukt: leistungsprodukt || null,
+            nt_dsl_bandbreite_id: ntDslBandbreiteId || null,
+            bandbreite: bandbreite || null
+          });
+        } else {
+          importStats.skippedRows++;
+        }
+
+        // Update progress every 10000 rows
+        if (i % 10000 === 0) {
+          setProgress(Math.round((i / rows.length) * 50));
+          setStatusMessage(`${i.toLocaleString()} / ${rows.length.toLocaleString()} Zeilen verarbeitet...`);
+        }
       }
+
+      importStats.matchedBuildings = matchedBuildingIds.size;
 
       setStatusMessage(`${entriesToInsert.length.toLocaleString()} Einträge werden gespeichert...`);
 
@@ -257,14 +276,14 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
+            <strong>Abgleich über:</strong> PLZ + Straße + Hausnummer
+            <br /><br />
             <strong>Erforderliche Spalten:</strong>
             <ul className="list-disc list-inside mt-2 text-sm">
-              <li>GEBAEUDE_N (Gebäude ID V2 - für Zuordnung)</li>
+              <li>STRASSE, HAUSNUMMER, PLZ oder ORT (für Abgleich)</li>
               <li>STD_KABEL_GEBAEUDE_ID (K7 Gebäude ID)</li>
-              <li>LEISTUNGSPRODUKT_ID</li>
-              <li>LEISTUNGSPRODUKT</li>
-              <li>NT_DSL_BANDBREITE_ID</li>
-              <li>BANDBREITE</li>
+              <li>LEISTUNGSPRODUKT_ID + LEISTUNGSPRODUKT</li>
+              <li>NT_DSL_BANDBREITE_ID + BANDBREITE</li>
             </ul>
           </AlertDescription>
         </Alert>
