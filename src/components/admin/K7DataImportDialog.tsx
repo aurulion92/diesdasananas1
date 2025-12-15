@@ -225,23 +225,59 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
         setStatusMessage(`${newEntries.length.toLocaleString()} Einträge werden gespeichert...`);
       }
 
-      // Insert only new entries in batches
+      // Create import log entry first
+      const { data: importLog, error: logError } = await supabase
+        .from('csv_import_logs')
+        .insert({
+          import_type: 'k7_services',
+          file_name: file.name,
+          records_processed: rows.length,
+          records_created: 0,
+          records_skipped: importStats.skippedRows,
+          affected_building_ids: [],
+        })
+        .select()
+        .single();
+
+      if (logError) {
+        console.error('Error creating import log:', logError);
+      }
+
+      // Insert only new entries in batches and collect inserted IDs
       let insertedCount = 0;
+      const insertedIds: string[] = [];
+      
       for (let i = 0; i < newEntries.length; i += BATCH_SIZE) {
         const batch = newEntries.slice(i, i + BATCH_SIZE);
         
-        const { error: insertError } = await supabase
+        const { data: insertedData, error: insertError } = await supabase
           .from('building_k7_services')
-          .insert(batch);
+          .insert(batch)
+          .select('id');
 
         if (insertError) {
           importStats.errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${insertError.message}`);
         } else {
-          insertedCount += batch.length;
+          insertedCount += (insertedData?.length || 0);
+          insertedIds.push(...(insertedData?.map(d => d.id) || []));
         }
 
         setProgress(50 + Math.round(((i + batch.length) / newEntries.length) * 50));
         setStatusMessage(`${insertedCount.toLocaleString()} / ${newEntries.length.toLocaleString()} Einträge gespeichert...`);
+      }
+
+      // Update import log with results
+      if (importLog) {
+        await supabase
+          .from('csv_import_logs')
+          .update({
+            records_created: insertedCount,
+            records_skipped: importStats.skippedRows + duplicatesSkipped,
+            // Store K7 service IDs in previous_states as JSON (affected_building_ids is for building UUIDs)
+            previous_states: { inserted_k7_service_ids: insertedIds },
+            errors: importStats.errors.length > 0 ? importStats.errors : null,
+          })
+          .eq('id', importLog.id);
       }
 
       importStats.newEntries = insertedCount;
