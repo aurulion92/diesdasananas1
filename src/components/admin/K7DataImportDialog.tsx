@@ -273,22 +273,32 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
       console.log(`Loaded ${allBuildings.length} buildings from database`);
 
       // Create lookup map by TOLERANT normalized address (street + house_number + postal_code/city)
-      // Using normalizeForMatching which handles umlauts and encoding issues
+      // Using toKeyToken which handles umlauts, encoding issues, and ignores hyphens/spaces
       const buildingLookup = new Map<string, { id: string; gebaeude_id_k7: string | null }>();
       
+      // Log sample keys for debugging
+      const sampleBuildings = allBuildings.filter(b => 
+        b.street.toLowerCase().includes('adam') || b.street.toLowerCase().includes('nürnberg')
+      ).slice(0, 5);
+      
       for (const building of allBuildings) {
-        const street = normalizeForMatching(building.street);
-        const houseNum = (building.house_number ?? '').toLowerCase().replace(/\s+/g, '');
-        const plz = building.postal_code?.trim() || '';
-        const city = normalizeForMatching(building.city);
+        const streetKey = toKeyToken(building.street);
+        const houseNum = toKeyToken(building.house_number || '');
+        const plz = (building.postal_code || '').trim();
+        const cityKey = toKeyToken(building.city);
+        
+        // Log sample keys
+        if (sampleBuildings.includes(building)) {
+          console.log(`DB Key Debug: "${building.street} ${building.house_number}" → streetKey="${streetKey}", houseNum="${houseNum}", plz="${plz}"`);
+        }
         
         // Key with PLZ
         if (plz) {
-          const keyWithPlz = `${street}|${houseNum}|${plz}`;
+          const keyWithPlz = `${streetKey}|${houseNum}|${plz}`;
           buildingLookup.set(keyWithPlz, { id: building.id, gebaeude_id_k7: building.gebaeude_id_k7 });
         }
         // Key with city
-        const keyWithCity = `${street}|${houseNum}|${city}`;
+        const keyWithCity = `${streetKey}|${houseNum}|${cityKey}`;
         buildingLookup.set(keyWithCity, { id: building.id, gebaeude_id_k7: building.gebaeude_id_k7 });
       }
 
@@ -332,26 +342,32 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
         const plzRaw = row['PLZ'] || row['Plz'] || row['plz'] || row['PLZ '] || '';
         const cityRaw = row['ORT'] || row['Ort'] || row['ort'] || row['TEILORT_NAME'] || row['Stadt'] || row['STADT'] || row['City'] || row['Ort '] || '';
 
-        // Use TOLERANT matching normalization
-        const street = normalizeForMatching(streetRaw);
-        const houseNum = houseNumRaw.toLowerCase().replace(/\s+/g, '');
+        // Use TOLERANT matching normalization via toKeyToken (ignores hyphens, spaces, umlauts)
+        const streetKey = toKeyToken(streetRaw);
+        const houseNum = toKeyToken(houseNumRaw);
         const plz = plzRaw.trim();
-        const city = normalizeForMatching(cityRaw);
+        const cityKey = toKeyToken(cityRaw);
 
-        if (!street || !houseNum) {
+        // Log sample CSV keys for debugging (first 5 Adam-Lechner or Nürnberger rows)
+        const isDebugRow = streetRaw.toLowerCase().includes('adam') || streetRaw.toLowerCase().includes('nürnberg') || streetRaw.toLowerCase().includes('n?rnberg');
+        if (isDebugRow && i < 100) {
+          console.log(`CSV Key Debug: "${streetRaw} ${houseNumRaw}" → streetKey="${streetKey}", houseNum="${houseNum}", plz="${plz}", keyWithPlz="${streetKey}|${houseNum}|${plz}"`);
+        }
+
+        if (!streetKey || !houseNum) {
           importStats.skippedRows++;
           continue;
         }
 
         // Try to find building - first by PLZ, then by city
         let building = null;
-        const keyWithPlz = `${street}|${houseNum}|${plz}`;
-        const keyWithCity = `${street}|${houseNum}|${city}`;
+        const keyWithPlz = `${streetKey}|${houseNum}|${plz}`;
+        const keyWithCity = `${streetKey}|${houseNum}|${cityKey}`;
         
         if (plz) {
           building = buildingLookup.get(keyWithPlz);
         }
-        if (!building && city) {
+        if (!building && cityKey) {
           building = buildingLookup.get(keyWithCity);
         }
 
@@ -382,9 +398,11 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
           importStats.skippedRows++;
           
           // Track unmatched rows with FULL row data (limit to first 5000 for memory)
-          const addrKey = `${street}|${houseNum}|${plz}|${city}`;
+          const addrKey = `${streetKey}|${houseNum}|${plz}|${cityKey}`;
           if (!seenUnmatchedKeys.has(addrKey) && importStats.unmatchedRows.length < 5000) {
             seenUnmatchedKeys.add(addrKey);
+            // Add computed key for debug purposes
+            (row as any)['_debugKey'] = keyWithPlz;
             importStats.unmatchedRows.push(row); // Store full row for export
           }
         }
@@ -618,16 +636,20 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
                 <p className="text-sm font-medium text-orange-600">
                   {stats.unmatchedRows.length >= 5000 ? '5000+' : stats.unmatchedRows.length} nicht-gematchte Zeilen (Beispiele):
                 </p>
-                <div className="text-xs bg-orange-50 dark:bg-orange-950/20 p-2 rounded max-h-32 overflow-y-auto">
+                <div className="text-xs bg-orange-50 dark:bg-orange-950/20 p-2 rounded max-h-40 overflow-y-auto font-mono">
                   {stats.unmatchedRows.slice(0, 10).map((row, i) => {
                     const street = row['STRASSE'] || row['Strasse'] || '';
                     const houseNum = row['HAUSNUMMER'] || row['Hausnummer'] || '';
                     const plz = row['PLZ'] || row['Plz'] || '';
                     const city = row['ORT'] || row['Ort'] || '';
+                    const debugKey = (row as any)['_debugKey'] || '';
                     return (
-                      <p key={i} className="text-orange-700 dark:text-orange-300">
-                        {street} {houseNum}, {plz} {city}
-                      </p>
+                      <div key={i} className="text-orange-700 dark:text-orange-300 mb-1">
+                        <span>{street} {houseNum}, {plz} {city}</span>
+                        {debugKey && (
+                          <span className="block text-orange-500 text-[10px]">Key: {debugKey}</span>
+                        )}
+                      </div>
                     );
                   })}
                   {stats.unmatchedRows.length > 10 && (
