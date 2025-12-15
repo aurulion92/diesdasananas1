@@ -105,18 +105,11 @@ export function ConsentCheckboxes({ data, onChange, errors, showSepa = false }: 
           className="mt-0.5"
         />
         <div className="flex-1">
-          <Label htmlFor="consent-agb" className="cursor-pointer text-sm leading-relaxed">
-            <a 
-              href="https://www.comin-glasfaser.de/agb" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary font-semibold hover:underline"
-            >
-              Allgemeine Geschäftsbedingungen *
-            </a>
+          <Label htmlFor="consent-agb" className="cursor-pointer text-sm font-medium">
+            Allgemeine Geschäftsbedingungen *
           </Label>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Ja, ich habe die <strong>AGBs</strong> gelesen, verstanden und akzeptiert.
+            Ja, ich habe die <a href="https://comin-glasfaser.de/agb/" target="_blank" rel="noopener noreferrer" className="text-primary font-semibold hover:underline">AGBs</a> gelesen, verstanden und akzeptiert.
           </p>
           {errors?.agb && (
             <p className="text-xs text-destructive mt-1">{errors.agb}</p>
@@ -136,18 +129,11 @@ export function ConsentCheckboxes({ data, onChange, errors, showSepa = false }: 
           className="mt-0.5"
         />
         <div className="flex-1">
-          <Label htmlFor="consent-datenschutz" className="cursor-pointer text-sm leading-relaxed">
-            <a 
-              href="https://www.comin-glasfaser.de/datenschutz" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary font-semibold hover:underline"
-            >
-              Datenschutz *
-            </a>
+          <Label htmlFor="consent-datenschutz" className="cursor-pointer text-sm font-medium">
+            Datenschutz *
           </Label>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Ja, ich habe die <strong>Datenschutzbestimmungen</strong> gelesen, verstanden und akzeptiert.
+            Ja, ich habe die <a href="https://comin-glasfaser.de/agb/" target="_blank" rel="noopener noreferrer" className="text-primary font-semibold hover:underline">Datenschutzbestimmungen</a> gelesen, verstanden und akzeptiert.
           </p>
           {errors?.datenschutz && (
             <p className="text-xs text-destructive mt-1">{errors.datenschutz}</p>
@@ -167,18 +153,11 @@ export function ConsentCheckboxes({ data, onChange, errors, showSepa = false }: 
           className="mt-0.5"
         />
         <div className="flex-1">
-          <Label htmlFor="consent-widerruf" className="cursor-pointer text-sm leading-relaxed">
-            <a 
-              href="https://www.comin-glasfaser.de/widerrufsbelehrung" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary font-semibold hover:underline"
-            >
-              Widerruf *
-            </a>
+          <Label htmlFor="consent-widerruf" className="cursor-pointer text-sm font-medium">
+            Widerruf *
           </Label>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Ja, ich habe die Möglichkeiten eines <strong>Widerrufs</strong> gelesen, verstanden und akzeptiert.
+            Ja, ich habe die Möglichkeiten eines <a href="https://comin-glasfaser.de/agb/" target="_blank" rel="noopener noreferrer" className="text-primary font-semibold hover:underline">Widerrufs</a> gelesen, verstanden und akzeptiert.
           </p>
           {errors?.widerruf && (
             <p className="text-xs text-destructive mt-1">{errors.widerruf}</p>
