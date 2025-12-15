@@ -110,10 +110,22 @@ async function fillTemplatePdf(templatePdfBytes: Uint8Array, data: VZFData): Pro
     // Build services and devices text
     const servicesLines: string[] = [];
     if (data.tariffName) servicesLines.push(data.tariffName);
-    if (data.tvName) servicesLines.push(data.tvName || 'Kein TV');
+
+    // Always show TV state (template expects an explicit line)
+    servicesLines.push(data.tvName ?? 'Kein TV');
+
     if (data.routerName) servicesLines.push(data.routerName);
     if (data.phoneName) servicesLines.push(data.phoneName);
-    
+
+    const extraOptions = (data.selectedOptions ?? []).map(o => o?.name).filter(Boolean) as string[];
+    if (extraOptions.length) {
+      for (const optName of extraOptions) {
+        if (optName !== data.routerName) servicesLines.push(optName);
+      }
+    } else {
+      servicesLines.push('Keine optionale Hardware');
+    }
+
     // Build monthly costs
     const monthlyNames: string[] = [];
     const monthlyAmounts: string[] = [];
@@ -448,8 +460,17 @@ serve(async (req: Request): Promise<Response> => {
       pdfBytes = await generateVZFPdfFromScratch(vzfData);
     }
     
-    // Convert to base64
-    const base64 = btoa(String.fromCharCode(...pdfBytes));
+    // Convert to base64 (chunked to avoid call stack overflow)
+    const uint8ToBase64 = (bytes: Uint8Array): string => {
+      const chunkSize = 0x8000;
+      let binary = "";
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+      }
+      return btoa(binary);
+    };
+
+    const base64 = uint8ToBase64(pdfBytes);
 
     console.log("PDF generated successfully, size:", pdfBytes.length, "bytes");
 
