@@ -29,6 +29,7 @@ export interface BrandingSettings {
   easy_business_feature_3: string;
   easy_business_feature_4: string;
   easy_business_ideal: string;
+  easy_business_button: string;
   individual_solutions_title: string;
   individual_solutions_subtitle: string;
   individual_feature_1: string;
@@ -39,6 +40,8 @@ export interface BrandingSettings {
   individual_feature_6: string;
   individual_feature_7: string;
   individual_feature_8: string;
+  individual_button: string;
+  individual_footer: string;
   // KMU specific
   kmu_netto_hint: string;
   kmu_cart_netto_label: string;
@@ -71,7 +74,8 @@ const DEFAULT_BRANDING: BrandingSettings = {
   easy_business_feature_2: 'Bessere Service-Level als bei Privatkunden',
   easy_business_feature_3: 'Erweiterte Telefonie-Optionen',
   easy_business_feature_4: 'Direkt online bestellbar',
-  easy_business_ideal: '➡️ Ideal für Büros, Praxen, Handel und kleine Unternehmen mit normalem Internetbedarf',
+  easy_business_ideal: 'Ideal für Büros, Praxen, Handel und kleine Unternehmen mit Internetbedarf',
+  easy_business_button: 'Jetzt online bestellen',
   individual_solutions_title: 'Individuelle Unternehmenslösungen',
   individual_solutions_subtitle: '(D-Dienste & Dark Fiber)',
   individual_feature_1: 'Garantierte und symmetrische Bandbreiten',
@@ -82,6 +86,8 @@ const DEFAULT_BRANDING: BrandingSettings = {
   individual_feature_6: '19″ Router (z. B. Cisco, Juniper) inklusive',
   individual_feature_7: 'Feste, öffentliche IP-Adressen',
   individual_feature_8: 'Kurzfristig upgradebar',
+  individual_button: 'Jetzt beraten lassen',
+  individual_footer: '(keine Online-Bestellung, individuelle Planung)',
   // KMU specific
   kmu_netto_hint: 'Alle Preise verstehen sich zzgl. MwSt.',
   kmu_cart_netto_label: 'netto',

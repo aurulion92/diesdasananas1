@@ -101,7 +101,7 @@ export const BusinessTypeSelection = ({
             className="w-full"
             size="lg"
           >
-            Jetzt online bestellen
+            {branding.easy_business_button || 'Jetzt online bestellen'}
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
@@ -163,11 +163,11 @@ export const BusinessTypeSelection = ({
             size="lg"
           >
             <Phone className="w-4 h-4 mr-2" />
-            Jetzt beraten lassen
+            {branding.individual_button || 'Jetzt beraten lassen'}
           </Button>
           
           <p className="text-xs text-muted-foreground text-center mt-3">
-            (keine Online-Bestellung, individuelle Planung)
+            {branding.individual_footer || '(keine Online-Bestellung, individuelle Planung)'}
           </p>
         </div>
       </div>
