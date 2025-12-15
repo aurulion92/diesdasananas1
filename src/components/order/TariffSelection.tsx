@@ -458,8 +458,11 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
       {/* Tarif-Karten */}
       {!productsLoading && tariffs.length > 0 && (
         <div className={cn(
-          "grid gap-5",
-          tariffs.length === 1 ? "max-w-md mx-auto" : "md:grid-cols-2 lg:grid-cols-4"
+          "grid gap-5 justify-center",
+          tariffs.length === 1 && "max-w-md mx-auto grid-cols-1",
+          tariffs.length === 2 && "md:grid-cols-2 max-w-2xl mx-auto",
+          tariffs.length === 3 && "md:grid-cols-3 max-w-4xl mx-auto",
+          tariffs.length >= 4 && "md:grid-cols-2 lg:grid-cols-4"
         )}>
           {tariffs.map((tariff) => (
             <TariffCard
