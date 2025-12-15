@@ -502,24 +502,43 @@ export function OrderSummary() {
           contractDuration: isFiberBasic ? contractDuration : 24,
           street: address.street,
           houseNumber: address.houseNumber,
+          postalCode: '', // PLZ wird ggf. aus der Bestellung geladen
           city: address.city || 'Ingolstadt',
+          // Bank data
+          bankAccountHolder: bankData?.accountHolder,
+          bankIban: bankData?.iban,
+          // Discounts (including FTTH Aktion)
+          discounts: routerDiscount > 0 ? [{ name: 'FTTH Aktion Router-Rabatt', amount: routerDiscount, type: 'monthly' as const }] : undefined,
+          // Router with discounted price
+          routerName: selectedRouter?.id !== 'router-none' ? selectedRouter?.name : undefined,
+          routerMonthlyPrice: selectedRouter?.monthlyPrice ? getRouterPrice() : undefined,
+          routerOneTimePrice: selectedRouter?.oneTimePrice,
+          // TV
+          tvName: tvSelection.type === 'comin' ? 'COM-IN TV' : tvSelection.package?.name,
+          tvMonthlyPrice: tvSelection.package?.monthlyPrice,
+          // Phone
+          phoneName: phoneSelection.enabled && !isFiberBasic ? `Telefon (${phoneSelection.lines} Leitung${phoneSelection.lines > 1 ? 'en' : ''})` : undefined,
+          phoneMonthlyPrice: phoneSelection.enabled && !isFiberBasic ? phoneSelection.lines * 2.95 : undefined,
+          phoneLines: phoneSelection.lines,
+          // Phone porting
+          phonePorting: phoneSelection.portingRequired,
+          phonePortingProvider: phoneSelection.portingData?.previousProvider,
+          phonePortingNumbers: phoneSelection.portingData?.phoneNumbers,
+          // Previous provider
+          previousProvider: providerCancellationData?.providerName,
+          cancelPreviousProvider: cancelPreviousProvider,
+          // Consent
+          consentAdvertising: consentData?.advertising || false,
           selectedOptions: [
-            ...(selectedRouter && selectedRouter.id !== 'router-none' ? [{
-              name: selectedRouter.name,
-              monthlyPrice: getRouterPrice()
-            }] : []),
-            ...(tvSelection.type !== 'none' ? [{
-              name: tvSelection.type === 'comin' ? 'COM-IN TV' : (tvSelection.package?.name || 'TV'),
-              monthlyPrice: tvSelection.package?.monthlyPrice || 0
-            }] : []),
-            ...(phoneSelection.enabled && !isFiberBasic ? [{
-              name: `Telefon (${phoneSelection.lines} Leitung${phoneSelection.lines > 1 ? 'en' : ''})`,
-              monthlyPrice: phoneSelection.lines * 2.95
-            }] : []),
             ...(expressActivation ? [{
               name: 'Express-Anschaltung',
               oneTimePrice: 200
-            }] : [])
+            }] : []),
+            ...selectedAddons.map(addon => ({
+              name: addon.name,
+              monthlyPrice: addon.monthlyPrice,
+              oneTimePrice: addon.oneTimePrice,
+            }))
           ]
         };
 
