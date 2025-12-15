@@ -154,6 +154,8 @@ interface OrderState {
   // Abweichende Rechnungsadresse & Beitragszahler
   alternateBillingAddress: AlternateBillingAddress;
   alternatePaymentPerson: AlternatePaymentPerson;
+  // Bemerkung zur Bestellung
+  orderNotes: string;
 }
 
 interface OrderContextType extends OrderState {
@@ -184,6 +186,7 @@ interface OrderContextType extends OrderState {
   setConsentData: (data: ConsentData) => void;
   setAlternateBillingAddress: (data: AlternateBillingAddress) => void;
   setAlternatePaymentPerson: (data: AlternatePaymentPerson) => void;
+  setOrderNotes: (notes: string) => void;
   generateOrderNumber: () => string;
   getOrderNumber: () => string | null;
   getTotalMonthly: () => number;
@@ -288,6 +291,7 @@ const initialState: OrderState = {
   generatedOrderNumber: null,
   alternateBillingAddress: initialAlternateBillingAddress,
   alternatePaymentPerson: initialAlternatePaymentPerson,
+  orderNotes: '',
 };
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -446,6 +450,9 @@ export const OrderProvider = ({ children, initialCustomerType = 'pk' }: OrderPro
   
   const setAlternatePaymentPerson = (alternatePaymentPerson: AlternatePaymentPerson) =>
     setState(prev => ({ ...prev, alternatePaymentPerson }));
+
+  const setOrderNotes = (orderNotes: string) =>
+    setState(prev => ({ ...prev, orderNotes }));
 
   const validateReferralCustomerId = (customerId: string): boolean => {
     const normalizedId = customerId.toUpperCase().trim();
@@ -726,6 +733,7 @@ export const OrderProvider = ({ children, initialCustomerType = 'pk' }: OrderPro
       setConsentData,
       setAlternateBillingAddress,
       setAlternatePaymentPerson,
+      setOrderNotes,
       hasPhoneBooked,
     }}>
       {children}
