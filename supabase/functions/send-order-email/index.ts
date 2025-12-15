@@ -126,8 +126,133 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-// Fill Vertragszusammenfassung PDF
-async function fillVZFPdf(data: VZFData, orderId: string, customerName: string): Promise<Uint8Array> {
+// Try to fill template PDF with form fields or overlay text
+async function fillTemplatePdf(templatePdfBytes: Uint8Array, data: VZFData, orderId: string): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.load(templatePdfBytes, { ignoreEncryption: true });
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  
+  // Try to get form and fill fields
+  try {
+    const form = pdfDoc.getForm();
+    const fields = form.getFields();
+    
+    console.log(`Found ${fields.length} form fields in VZF template`);
+    
+    const orderNumber = data.orderNumber || `COMIN-${new Date().getFullYear()}-${orderId.substring(0, 4).toUpperCase()}`;
+    
+    // Map data to common field names
+    const fieldMappings: Record<string, string> = {
+      'kunde_name': `${data.customerFirstName || ''} ${data.customerLastName || data.customerName || ''}`.trim(),
+      'kunde_vorname': data.customerFirstName || '',
+      'kunde_nachname': data.customerLastName || '',
+      'kunde_email': data.customerEmail || '',
+      'kunde_telefon': data.customerPhone || '',
+      'anrede': data.salutation || '',
+      'strasse': data.street || '',
+      'hausnummer': data.houseNumber || '',
+      'plz': data.postalCode || '',
+      'ort': data.city || '',
+      'adresse': `${data.street || ''} ${data.houseNumber || ''}, ${data.postalCode || ''} ${data.city || ''}`.trim(),
+      'tarif': data.tariffName || '',
+      'tarif_name': data.tariffName || '',
+      'tarif_preis': data.tariffPrice ? formatCurrency(data.tariffPrice) : '',
+      'download': data.downloadSpeed || '',
+      'upload': data.uploadSpeed || '',
+      'vertragslaufzeit': data.contractDuration ? `${data.contractDuration} Monate` : '24 Monate',
+      'router': data.routerName || '',
+      'router_preis': data.routerMonthlyPrice ? formatCurrency(data.routerMonthlyPrice) : '',
+      'tv': data.tvName || '',
+      'tv_preis': data.tvMonthlyPrice ? formatCurrency(data.tvMonthlyPrice) : '',
+      'telefon': data.phoneName || '',
+      'telefon_preis': data.phoneMonthlyPrice ? formatCurrency(data.phoneMonthlyPrice) : '',
+      'monatlich': data.monthlyTotal ? formatCurrency(data.monthlyTotal) : '',
+      'einmalig': data.oneTimeTotal ? formatCurrency(data.oneTimeTotal) : '',
+      'bereitstellung': data.setupFee ? formatCurrency(data.setupFee) : '',
+      'kontoinhaber': data.bankAccountHolder || '',
+      'iban': data.bankIban || '',
+      'bestellnummer': orderNumber,
+      'datum': data.date || new Date().toLocaleDateString('de-DE'),
+    };
+    
+    for (const field of fields) {
+      const fieldName = field.getName().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+      for (const [key, value] of Object.entries(fieldMappings)) {
+        if (fieldName.includes(key) || key.includes(fieldName)) {
+          try {
+            const textField = form.getTextField(field.getName());
+            textField.setText(sanitizeText(value));
+          } catch (e) {}
+          break;
+        }
+      }
+    }
+    
+    form.flatten();
+    
+  } catch (formError) {
+    console.log('No form fields in VZF template, overlaying text');
+    
+    const pages = pdfDoc.getPages();
+    if (pages.length > 0) {
+      const firstPage = pages[0];
+      const { height } = firstPage.getSize();
+      const textColor = rgb(0.1, 0.1, 0.1);
+      const orderNumber = data.orderNumber || `COMIN-${new Date().getFullYear()}-${orderId.substring(0, 4).toUpperCase()}`;
+      
+      const overlayData = [
+        { text: sanitizeText(orderNumber), x: 450, y: height - 120 },
+        { text: sanitizeText(data.date || new Date().toLocaleDateString('de-DE')), x: 450, y: height - 140 },
+        { text: sanitizeText(`${data.customerFirstName || ''} ${data.customerLastName || ''}`), x: 100, y: height - 200 },
+        { text: sanitizeText(`${data.street || ''} ${data.houseNumber || ''}`), x: 100, y: height - 215 },
+        { text: sanitizeText(`${data.postalCode || ''} ${data.city || ''}`), x: 100, y: height - 230 },
+        { text: sanitizeText(data.tariffName || ''), x: 100, y: height - 300 },
+        { text: data.monthlyTotal ? formatCurrency(data.monthlyTotal) : '', x: 450, y: height - 300 },
+      ];
+      
+      for (const item of overlayData) {
+        if (item.text) {
+          firstPage.drawText(item.text, { x: item.x, y: item.y, size: 10, font: helvetica, color: textColor });
+        }
+      }
+    }
+  }
+  
+  return await pdfDoc.save();
+}
+
+// Generate VZF PDF - uses template if available, otherwise generates from scratch
+async function generateVZFPdfWithTemplate(supabase: any, data: VZFData, orderId: string, customerName: string): Promise<Uint8Array> {
+  // Try to fetch VZF template
+  const { data: templateData } = await supabase
+    .from("document_templates")
+    .select("pdf_url, name")
+    .eq("is_active", true)
+    .or("use_case.eq.order_vzf,use_cases.cs.{order_vzf}")
+    .not("pdf_url", "is", null)
+    .maybeSingle();
+  
+  if (templateData?.pdf_url) {
+    console.log(`Using VZF template: ${templateData.name}`);
+    try {
+      const templateResponse = await fetch(templateData.pdf_url);
+      if (!templateResponse.ok) throw new Error(`Fetch failed: ${templateResponse.status}`);
+      
+      const templatePdfBytes = new Uint8Array(await templateResponse.arrayBuffer());
+      console.log(`VZF template loaded, size: ${templatePdfBytes.length} bytes`);
+      
+      return await fillTemplatePdf(templatePdfBytes, data, orderId);
+    } catch (templateError) {
+      console.error("Error using VZF template, falling back:", templateError);
+    }
+  }
+  
+  // Fallback to generated PDF
+  console.log("No VZF template found, generating from scratch");
+  return await fillVZFPdfFromScratch(data, orderId, customerName);
+}
+
+// Fill Vertragszusammenfassung PDF from scratch (fallback)
+async function fillVZFPdfFromScratch(data: VZFData, orderId: string, customerName: string): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -1026,7 +1151,7 @@ serve(async (req: Request): Promise<Response> => {
 
     // Generate filled PDFs
     console.log("Generating filled VZF PDF...");
-    const vzfPdfBytes = await fillVZFPdf(fullVzfData, orderId, customerName);
+    const vzfPdfBytes = await generateVZFPdfWithTemplate(supabase, fullVzfData, orderId, customerName);
     console.log("VZF PDF generated, size:", vzfPdfBytes.length);
 
     console.log("Generating filled Auftrag PDF...");
