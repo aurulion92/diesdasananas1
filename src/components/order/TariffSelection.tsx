@@ -1563,8 +1563,12 @@ function TariffCard({
               href={tariff.externalLinkUrl}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.open(tariff.externalLinkUrl, '_blank', 'noopener,noreferrer');
+              }}
+              className="inline-flex items-center gap-1 text-xs text-primary hover:underline cursor-pointer"
             >
               <ExternalLink className="w-3 h-3" />
               {tariff.externalLinkLabel || 'Produkthinweise'}
