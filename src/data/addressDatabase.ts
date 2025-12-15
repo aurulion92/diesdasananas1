@@ -178,6 +178,27 @@ export async function checkAddress(
   }
 }
 
+// Search cities for autocomplete using Supabase RPC function
+export async function searchCities(query: string): Promise<string[]> {
+  if (query.length < 2) return [];
+  
+  try {
+    const { data, error } = await supabase.rpc('search_cities', {
+      p_query: query
+    });
+
+    if (error) {
+      console.error('Error searching cities:', error);
+      return [];
+    }
+
+    return data?.map((row: { city: string }) => row.city) || [];
+  } catch (error) {
+    console.error('Error searching cities:', error);
+    return [];
+  }
+}
+
 // Get streets for autocomplete using Supabase RPC function
 export async function searchStreets(query: string, city: string): Promise<string[]> {
   if (query.length < 3) return [];
