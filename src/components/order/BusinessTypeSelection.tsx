@@ -17,7 +17,7 @@ export const BusinessTypeSelection = ({
   onSelectEasyBusiness, 
   onBack 
 }: BusinessTypeSelectionProps) => {
-  const { branding } = useBranding();
+  const { branding, loading } = useBranding();
   const { toast } = useToast();
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactForm, setContactForm] = useState({
@@ -28,6 +28,15 @@ export const BusinessTypeSelection = ({
     message: '',
   });
   const [submitting, setSubmitting] = useState(false);
+
+  // Show nothing while branding is loading to prevent text flicker
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto flex items-center justify-center min-h-[400px]">
+        <div className="animate-pulse text-muted-foreground">Lädt...</div>
+      </div>
+    );
+  }
 
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
