@@ -58,6 +58,8 @@ interface Building {
   is_manual_entry: boolean;
   has_manual_override: boolean;
   manual_override_active: boolean;
+  pk_tariffs_available: boolean;
+  kmu_tariffs_available: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -686,6 +688,8 @@ export const BuildingsManager = () => {
                           <StatusIndicator active={building.apl_set} label="APL" />
                           <StatusIndicator active={building.kabel_tv_available} label="Kabel TV" />
                           <StatusIndicator active={building.gnv_vorhanden} label="GNV" />
+                          <StatusIndicator active={building.pk_tariffs_available} label="PK" />
+                          <StatusIndicator active={building.kmu_tariffs_available} label="KMU" />
                         </div>
                       </TableCell>
                       <TableCell>

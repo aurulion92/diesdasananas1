@@ -69,11 +69,15 @@ Deno.serve(async (req) => {
     const batchId = logEntry.id
     const result = { created: 0, updated: 0, skipped: 0, errors: [] as string[], batchId }
 
-    // Get all existing buildings to preserve protected fields (kabel_tv_available)
+    // Get all existing buildings to preserve protected fields (kabel_tv_available, pk_tariffs_available, kmu_tariffs_available)
     // These fields are ONLY set manually and should never be overwritten by CSV
-    const existingBuildingsMap = new Map<string, { kabel_tv_available: boolean }>()
+    const existingBuildingsMap = new Map<string, { 
+      kabel_tv_available: boolean, 
+      pk_tariffs_available: boolean, 
+      kmu_tariffs_available: boolean 
+    }>()
     
-    // Fetch existing buildings in batches to get current kabel_tv_available values
+    // Fetch existing buildings in batches to get current protected field values
     const FETCH_BATCH = 1000
     for (let i = 0; i < buildings.length; i += FETCH_BATCH) {
       const batch = buildings.slice(i, i + FETCH_BATCH)
@@ -83,13 +87,17 @@ Deno.serve(async (req) => {
       
       const { data: existingData } = await supabase
         .from('buildings')
-        .select('street, house_number, city, kabel_tv_available')
+        .select('street, house_number, city, kabel_tv_available, pk_tariffs_available, kmu_tariffs_available')
         .or(conditions)
       
       if (existingData) {
         for (const existing of existingData) {
           const key = `${existing.street.trim().toLowerCase()}|${existing.house_number.trim().toLowerCase()}|${existing.city.trim().toLowerCase()}`
-          existingBuildingsMap.set(key, { kabel_tv_available: existing.kabel_tv_available })
+          existingBuildingsMap.set(key, { 
+            kabel_tv_available: existing.kabel_tv_available,
+            pk_tariffs_available: existing.pk_tariffs_available ?? true,
+            kmu_tariffs_available: existing.kmu_tariffs_available ?? true
+          })
         }
       }
     }
@@ -106,6 +114,11 @@ Deno.serve(async (req) => {
       const isEFH = residentialUnits === 1
       const defaultKabelTv = isEFH ? true : (building.kabel_tv_available || false)
       
+      // For NEW buildings: set tariff availability based on ausbau_status
+      const isAbgeschlossen = (building.ausbau_status || 'geplant') === 'abgeschlossen'
+      const defaultPkTariffs = isAbgeschlossen
+      const defaultKmuTariffs = isAbgeschlossen
+      
       return {
         street: building.street,
         house_number: building.house_number,
@@ -116,8 +129,10 @@ Deno.serve(async (req) => {
         ausbau_status: building.ausbau_status || 'geplant',
         tiefbau_done: building.tiefbau_done || false,
         apl_set: building.apl_set || false,
-        // PROTECTED: Keep existing kabel_tv_available if building exists
+        // PROTECTED: Keep existing values if building exists
         kabel_tv_available: existing ? existing.kabel_tv_available : defaultKabelTv,
+        pk_tariffs_available: existing ? existing.pk_tariffs_available : defaultPkTariffs,
+        kmu_tariffs_available: existing ? existing.kmu_tariffs_available : defaultKmuTariffs,
         gnv_vorhanden: building.gnv_vorhanden || false,
         gebaeude_id_v2: building.gebaeude_id_v2 || null,
         gebaeude_id_k7: building.gebaeude_id_k7 || null,

@@ -7,7 +7,11 @@ import { Rocket, Loader2, AlertCircle, CheckCircle2, AlertTriangle, ChevronDown 
 import { ContactForm } from './ContactForm';
 import { cn } from '@/lib/utils';
 
-export function AddressCheck() {
+interface AddressCheckProps {
+  customerType?: 'pk' | 'kmu';
+}
+
+export function AddressCheck({ customerType = 'pk' }: AddressCheckProps) {
   const { setAddress, setStep, setConnectionType } = useOrder();
   const [city, setCity] = useState('Ingolstadt');
   const [street, setStreet] = useState('');
@@ -102,7 +106,7 @@ export function AddressCheck() {
     setResult(null);
     
     try {
-      const found = await checkAddress(street, houseNumber, city);
+      const found = await checkAddress(street, houseNumber, city, customerType);
       
       if (found) {
         setAddress(found);

@@ -39,22 +39,35 @@ export function getConnectionType(ausbauart: string | null): ConnectionType {
 }
 
 // Check address against Supabase database - get full building info including ID
+// customerType parameter filters by pk_tariffs_available or kmu_tariffs_available
 export async function checkAddress(
   street: string, 
   houseNumber: string, 
-  city: string
+  city: string,
+  customerType: 'pk' | 'kmu' = 'pk'
 ): Promise<AddressData | null> {
   try {
     // First try to get from buildings table directly to get the building ID and residential units
-    const { data: buildingData, error: buildingError } = await supabase
+    let query = supabase
       .from('buildings')
-      .select('id, street, house_number, city, ausbau_art, ausbau_status, kabel_tv_available, residential_units')
+      .select('id, street, house_number, city, ausbau_art, ausbau_status, kabel_tv_available, residential_units, pk_tariffs_available, kmu_tariffs_available')
       .ilike('street', street)
       .ilike('house_number', houseNumber)
-      .ilike('city', city)
-      .eq('ausbau_status', 'abgeschlossen')
-      .limit(1)
-      .single();
+      .ilike('city', city);
+    
+    // Filter by customer type tariff availability
+    if (customerType === 'pk') {
+      query = query.eq('pk_tariffs_available', true);
+    } else {
+      query = query.eq('kmu_tariffs_available', true);
+    }
+    
+    // For PK, also require ausbau_status = abgeschlossen; for KMU, manual enable overrides this
+    if (customerType === 'pk') {
+      query = query.eq('ausbau_status', 'abgeschlossen');
+    }
+    
+    const { data: buildingData, error: buildingError } = await query.limit(1).maybeSingle();
 
     if (!buildingError && buildingData) {
       return {
