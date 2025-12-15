@@ -269,11 +269,11 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         
-        // Get address fields from CSV (handle different column name cases)
-        const streetRaw = row['STRASSE'] || row['Strasse'] || row['strasse'] || '';
-        const houseNumRaw = row['HAUSNUMMER'] || row['Hausnummer'] || row['hausnummer'] || row['HAUSNUMME'] || '';
-        const plzRaw = row['PLZ'] || row['Plz'] || row['plz'] || '';
-        const cityRaw = row['ORT'] || row['Ort'] || row['ort'] || row['TEILORT_NAME'] || '';
+        // Get address fields from CSV (handle different column name cases including German umlauts)
+        const streetRaw = row['STRASSE'] || row['Strasse'] || row['strasse'] || row['Straße'] || row['STRASSE '] || row['Strasse '] || row['Straße '] || '';
+        const houseNumRaw = row['HAUSNUMMER'] || row['Hausnummer'] || row['hausnummer'] || row['HAUSNUMME'] || row['Hausnr'] || row['HAUSNR'] || row['Hausnummer '] || '';
+        const plzRaw = row['PLZ'] || row['Plz'] || row['plz'] || row['PLZ '] || '';
+        const cityRaw = row['ORT'] || row['Ort'] || row['ort'] || row['TEILORT_NAME'] || row['Stadt'] || row['STADT'] || row['City'] || row['Ort '] || '';
 
         // Use TOLERANT matching normalization
         const street = normalizeForMatching(streetRaw);
