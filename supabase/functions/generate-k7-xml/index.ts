@@ -210,11 +210,38 @@ serve(async (req) => {
           .select('option_id_k7')
           .eq('option_id', opt.optionId)
           .eq('product_id', order.product_id)
-          .single();
+          .maybeSingle();
         
         if (mapping?.option_id_k7) {
           optionK7Ids.push(cleanNumericId(mapping.option_id_k7));
           console.log('Option K7 ID:', mapping.option_id_k7, 'for option', opt.name);
+        }
+      }
+    }
+
+    // Fetch produktbezogene Promotion K7-IDs for the ordered product
+    if (order.product_id) {
+      const { data: promotionDiscounts } = await supabase
+        .from('promotion_discounts')
+        .select('k7_template_id, promotion_id')
+        .eq('target_product_id', order.product_id)
+        .not('k7_template_id', 'is', null);
+      
+      if (promotionDiscounts && promotionDiscounts.length > 0) {
+        // Check which promotions were actually applied to this order
+        const appliedPromotions = order.applied_promotions || [];
+        const appliedPromotionIds = appliedPromotions.map((p: any) => p.id || p.promotionId);
+        
+        for (const discount of promotionDiscounts) {
+          // Only add K7 ID if this promotion was applied to the order
+          const wasApplied = appliedPromotionIds.includes(discount.promotion_id);
+          if (wasApplied && discount.k7_template_id) {
+            const cleanedK7Id = cleanNumericId(discount.k7_template_id);
+            if (cleanedK7Id && !optionK7Ids.includes(cleanedK7Id)) {
+              optionK7Ids.push(cleanedK7Id);
+              console.log('Promotion K7 ID:', cleanedK7Id, 'for promotion:', discount.promotion_id);
+            }
+          }
         }
       }
     }
