@@ -244,8 +244,28 @@ export const BuildingsManager = () => {
     setEditingBuilding(null);
   };
 
-  const openEditDialog = (building: Building) => {
+  const openEditDialog = async (building: Building) => {
     setEditingBuilding(building);
+    
+    // Fetch K7 service ID if not already set on building
+    let k7Id = building.gebaeude_id_k7 || '';
+    if (!k7Id) {
+      try {
+        const { data: k7Services } = await supabase
+          .from('building_k7_services')
+          .select('std_kabel_gebaeude_id')
+          .eq('building_id', building.id)
+          .not('std_kabel_gebaeude_id', 'is', null)
+          .limit(1);
+        
+        if (k7Services && k7Services.length > 0 && k7Services[0].std_kabel_gebaeude_id) {
+          k7Id = k7Services[0].std_kabel_gebaeude_id;
+        }
+      } catch (error) {
+        console.error('Error fetching K7 ID:', error);
+      }
+    }
+    
     setFormData({
       street: building.street,
       house_number: building.house_number,
@@ -259,7 +279,7 @@ export const BuildingsManager = () => {
       kabel_tv_available: building.kabel_tv_available,
       gnv_vorhanden: building.gnv_vorhanden,
       gebaeude_id_v2: building.gebaeude_id_v2 || '',
-      gebaeude_id_k7: building.gebaeude_id_k7 || '',
+      gebaeude_id_k7: k7Id,
       pk_tariffs_available: building.pk_tariffs_available ?? true,
       kmu_tariffs_available: building.kmu_tariffs_available ?? true,
     });
