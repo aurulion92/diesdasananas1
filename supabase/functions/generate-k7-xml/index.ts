@@ -160,10 +160,11 @@ serve(async (req) => {
     let buildingK7Id = '';
     let bandbreiteId = '';
     let vorleistungsproduktId = '';
+    let buildingPostalCode = '';
     
     const { data: buildings } = await supabase
       .from('buildings')
-      .select('id, gebaeude_id_k7')
+      .select('id, gebaeude_id_k7, postal_code')
       .ilike('street', order.street)
       .ilike('house_number', order.house_number)
       .ilike('city', order.city)
@@ -172,6 +173,7 @@ serve(async (req) => {
     if (buildings && buildings.length > 0) {
       const building = buildings[0];
       buildingK7Id = cleanNumericId(building.gebaeude_id_k7);
+      buildingPostalCode = (building.postal_code || '').trim();
       
       const { data: k7Services } = await supabase
         .from('building_k7_services')
@@ -206,6 +208,8 @@ serve(async (req) => {
         console.log('K7 Data:', { buildingK7Id, bandbreiteId, vorleistungsproduktId });
       }
     }
+
+    const postalCode = String(order.postal_code || buildingPostalCode || '85055').trim();
 
     // Fetch selected options with K7 IDs
     const selectedOptions = order.selected_options || [];
@@ -358,7 +362,7 @@ serve(async (req) => {
       
       additionalAddressesXml += `
         <Adresse xsi:type="AdresseType" Guid="${lieferAdresseGuid}">
-          <Postleitzahl>${escapeXml(alternateBillingAddress.postalCode || order.postal_code || '')}</Postleitzahl>
+          <Postleitzahl>${escapeXml(alternateBillingAddress.postalCode || postalCode)}</Postleitzahl>
           <Ort>${escapeXml(alternateBillingAddress.city || order.city)}</Ort>
           <Strasse>${escapeXml(alternateBillingAddress.street)} ${escapeXml(alternateBillingAddress.houseNumber || '')}</Strasse>
           <Adressart>
@@ -390,8 +394,10 @@ serve(async (req) => {
       const kontoinhaberStreet = alternateBillingAddress?.enabled ? 
         `${alternateBillingAddress.street} ${alternateBillingAddress.houseNumber || ''}` : 
         `${order.street} ${order.house_number}`;
-      const kontoinhaberCity = alternateBillingAddress?.enabled ? alternateBillingAddress.city : order.city;
-      const kontoinhaberPLZ = alternateBillingAddress?.enabled ? alternateBillingAddress.postalCode : order.postal_code;
+      const kontoinhaberCity = alternateBillingAddress?.enabled ? (alternateBillingAddress.city || order.city) : order.city;
+      const kontoinhaberPLZ = alternateBillingAddress?.enabled
+        ? (alternateBillingAddress.postalCode || postalCode)
+        : postalCode;
       
       additionalAddressesXml += `
         <Adresse xsi:type="AdresseType" Guid="${kontoinhaberAdresseGuid}">
@@ -546,7 +552,7 @@ serve(async (req) => {
       </Zahlweise>
       <Adressen>
         <Adresse xsi:type="AdresseType" Guid="${rechnungsAdresseGuid}">
-          <Postleitzahl>${escapeXml(order.postal_code || '')}</Postleitzahl>
+          <Postleitzahl>${escapeXml(postalCode)}</Postleitzahl>
           <Ort>${escapeXml(order.city)}</Ort>
           <Strasse>${escapeXml(order.street)} ${escapeXml(order.house_number)}</Strasse>
           <Adressart>
@@ -556,6 +562,7 @@ serve(async (req) => {
             <Ansprechpartner xsi:type="AnsprechpartnerType" Guid="${rechnungsAnsprechpartnerGuid}">
               <Vorname>${escapeXml(firstName)}</Vorname>
               <Nachname>${escapeXml(lastName)}</Nachname>
+              <Geburtstag>${today}</Geburtstag>
               <Telefon>${escapeXml(order.customer_phone || '')}</Telefon>
               <E_Mail>${escapeXml(order.customer_email)}</E_Mail>
               <Ansprechpartnerart>
@@ -572,7 +579,7 @@ serve(async (req) => {
           </Ansprechpartner>
         </Adresse>
         <Adresse xsi:type="AdresseType" Guid="${anschlussAdresseGuid}">
-          <Postleitzahl>${escapeXml(order.postal_code || '')}</Postleitzahl>
+          <Postleitzahl>${escapeXml(postalCode)}</Postleitzahl>
           <Ort>${escapeXml(order.city)}</Ort>
           <Strasse>${escapeXml(order.street)} ${escapeXml(order.house_number)}</Strasse>
           <Adressart>
@@ -582,6 +589,7 @@ serve(async (req) => {
             <Ansprechpartner xsi:type="AnsprechpartnerType" Guid="${anschlussAnsprechpartnerGuid}">
               <Vorname>${escapeXml(firstName)}</Vorname>
               <Nachname>${escapeXml(lastName)}</Nachname>
+              <Geburtstag>${today}</Geburtstag>
               <Telefon>${escapeXml(order.customer_phone || '')}</Telefon>
               <E_Mail>${escapeXml(order.customer_email)}</E_Mail>
               <Ansprechpartnerart>
@@ -670,7 +678,7 @@ serve(async (req) => {
           </Suchverzeichnis>
           <Vorname>${escapeXml(firstName)}</Vorname>
           <Nachname>${escapeXml(lastName)}</Nachname>
-          <Postleitzahl>${escapeXml(order.postal_code || '')}</Postleitzahl>
+          <Postleitzahl>${escapeXml(postalCode)}</Postleitzahl>
           <Ort>${escapeXml(order.city)}</Ort>
           <Strasse>${escapeXml(order.street)} ${escapeXml(order.house_number)}</Strasse>
           <TelefonLautAccount>true</TelefonLautAccount>
