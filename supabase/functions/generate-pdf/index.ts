@@ -395,8 +395,8 @@ async function generateVZFPdfFromScratch(data: VZFData): Promise<Uint8Array> {
   if (data.routerName && data.routerMonthlyPrice) drawRow(data.routerName, formatCurrency(data.routerMonthlyPrice));
   if (data.tvName && data.tvMonthlyPrice) drawRow(data.tvName, formatCurrency(data.tvMonthlyPrice));
   if (data.phoneName && data.phoneMonthlyPrice) {
-    const phoneQty = data.phoneLines && data.phoneLines > 1 ? `${data.phoneLines}x ` : '';
-    drawRow(`${phoneQty}${data.phoneName}`, formatCurrency(data.phoneMonthlyPrice * (data.phoneLines || 1)));
+    // phoneName already contains line count, phoneMonthlyPrice is already total
+    drawRow(data.phoneName, formatCurrency(data.phoneMonthlyPrice));
   }
   if (data.selectedOptions) {
     for (const opt of data.selectedOptions) {

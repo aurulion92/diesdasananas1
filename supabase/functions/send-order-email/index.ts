@@ -401,8 +401,9 @@ async function fillVZFPdfFromScratch(data: VZFData, orderId: string, customerNam
   if (data.routerName && data.routerMonthlyPrice) drawRow(data.routerName, formatCurrency(data.routerMonthlyPrice));
   if (data.tvName && data.tvMonthlyPrice) drawRow(data.tvName, formatCurrency(data.tvMonthlyPrice));
   if (data.phoneName && data.phoneMonthlyPrice) {
-    const phoneQty = data.phoneLines && data.phoneLines > 1 ? `${data.phoneLines}x ` : '';
-    drawRow(`${phoneQty}${data.phoneName}`, formatCurrency(data.phoneMonthlyPrice * (data.phoneLines || 1)));
+    // phoneName already contains line count (e.g., "Telefon Flat (3 Leitungen)")
+    // phoneMonthlyPrice is already total price (pricePerLine * lines)
+    drawRow(data.phoneName, formatCurrency(data.phoneMonthlyPrice));
   }
   // Show selected options with prices
   if (data.selectedOptions) {
@@ -606,8 +607,8 @@ async function fillAuftragPdf(data: VZFData, orderId: string, customerName: stri
   if (data.routerName && data.routerMonthlyPrice) drawRow(data.routerName, formatCurrency(data.routerMonthlyPrice));
   if (data.tvName && data.tvMonthlyPrice) drawRow(data.tvName, formatCurrency(data.tvMonthlyPrice));
   if (data.phoneName && data.phoneMonthlyPrice) {
-    const phoneQty = data.phoneLines && data.phoneLines > 1 ? `${data.phoneLines}x ` : '';
-    drawRow(`${phoneQty}${data.phoneName}`, formatCurrency(data.phoneMonthlyPrice * (data.phoneLines || 1)));
+    // phoneName already contains line count, phoneMonthlyPrice is already total
+    drawRow(data.phoneName, formatCurrency(data.phoneMonthlyPrice));
   }
   // Show selected options with monthly prices
   if (data.selectedOptions) {
