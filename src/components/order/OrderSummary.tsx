@@ -254,6 +254,9 @@ export function OrderSummary() {
     
     setIsSubmitting(true);
     
+    // Get or generate consistent order number
+    const orderNumber = getOrderNumber() || generateOrderNumber();
+    
     try {
       // Build VZF data for reconstruction - convert to plain JSON
       const vzfData = JSON.parse(JSON.stringify({
@@ -270,6 +273,7 @@ export function OrderSummary() {
         isFiberBasic,
         referralBonus: getReferralBonus(),
         orderNotes: orderNotes || null, // Bemerkung zur Bestellung
+        orderNumber: orderNumber, // Einheitliche Bestellnummer
       }));
 
       // Build selected options array with optionId for K7 mapping
@@ -485,7 +489,7 @@ export function OrderSummary() {
           monthlyTotal: `${getTotalMonthly().toFixed(2).replace('.', ',')} €`,
           oneTimeTotal: `${getTotalOneTime().toFixed(2).replace('.', ',')} €`,
           setupFee: `${getSetupFee().toFixed(2).replace('.', ',')} €`,
-          orderNumber: getOrderNumber() || `COM-${insertedOrder.id.substring(0, 8).toUpperCase()}`,
+          orderNumber: orderNumber,
           vzfTimestamp: format(new Date(), 'dd.MM.yyyy HH:mm', { locale: de }),
           serviceAddons: selectedAddons,
         };
@@ -496,6 +500,7 @@ export function OrderSummary() {
 
         // Build vzfData for PDF generation in edge function
         const vzfDataForPdf = {
+          orderNumber: orderNumber, // Einheitliche Bestellnummer
           tariffName: selectedTariff.name,
           tariffPrice: isFiberBasic && contractDuration === 12 
             ? selectedTariff.monthlyPrice12 || selectedTariff.monthlyPrice 
