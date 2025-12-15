@@ -65,7 +65,6 @@ export function OrderSummary() {
     setVzfConfirmed,
     consentData,
     setConsentData,
-    getTotalMonthly,
     getTotalOneTime,
     getRouterPrice,
     getRouterDiscount,
@@ -84,6 +83,8 @@ export function OrderSummary() {
     getEffectiveRouterMonthlyDiscount,
     getEffectiveRouterOneTimeDiscount,
     isSetupFeeWaivedByPromotions,
+    getPromotedRouterPrice,
+    getPromotedRouterOneTimePrice,
   } = useOrderPromotions();
   
   const { promotions } = usePromotionsContext();
@@ -97,10 +98,55 @@ export function OrderSummary() {
 
   // Use effective router discount from database promotions / promo codes (not legacy OrderContext logic)
   const routerDiscount = getEffectiveRouterMonthlyDiscount();
+  const routerPrice = getPromotedRouterPrice();
+  const routerOneTimePrice = getPromotedRouterOneTimePrice();
   
   // Check if phone is booked (via tariff, phoneSelection, or phone option addon)
   const hasPhoneAddon = selectedAddons.some(addon => addon.category === 'phone');
   const phoneIsBooked = selectedTariff?.includesPhone === true || phoneSelection.enabled || hasPhoneAddon;
+
+  // Calculate monthly total with correct promotion discounts (same logic as CartSidebar)
+  const calculateMonthlyTotal = () => {
+    let total = 0;
+    
+    if (selectedTariff) {
+      total += contractDuration === 12 && isFiberBasic
+        ? selectedTariff.monthlyPrice12 
+        : selectedTariff.monthlyPrice;
+    }
+    
+    // Router with promotion discount
+    total += routerPrice;
+    
+    // TV costs
+    if (tvSelection.type === 'comin') {
+      total += 10.00;
+    }
+    if (tvSelection.package && tvSelection.type === 'waipu') {
+      total += tvSelection.package.monthlyPrice;
+    }
+    if (tvSelection.hdAddon) {
+      total += tvSelection.hdAddon.monthlyPrice;
+    }
+    tvSelection.hardware.forEach(hw => {
+      total += hw.monthlyPrice;
+    });
+    
+    // Phone costs - use price from selected phone option
+    if (phoneSelection.enabled && !selectedTariff?.includesPhone) {
+      total += phoneSelection.lines * phoneSelection.selectedOptionPrice;
+    }
+    
+    // Other addons (with quantity support)
+    selectedAddons.forEach(addon => {
+      const quantity = addon.quantity || 1;
+      total += addon.monthlyPrice * quantity;
+    });
+    
+    return total;
+  };
+
+  const totalMonthly = calculateMonthlyTotal();
 
   const handleDownloadVZF = async () => {
     if (!selectedTariff || !customerData) return;
@@ -146,7 +192,7 @@ export function OrderSummary() {
       routerPrice: `${getRouterPrice().toFixed(2).replace('.', ',')} €`,
       tvName: tvSelection.type === 'comin' ? 'COM-IN TV' : tvSelection.package?.name || 'Kein TV',
       tvPrice: '0,00 €',
-      monthlyTotal: `${getTotalMonthly().toFixed(2).replace('.', ',')} €`,
+      monthlyTotal: `${totalMonthly.toFixed(2).replace('.', ',')} €`,
       oneTimeTotal: `${getTotalOneTime().toFixed(2).replace('.', ',')} €`,
       setupFee: `${getSetupFee().toFixed(2).replace('.', ',')} €`,
       orderNumber: generateOrderNumber(),
@@ -199,7 +245,7 @@ export function OrderSummary() {
         phoneMonthlyPrice: phoneIsBooked ? phoneSelection.selectedOptionPrice * phoneSelection.lines : undefined,
         phoneLines: phoneSelection.lines,
         // Totals
-        monthlyTotal: getTotalMonthly(),
+        monthlyTotal: totalMonthly,
         oneTimeTotal: getTotalOneTime(),
         setupFee: getSetupFee(),
         // Phone options
@@ -407,7 +453,7 @@ export function OrderSummary() {
         contract_months: isFiberBasic ? contractDuration : 24,
         
         // Pricing
-        monthly_total: getTotalMonthly(),
+        monthly_total: totalMonthly,
         one_time_total: getTotalOneTime(),
         setup_fee: getSetupFee(),
         
@@ -487,7 +533,7 @@ export function OrderSummary() {
           routerPrice: `${getRouterPrice().toFixed(2).replace('.', ',')} €`,
           tvName: tvSelection.type === 'comin' ? 'COM-IN TV' : tvSelection.package?.name || 'Kein TV',
           tvPrice: '0,00 €',
-          monthlyTotal: `${getTotalMonthly().toFixed(2).replace('.', ',')} €`,
+          monthlyTotal: `${totalMonthly.toFixed(2).replace('.', ',')} €`,
           oneTimeTotal: `${getTotalOneTime().toFixed(2).replace('.', ',')} €`,
           setupFee: `${getSetupFee().toFixed(2).replace('.', ',')} €`,
           orderNumber: orderNumber,
@@ -512,7 +558,7 @@ export function OrderSummary() {
           downloadSpeedMin: selectedTariff.downloadSpeedMin ? `${selectedTariff.downloadSpeedMin} Mbit/s` : undefined,
           uploadSpeedNormal: selectedTariff.uploadSpeedNormal ? `${selectedTariff.uploadSpeedNormal} Mbit/s` : undefined,
           uploadSpeedMin: selectedTariff.uploadSpeedMin ? `${selectedTariff.uploadSpeedMin} Mbit/s` : undefined,
-          monthlyTotal: getTotalMonthly(),
+          monthlyTotal: totalMonthly,
           oneTimeTotal: getTotalOneTime(),
           setupFee: getSetupFee(),
           contractDuration: isFiberBasic ? contractDuration : 24,
@@ -707,7 +753,7 @@ export function OrderSummary() {
           <div className="bg-accent/5 rounded-xl p-5 border border-accent/20">
             <div className="flex justify-between items-center">
               <span className="font-bold text-primary">Monatliche Kosten</span>
-              <span className="text-2xl font-bold text-accent">{getTotalMonthly().toFixed(2).replace('.', ',')} €</span>
+              <span className="text-2xl font-bold text-accent">{totalMonthly.toFixed(2).replace('.', ',')} €</span>
             </div>
             <div className="flex justify-between items-center mt-2">
               <span className="text-muted-foreground">Einmalige Kosten</span>
@@ -982,7 +1028,7 @@ export function OrderSummary() {
           <div className="space-y-2">
             <div className="flex justify-between">
               <span>Monatliche Kosten</span>
-              <span className="font-bold text-xl text-accent">{getTotalMonthly().toFixed(2).replace('.', ',')} €</span>
+              <span className="font-bold text-xl text-accent">{totalMonthly.toFixed(2).replace('.', ',')} €</span>
             </div>
             <div className="flex justify-between text-sm text-muted-foreground">
               <span>Einmalige Kosten</span>
