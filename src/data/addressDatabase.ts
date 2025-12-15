@@ -105,13 +105,17 @@ export async function checkBuildingAvailability(
 
     if (mappingError) {
       console.error('Error loading product_buildings:', mappingError);
-      return { exists: true, pkAvailable: false, kmuAvailable: false, addressData };
+      // If we can't load product_buildings, default to all products available based on infrastructure
+      return { exists: true, pkAvailable: true, kmuAvailable: true, addressData };
     }
 
     const productIds = (productBuildingRows || []).map((row: { product_id: string }) => row.product_id);
 
+    // If NO products are explicitly assigned, then ALL products matching infrastructure are available
+    // This is the fallback behavior - building restrictions are opt-in
     if (productIds.length === 0) {
-      return { exists: true, pkAvailable: false, kmuAvailable: false, addressData };
+      // No explicit restrictions = all products available based on infrastructure type
+      return { exists: true, pkAvailable: true, kmuAvailable: true, addressData };
     }
 
     // Fetch products to see which customer types are available
@@ -123,7 +127,7 @@ export async function checkBuildingAvailability(
 
     if (productsError) {
       console.error('Error loading products for availability:', productsError);
-      return { exists: true, pkAvailable: false, kmuAvailable: false, addressData };
+      return { exists: true, pkAvailable: true, kmuAvailable: true, addressData };
     }
 
     const pkAvailable = (products || []).some((p: { customer_type: string }) => p.customer_type === 'pk');
