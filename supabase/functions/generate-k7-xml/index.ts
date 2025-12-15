@@ -130,11 +130,13 @@ serve(async (req) => {
     let productK7Id = '';
     let productDownloadSpeed = 0;
     let productUploadSpeed = 0;
+    let isSondertarif = false;
+    let sondertarifK7OptionIds: string[] = [];
     
     if (order.product_id) {
       const { data: product } = await supabase
         .from('products')
-        .select('product_id_k7, name, download_speed, upload_speed')
+        .select('product_id_k7, name, download_speed, upload_speed, is_sondertarif, sondertarif_k7_option_ids')
         .eq('id', order.product_id)
         .single();
       
@@ -144,7 +146,13 @@ serve(async (req) => {
         }
         productDownloadSpeed = product.download_speed || 0;
         productUploadSpeed = product.upload_speed || 0;
+        isSondertarif = product.is_sondertarif || false;
+        sondertarifK7OptionIds = (product.sondertarif_k7_option_ids || []).map((id: string) => cleanNumericId(id)).filter((id: string) => id);
+        
         console.log('Product:', product.name, 'K7 ID:', productK7Id, 'Speeds:', productDownloadSpeed + '/' + productUploadSpeed);
+        if (isSondertarif) {
+          console.log('Sondertarif detected, K7 Option IDs:', sondertarifK7OptionIds);
+        }
       }
     }
 
@@ -242,6 +250,16 @@ serve(async (req) => {
               console.log('Promotion K7 ID:', cleanedK7Id, 'for promotion:', discount.promotion_id);
             }
           }
+        }
+      }
+    }
+
+    // Add Sondertarif K7 Options IDs (mandatory for Sondertarif products)
+    if (isSondertarif && sondertarifK7OptionIds.length > 0) {
+      for (const sondertarifId of sondertarifK7OptionIds) {
+        if (sondertarifId && !optionK7Ids.includes(sondertarifId)) {
+          optionK7Ids.push(sondertarifId);
+          console.log('Sondertarif K7 Option ID:', sondertarifId);
         }
       }
     }
