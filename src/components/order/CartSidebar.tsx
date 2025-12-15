@@ -50,6 +50,10 @@ export function CartSidebar({ customerType = 'pk' }: CartSidebarProps) {
   const isFiberBasic = selectedTariff?.name?.toLowerCase().includes('fiberbasic') || 
                        selectedTariff?.name?.toLowerCase().includes('fiber basic') || false;
   const isEinfachTariff = selectedTariff?.name?.toLowerCase().startsWith('einfach') || false;
+  const isEasyBusinessTariff = selectedTariff?.name?.toLowerCase().includes('easy business') || false;
+  
+  // Phone options available for einfach tariffs (PK) or easy business tariffs (KMU)
+  const hasPhoneOptions = isEinfachTariff || isEasyBusinessTariff;
 
   // Calculate monthly total with promotion discounts
   const calculateMonthlyTotal = () => {
@@ -78,9 +82,9 @@ export function CartSidebar({ customerType = 'pk' }: CartSidebarProps) {
       total += hw.monthlyPrice;
     });
     
-    // Phone costs
-    if (phoneSelection.enabled && isEinfachTariff) {
-      total += phoneSelection.lines * 2.95;
+    // Phone costs - use price from selected phone option
+    if (phoneSelection.enabled && hasPhoneOptions) {
+      total += phoneSelection.lines * phoneSelection.selectedOptionPrice;
     }
     
     return total;
@@ -328,17 +332,17 @@ export function CartSidebar({ customerType = 'pk' }: CartSidebarProps) {
         )}
 
         {/* Telefon */}
-        {phoneSelection.enabled && isEinfachTariff && (
+        {phoneSelection.enabled && hasPhoneOptions && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Telefonie</p>
             <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
               <Phone className="w-4 h-4 text-accent" />
               <div className="flex-1 flex justify-between items-center">
                 <p className="text-sm">
-                  Telefon-Flat ({phoneSelection.lines} {phoneSelection.lines === 1 ? 'Leitung' : 'Leitungen'})
+                  {phoneSelection.selectedOptionName || 'Telefon'} ({phoneSelection.lines} {phoneSelection.lines === 1 ? 'Leitung' : 'Leitungen'})
                 </p>
                 <p className="text-sm font-medium text-accent">
-                  {(phoneSelection.lines * 2.95).toFixed(2).replace('.', ',')} €
+                  {(phoneSelection.lines * phoneSelection.selectedOptionPrice).toFixed(2).replace('.', ',')} €
                 </p>
               </div>
             </div>

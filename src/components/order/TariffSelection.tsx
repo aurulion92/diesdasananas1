@@ -969,13 +969,19 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
                         ...phoneSelection,
                         enabled: false,
                         selectedOptionId: null,
+                        selectedOptionName: null,
+                        selectedOptionPrice: 0,
                         lines: 1,
                       });
                     } else {
+                      // Find the selected option to get its name and price
+                      const selectedMapping = dbPhoneOptions.find(m => m.option.id === value);
                       setPhoneSelection({
                         ...phoneSelection,
                         enabled: true,
                         selectedOptionId: value,
+                        selectedOptionName: selectedMapping?.option.name || null,
+                        selectedOptionPrice: selectedMapping?.option.monthly_price ?? 0,
                         lines: phoneSelection.lines || 1,
                       });
                     }
