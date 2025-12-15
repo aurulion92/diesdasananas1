@@ -209,7 +209,7 @@ serve(async (req) => {
       }
     }
 
-    const postalCode = String(order.postal_code || buildingPostalCode || '85055').trim();
+    const postalCode = String(order.postal_code || buildingPostalCode).trim();
 
     // Fetch selected options with K7 IDs
     const selectedOptions = order.selected_options || [];
