@@ -212,6 +212,7 @@ serve(async (req) => {
     const postalCode = String(order.postal_code || buildingPostalCode).trim();
 
     // Fetch selected options with K7 IDs
+    // For quantitative options, add the K7 ID multiple times (once per quantity)
     const selectedOptions = order.selected_options || [];
     const optionK7Ids: string[] = [];
     
@@ -225,8 +226,14 @@ serve(async (req) => {
           .maybeSingle();
         
         if (mapping?.option_id_k7) {
-          optionK7Ids.push(cleanNumericId(mapping.option_id_k7));
-          console.log('Option K7 ID:', mapping.option_id_k7, 'for option', opt.name);
+          const cleanedK7Id = cleanNumericId(mapping.option_id_k7);
+          const quantity = opt.quantity || 1;
+          
+          // Add the K7 ID multiple times for quantitative options
+          for (let i = 0; i < quantity; i++) {
+            optionK7Ids.push(cleanedK7Id);
+          }
+          console.log('Option K7 ID:', mapping.option_id_k7, 'for option', opt.name, 'quantity:', quantity);
         }
       }
     }
