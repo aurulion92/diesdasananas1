@@ -8,6 +8,7 @@ export interface TemplateData {
   use_case: string | null;
   use_cases: string[];
   pdf_url: string | null;
+  image_url: string | null;
   is_active: boolean;
 }
 
@@ -47,6 +48,7 @@ export async function getTemplateByUseCase(useCase: string): Promise<TemplateDat
     use_case: template.use_case,
     use_cases: Array.isArray(template.use_cases) ? template.use_cases : [],
     pdf_url: template.pdf_url || null,
+    image_url: template.image_url || null,
     is_active: template.is_active,
   };
 }
@@ -114,6 +116,27 @@ export const TEMPLATE_USE_CASES = [
     description: 'VZF für Bestandskunden-Upgrades',
     usedIn: ['Upgrade-Prozess im Kundenportal'],
     attachmentInfo: null
+  },
+  { 
+    value: 'email_logo', 
+    label: 'E-Mail Logo', 
+    description: 'Logo-Bild für E-Mail-Header (Bild hochladen)',
+    usedIn: ['Automatische E-Mails'],
+    attachmentInfo: 'Bild wird als {{logo_url}} Platzhalter verfügbar'
+  },
+  { 
+    value: 'order_attachment_agb', 
+    label: 'E-Mail Anhang: AGB', 
+    description: 'AGB-PDF als Anhang bei Bestellbestätigung',
+    usedIn: ['Bestellbestätigungs-E-Mail'],
+    attachmentInfo: 'Wird als PDF-Anhang beigefügt'
+  },
+  { 
+    value: 'order_attachment_produktinfo', 
+    label: 'E-Mail Anhang: Produktinfo', 
+    description: 'Produktinformationsblatt als Anhang',
+    usedIn: ['Bestellbestätigungs-E-Mail'],
+    attachmentInfo: 'Wird als PDF-Anhang beigefügt'
   },
 ] as const;
 

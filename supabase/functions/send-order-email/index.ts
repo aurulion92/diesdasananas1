@@ -1021,7 +1021,7 @@ async function processOrderEmail(requestData: OrderEmailRequest): Promise<{ succ
   // Fetch email template
   const { data: templateData } = await supabase
     .from("document_templates")
-    .select("content, name")
+    .select("content, name, image_url")
     .eq("is_active", true)
     .or("use_case.eq.order_confirmation_email,use_cases.cs.{order_confirmation_email}")
     .maybeSingle();
@@ -1029,13 +1029,26 @@ async function processOrderEmail(requestData: OrderEmailRequest): Promise<{ succ
   // Fetch all attachment templates
   const { data: attachmentTemplates } = await supabase
     .from("document_templates")
-    .select("name, use_case, use_cases, pdf_url")
+    .select("name, use_case, use_cases, pdf_url, image_url")
     .eq("is_active", true);
 
   console.log("Found attachment templates:", attachmentTemplates?.length || 0);
 
   // Build placeholder data
   const orderNumber = vzfData?.orderNumber || `COMIN-${new Date().getFullYear()}-${orderId.substring(0, 4).toUpperCase()}`;
+  
+  // Get logo URL from template or find a template with an image
+  let logoUrl = templateData?.image_url || '';
+  if (!logoUrl) {
+    // Try to find any template with an image (e.g., a logo template)
+    const logoTemplate = attachmentTemplates?.find(t => 
+      t.image_url && (t.name?.toLowerCase().includes('logo') || t.use_case === 'email_logo')
+    );
+    if (logoTemplate?.image_url) {
+      logoUrl = logoTemplate.image_url;
+    }
+  }
+  
   const emailPlaceholders: Record<string, string> = {
     kunde_anrede: salutation || 'Herr/Frau',
     kunde_vorname: customerFirstName || customerName.split(' ')[0] || '',
@@ -1049,6 +1062,7 @@ async function processOrderEmail(requestData: OrderEmailRequest): Promise<{ succ
     adresse_stadt: vzfData?.city || '',
     bestellnummer: orderNumber,
     produkt_name: vzfData?.tariffName ? `${vzfData.tariffName} - ${vzfData.contractDuration || 24} Monate` : '',
+    logo_url: logoUrl,
   };
 
   // Build email content
