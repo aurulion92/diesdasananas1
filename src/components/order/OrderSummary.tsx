@@ -224,36 +224,16 @@ export function OrderSummary() {
       }
     } catch (error) {
       console.error('VZF download error:', error);
-      // Fallback: Generate HTML and open for printing
-      const vzfDataForContent: VZFData = {
-        tariff: selectedTariff,
-        router: selectedRouter,
-        tvType: tvSelection.type,
-        tvPackage: tvSelection.package,
-        tvHdAddon: tvSelection.hdAddon,
-        tvHardware: tvSelection.hardware,
-        waipuStick: tvSelection.waipuStick,
-        waipuStickPrice: tvSelection.waipuStickPrice,
-        phoneEnabled: phoneIsBooked,
-        phoneLines: phoneSelection.lines || (hasPhoneAddon ? 1 : 0),
-        routerDiscount: routerDiscount,
-        setupFee: getSetupFee(),
-        setupFeeWaived: isSetupFeeWaived(),
-        contractDuration: isFiberBasic ? contractDuration : 24,
-        expressActivation: expressActivation,
-        promoCode: appliedPromoCode?.code,
-        isFiberBasic: isFiberBasic,
-        referralBonus: getReferralBonus(),
-        serviceAddons: selectedAddons,
-      };
-      const htmlContent = generateVZFContent(vzfDataForContent);
-      openHTMLForPrint(htmlContent);
-      setVzfDownloaded(true);
+      // Don't mark as downloaded - user must retry
+      setVzfDownloaded(false);
+      setVzfConfirmed(false);
       toast({
-        title: "VZF geöffnet",
-        description: "Bitte drucken Sie das Dokument als PDF.",
+        title: "VZF konnte nicht erstellt werden",
+        description: "Bitte versuchen Sie es erneut. Falls das Problem weiterhin besteht, kontaktieren Sie uns.",
+        variant: "destructive",
       });
     }
+
   };
 
   const handleOrder = async () => {
@@ -533,8 +513,10 @@ export function OrderSummary() {
           ]
         };
 
-        // Call backend function to send email with PDFs
-        const { data: emailResult, error: invokeError } = await supabase.functions.invoke('send-order-email', {
+        // Fire-and-forget: Start email sending but don't wait for completion
+        // The email will be sent in the background - we don't block the order
+        console.log('Starting background email send...');
+        supabase.functions.invoke('send-order-email', {
           body: {
             orderId: insertedOrder.id,
             customerEmail: customerData.email,
@@ -546,21 +528,19 @@ export function OrderSummary() {
             vzfHtml: vzfHtmlForEmail,
             vzfData: vzfDataForPdf,
           },
+        }).then(({ data, error }) => {
+          if (error) {
+            console.error('Background email failed:', error);
+          } else {
+            console.log('Background email sent successfully:', data);
+          }
+        }).catch(err => {
+          console.error('Background email error:', err);
         });
-
-        if (invokeError) {
-          console.error('Confirmation email failed:', invokeError);
-          toast({
-            title: 'Bestellung gespeichert, aber E-Mail fehlgeschlagen',
-            description: invokeError.message || 'Die Bestätigungs-E-Mail konnte nicht versendet werden.',
-            variant: 'destructive',
-          });
-        } else {
-          console.log('Confirmation email sent successfully:', emailResult);
-        }
+        // Note: We intentionally don't await - email sends in background
       } catch (emailError) {
-        console.error('Email sending failed (order still successful):', emailError);
-        // Don't fail the order if email fails
+        console.error('Email setup failed (order still successful):', emailError);
+        // Don't fail the order if email setup fails
       }
 
       setOrderComplete(true);
