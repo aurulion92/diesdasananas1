@@ -329,8 +329,8 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
         <DialogHeader>
           <DialogTitle>K7-Daten Import</DialogTitle>
           <DialogDescription>
-            Excel/CSV mit Leistungsprodukten und Bandbreiten importieren. 
-            Die Daten werden anhand der GEBAEUDE_N Spalte den Gebäuden zugeordnet.
+            CSV mit K7-Daten (Leistungsprodukte und Bandbreiten) importieren. 
+            Die Zuordnung erfolgt über PLZ, Straße und Hausnummer.
           </DialogDescription>
         </DialogHeader>
 
