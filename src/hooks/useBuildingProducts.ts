@@ -11,6 +11,10 @@ export interface DatabaseProduct {
   setup_fee: number;
   download_speed: number | null;
   upload_speed: number | null;
+  download_speed_normal: number | null;
+  download_speed_min: number | null;
+  upload_speed_normal: number | null;
+  upload_speed_min: number | null;
   is_ftth: boolean;
   is_fttb: boolean;
   is_ftth_limited: boolean;
@@ -62,7 +66,10 @@ export function useBuildingProducts(
               product_id,
               products:product_id (
                 id, name, slug, display_name, description, monthly_price, setup_fee,
-                download_speed, upload_speed, is_ftth, is_fttb, is_ftth_limited,
+                download_speed, upload_speed, 
+                download_speed_normal, download_speed_min,
+                upload_speed_normal, upload_speed_min,
+                is_ftth, is_fttb, is_ftth_limited,
                 is_active, display_order, contract_months, includes_phone,
                 is_building_restricted, hide_for_ftth, info_text,
                 external_link_url, external_link_label, customer_type
