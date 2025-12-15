@@ -127,6 +127,14 @@ async function fillTemplatePdf(templatePdfBytes: Uint8Array, data: VZFData): Pro
     // - Mbit/s_1 through Mbit/s_6 (speeds)
     // - Datum (date)
     
+    // Helper to format option name with quantity
+    const formatOptionName = (name: string, quantity?: number): string => {
+      if (quantity && quantity > 1) {
+        return `${name} ${quantity}x`;
+      }
+      return name;
+    };
+
     // Build services and devices text
     const servicesLines: string[] = [];
     if (data.tariffName) servicesLines.push(data.tariffName);
@@ -137,10 +145,12 @@ async function fillTemplatePdf(templatePdfBytes: Uint8Array, data: VZFData): Pro
     if (data.routerName) servicesLines.push(data.routerName);
     if (data.phoneName) servicesLines.push(data.phoneName);
 
-    const extraOptions = (data.selectedOptions ?? []).map(o => o?.name).filter(Boolean) as string[];
+    const extraOptions = (data.selectedOptions ?? []);
     if (extraOptions.length) {
-      for (const optName of extraOptions) {
-        if (optName !== data.routerName) servicesLines.push(optName);
+      for (const opt of extraOptions) {
+        if (opt?.name && opt.name !== data.routerName) {
+          servicesLines.push(formatOptionName(opt.name, opt.quantity));
+        }
       }
     } else {
       servicesLines.push('Keine optionale Hardware');
@@ -177,6 +187,16 @@ async function fillTemplatePdf(templatePdfBytes: Uint8Array, data: VZFData): Pro
       monthlyAmounts.push(formatCurrency(data.phoneMonthlyPrice));
     }
     
+    // Add selected options with monthly prices (with quantity support)
+    for (const opt of extraOptions) {
+      if (opt?.name && opt.monthlyPrice && opt.monthlyPrice > 0) {
+        const quantity = opt.quantity || 1;
+        const totalPrice = opt.monthlyPrice * quantity;
+        monthlyNames.push(formatOptionName(opt.name, opt.quantity));
+        monthlyAmounts.push(formatCurrency(totalPrice));
+      }
+    }
+    
     // Build one-time costs
     const oneTimeNames: string[] = [];
     const oneTimeAmounts: string[] = [];
@@ -188,6 +208,16 @@ async function fillTemplatePdf(templatePdfBytes: Uint8Array, data: VZFData): Pro
     if (data.routerOneTimePrice && data.routerOneTimePrice > 0) {
       oneTimeNames.push(data.routerName || 'Router');
       oneTimeAmounts.push(formatCurrency(data.routerOneTimePrice));
+    }
+    
+    // Add selected options with one-time prices (with quantity support)
+    for (const opt of extraOptions) {
+      if (opt?.name && opt.oneTimePrice && opt.oneTimePrice > 0) {
+        const quantity = opt.quantity || 1;
+        const totalPrice = opt.oneTimePrice * quantity;
+        oneTimeNames.push(formatOptionName(opt.name, opt.quantity));
+        oneTimeAmounts.push(formatCurrency(totalPrice));
+      }
     }
     
     // Extract speed values
