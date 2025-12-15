@@ -46,7 +46,19 @@ export function CustomerForm() {
   } | null>(null);
   const [loadingExpressOption, setLoadingExpressOption] = useState(true);
   
-  // Load express option from database
+  // Load porting providers from database
+  const [portingProviders, setPortingProviders] = useState<Array<{
+    id: string;
+    name: string;
+    display_name: string;
+    provider_code: string | null;
+    is_other: boolean;
+  }>>([]);
+  const [loadingProviders, setLoadingProviders] = useState(true);
+  const [selectedProviderId, setSelectedProviderId] = useState<string>('');
+  const [customProviderName, setCustomProviderName] = useState<string>('');
+  
+  // Load express option and porting providers from database
   useEffect(() => {
     const fetchExpressOption = async () => {
       try {
@@ -74,7 +86,26 @@ export function CustomerForm() {
       }
     };
     
+    const fetchPortingProviders = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('phone_porting_providers')
+          .select('id, name, display_name, provider_code, is_other')
+          .eq('is_active', true)
+          .order('display_order', { ascending: true });
+        
+        if (!error && data) {
+          setPortingProviders(data);
+        }
+      } catch (err) {
+        console.error('Error loading porting providers:', err);
+      } finally {
+        setLoadingProviders(false);
+      }
+    };
+    
     fetchExpressOption();
+    fetchPortingProviders();
   }, []);
   
   const [formData, setFormData] = useState({
@@ -627,12 +658,31 @@ export function CustomerForm() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-foreground font-medium">Abgebender Anbieter *</Label>
-                    <Input
-                      placeholder="z.B. Telekom, Vodafone..."
-                      value={cancellationData.providerName}
-                      onChange={(e) => handleCancellationChange('providerName', e.target.value)}
-                      className="mt-1.5 h-12 rounded-xl"
-                    />
+                    <Select 
+                      value={selectedProviderId}
+                      onValueChange={(value) => {
+                        setSelectedProviderId(value);
+                        const provider = portingProviders.find(p => p.id === value);
+                        if (provider && !provider.is_other) {
+                          handleCancellationChange('providerName', provider.display_name);
+                          setCustomProviderName('');
+                        } else if (provider?.is_other) {
+                          // Clear provider name, will be set by custom input
+                          handleCancellationChange('providerName', customProviderName);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="mt-1.5 h-12 rounded-xl">
+                        <SelectValue placeholder="Anbieter wählen" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border border-border z-50">
+                        {portingProviders.map((provider) => (
+                          <SelectItem key={provider.id} value={provider.id}>
+                            {provider.display_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label className="text-foreground font-medium">Telefonnummer zum Kündigen *</Label>
@@ -644,6 +694,22 @@ export function CustomerForm() {
                     />
                   </div>
                 </div>
+
+                {/* Custom provider name input when "Sonstige" is selected */}
+                {selectedProviderId && portingProviders.find(p => p.id === selectedProviderId)?.is_other && (
+                  <div>
+                    <Label className="text-foreground font-medium">Name des Anbieters *</Label>
+                    <Input
+                      placeholder="Bitte geben Sie den Namen des Anbieters ein"
+                      value={customProviderName}
+                      onChange={(e) => {
+                        setCustomProviderName(e.target.value);
+                        handleCancellationChange('providerName', e.target.value);
+                      }}
+                      className="mt-1.5 h-12 rounded-xl"
+                    />
+                  </div>
+                )}
 
                 <p className="text-xs text-muted-foreground flex items-start gap-1">
                   <Phone className="w-3 h-3 mt-0.5 flex-shrink-0" />

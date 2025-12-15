@@ -474,6 +474,42 @@ export type Database = {
           },
         ]
       }
+      phone_porting_providers: {
+        Row: {
+          created_at: string
+          display_name: string
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          is_other: boolean | null
+          name: string
+          provider_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_other?: boolean | null
+          name: string
+          provider_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_other?: boolean | null
+          name?: string
+          provider_code?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       product_buildings: {
         Row: {
           building_id: string
