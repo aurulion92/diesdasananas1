@@ -502,7 +502,7 @@ export function OrderSummary() {
           contractDuration: isFiberBasic ? contractDuration : 24,
           street: address.street,
           houseNumber: address.houseNumber,
-          postalCode: '', // PLZ wird ggf. aus der Bestellung geladen
+          postalCode: address.postalCode || '',
           city: address.city || 'Ingolstadt',
           // Bank data
           bankAccountHolder: bankData?.accountHolder,
