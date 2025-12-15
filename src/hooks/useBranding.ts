@@ -45,6 +45,14 @@ export interface BrandingSettings {
   // KMU specific
   kmu_netto_hint: string;
   kmu_cart_netto_label: string;
+  // Standard-Installation Info
+  installation_info_enabled: boolean;
+  installation_info_title: string;
+  installation_info_intro: string;
+  installation_info_efh: string;
+  installation_info_mfh: string;
+  installation_info_additional: string;
+  installation_info_services_title: string;
 }
 
 const DEFAULT_BRANDING: BrandingSettings = {
@@ -91,6 +99,14 @@ const DEFAULT_BRANDING: BrandingSettings = {
   // KMU specific
   kmu_netto_hint: 'Alle Preise verstehen sich zzgl. MwSt.',
   kmu_cart_netto_label: 'netto',
+  // Standard-Installation Info
+  installation_info_enabled: true,
+  installation_info_title: 'Bereitstellung inkl. Einrichtungspauschale',
+  installation_info_intro: 'In der Bereitstellungspauschale ist die Standardinstallation durch unsere Glasfaserprofis enthalten:',
+  installation_info_efh: 'Einfamilienhäuser: Im 3m Radius um den APL wird der Medienkonverter (ONT, eine 230V Steckdose im Umkreis von 60cm muss vorhanden sein.) bzw. der Glasfaser-Teilnehmeranschluss (GF-TA, passiv, ohne benötigte 230V) montiert.',
+  installation_info_mfh: 'Mehrfamilienhäuser: Im 3m Radius um die Wohnungseinführung wird das ONT (Eine 230V Steckdose im Umkreis von 60cm muss vorhanden sein.) bzw. die GF-TA (passiv, ohne benötigte 230V) montiert.',
+  installation_info_additional: 'Zusätzlich sind für Ein- und Mehrfamilienhäuser enthalten: die Provisionierung, ACS-Router, ein Speedtest, TV-Sendersuchlauf, Testung Telefonie Festnetz, Routerinbetriebnahme für Mietgeräte der COM-IN.',
+  installation_info_services_title: 'Darüber hinaus bieten wir folgende Services:',
 };
 
 export const useBranding = () => {

@@ -901,6 +901,83 @@ export const SettingsManager = () => {
                 </div>
               </div>
 
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-medium">Standard-Installation Info (Bestellstrecke)</h4>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="installation_info_enabled" className="text-sm">Anzeigen</Label>
+                    <Switch
+                      id="installation_info_enabled"
+                      checked={brandingSettings.installation_info_enabled ?? true}
+                      onCheckedChange={(checked) => setBrandingSettings({ ...brandingSettings, installation_info_enabled: checked })}
+                    />
+                  </div>
+                </div>
+                
+                {brandingSettings.installation_info_enabled !== false && (
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="installation_info_title">Titel</Label>
+                      <Input
+                        id="installation_info_title"
+                        value={brandingSettings.installation_info_title || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, installation_info_title: e.target.value })}
+                        placeholder="Bereitstellung inkl. Einrichtungspauschale"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="installation_info_intro">Einleitungstext</Label>
+                      <Textarea
+                        id="installation_info_intro"
+                        value={brandingSettings.installation_info_intro || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, installation_info_intro: e.target.value })}
+                        placeholder="In der Bereitstellungspauschale ist die Standardinstallation durch unsere Glasfaserprofis enthalten:"
+                        rows={2}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="installation_info_efh">Einfamilienhäuser (EFH)</Label>
+                      <Textarea
+                        id="installation_info_efh"
+                        value={brandingSettings.installation_info_efh || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, installation_info_efh: e.target.value })}
+                        placeholder="Im 3m Radius um den APL wird der Medienkonverter (ONT...) montiert."
+                        rows={3}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="installation_info_mfh">Mehrfamilienhäuser (MFH)</Label>
+                      <Textarea
+                        id="installation_info_mfh"
+                        value={brandingSettings.installation_info_mfh || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, installation_info_mfh: e.target.value })}
+                        placeholder="Im 3m Radius um die Wohnungseinführung wird das ONT... montiert."
+                        rows={3}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="installation_info_additional">Zusätzlich enthalten</Label>
+                      <Textarea
+                        id="installation_info_additional"
+                        value={brandingSettings.installation_info_additional || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, installation_info_additional: e.target.value })}
+                        placeholder="Provisionierung, ACS-Router, Speedtest, TV-Sendersuchlauf..."
+                        rows={3}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="installation_info_services_title">Überschrift für weitere Services</Label>
+                      <Input
+                        id="installation_info_services_title"
+                        value={brandingSettings.installation_info_services_title || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, installation_info_services_title: e.target.value })}
+                        placeholder="Darüber hinaus bieten wir folgende Services:"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="pt-4 flex justify-between">
                 <Button variant="outline" onClick={resetBranding}>
                   <RotateCcw className="w-4 h-4 mr-2" />
