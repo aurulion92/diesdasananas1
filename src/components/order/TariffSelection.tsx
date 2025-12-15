@@ -42,6 +42,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
+import { supabase } from '@/integrations/supabase/client';
 import { PhoneBookOptions } from '@/components/order/PhoneBookOptions';
 import { ContactForm } from '@/components/order/ContactForm';
 import { ImageGalleryDialog } from '@/components/order/ImageGalleryDialog';
@@ -195,6 +196,41 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
   const [referralInput, setReferralInput] = useState('');
   const [showFiberBasic, setShowFiberBasic] = useState(false);
   const [showLimitedContactForm, setShowLimitedContactForm] = useState(false);
+  
+  // Porting provider selection state
+  const [portingProviders, setPortingProviders] = useState<Array<{
+    id: string;
+    name: string;
+    display_name: string;
+    provider_code: string | null;
+    is_other: boolean;
+  }>>([]);
+  const [loadingProviders, setLoadingProviders] = useState(true);
+  const [selectedProviderId, setSelectedProviderId] = useState<string>('');
+  const [customProviderName, setCustomProviderName] = useState<string>('');
+  
+  // Load porting providers from database
+  useEffect(() => {
+    const fetchPortingProviders = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('phone_porting_providers')
+          .select('id, name, display_name, provider_code, is_other')
+          .eq('is_active', true)
+          .order('display_order', { ascending: true });
+        
+        if (!error && data) {
+          setPortingProviders(data);
+        }
+      } catch (err) {
+        console.error('Error loading porting providers:', err);
+      } finally {
+        setLoadingProviders(false);
+      }
+    };
+    
+    fetchPortingProviders();
+  }, []);
 
   // Convert database products to TariffOption format
   const databaseTariffs = dbProducts.map(dbProductToTariffOption);
@@ -1145,22 +1181,69 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
                                 />
                               </div>
 
-                              {/* Bisheriger Anbieter */}
+                              {/* Bisheriger Anbieter - Select Dropdown */}
                               <div>
                                 <Label className="text-sm">Abgebender Anbieter *</Label>
-                                <Input 
-                                  placeholder="z.B. Telekom, Vodafone..."
-                                  value={phoneSelection.portingData.previousProvider}
-                                  onChange={(e) => setPhoneSelection({
-                                    ...phoneSelection,
-                                    portingData: {
-                                      ...phoneSelection.portingData!,
-                                      previousProvider: e.target.value,
+                                <Select 
+                                  value={selectedProviderId}
+                                  onValueChange={(value) => {
+                                    setSelectedProviderId(value);
+                                    const provider = portingProviders.find(p => p.id === value);
+                                    if (provider && !provider.is_other) {
+                                      setPhoneSelection({
+                                        ...phoneSelection,
+                                        portingData: {
+                                          ...phoneSelection.portingData!,
+                                          previousProvider: provider.display_name,
+                                        }
+                                      });
+                                      setCustomProviderName('');
+                                    } else if (provider?.is_other) {
+                                      // Clear provider name, will be set by custom input
+                                      setPhoneSelection({
+                                        ...phoneSelection,
+                                        portingData: {
+                                          ...phoneSelection.portingData!,
+                                          previousProvider: customProviderName,
+                                        }
+                                      });
                                     }
-                                  })}
-                                  className="mt-1"
-                                />
+                                  }}
+                                >
+                                  <SelectTrigger className="mt-1">
+                                    <SelectValue placeholder="Anbieter wählen" />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-card border border-border z-50">
+                                    {portingProviders.map((provider) => (
+                                      <SelectItem key={provider.id} value={provider.id}>
+                                        {provider.display_name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               </div>
+                              
+                              {/* Custom provider name input when "Sonstige" is selected */}
+                              {selectedProviderId && portingProviders.find(p => p.id === selectedProviderId)?.is_other && (
+                                <div>
+                                  <Label className="text-sm">Name des Anbieters *</Label>
+                                  <Input 
+                                    placeholder="Bitte geben Sie den Namen des Anbieters ein"
+                                    value={customProviderName}
+                                    onChange={(e) => {
+                                      setCustomProviderName(e.target.value);
+                                      setPhoneSelection({
+                                        ...phoneSelection,
+                                        portingData: {
+                                          ...phoneSelection.portingData!,
+                                          previousProvider: e.target.value,
+                                        }
+                                      });
+                                    }}
+                                    className="mt-1"
+                                  />
+                                </div>
+                              )}
 
                               {/* Anzahl und Rufnummern */}
                               <div>
