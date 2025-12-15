@@ -763,6 +763,7 @@ export type Database = {
           product_id_k7: string | null
           setup_fee: number | null
           slug: string
+          sondertarif_k7_option_ids: string[] | null
           updated_at: string
           upload_speed: number | null
           upload_speed_min: number | null
@@ -799,6 +800,7 @@ export type Database = {
           product_id_k7?: string | null
           setup_fee?: number | null
           slug: string
+          sondertarif_k7_option_ids?: string[] | null
           updated_at?: string
           upload_speed?: number | null
           upload_speed_min?: number | null
@@ -835,6 +837,7 @@ export type Database = {
           product_id_k7?: string | null
           setup_fee?: number | null
           slug?: string
+          sondertarif_k7_option_ids?: string[] | null
           updated_at?: string
           upload_speed?: number | null
           upload_speed_min?: number | null

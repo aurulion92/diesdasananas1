@@ -80,6 +80,7 @@ interface Product {
   archived_at: string | null;
   customer_type: string;
   is_sondertarif: boolean;
+  sondertarif_k7_option_ids: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -139,6 +140,7 @@ export const ProductsManager = () => {
     hide_for_ftth: false,
     customer_type: 'pk',
     is_sondertarif: false,
+    sondertarif_k7_option_ids: [] as string[],
   });
 
   useEffect(() => {
@@ -186,6 +188,7 @@ export const ProductsManager = () => {
         phone_terms_text: formData.phone_terms_text || null,
         external_link_url: formData.external_link_url || null,
         external_link_label: formData.external_link_label || null,
+        sondertarif_k7_option_ids: formData.is_sondertarif ? formData.sondertarif_k7_option_ids.filter(id => id.trim() !== '') : [],
       };
 
       if (editingProduct) {
@@ -248,6 +251,7 @@ export const ProductsManager = () => {
       hide_for_ftth: false,
       customer_type: 'pk',
       is_sondertarif: false,
+      sondertarif_k7_option_ids: [],
     });
     setEditingProduct(null);
   };
@@ -283,6 +287,7 @@ export const ProductsManager = () => {
       hide_for_ftth: product.hide_for_ftth || false,
       customer_type: product.customer_type || 'pk',
       is_sondertarif: product.is_sondertarif || false,
+      sondertarif_k7_option_ids: product.sondertarif_k7_option_ids || [],
     });
     setIsDialogOpen(true);
   };
@@ -875,9 +880,73 @@ export const ProductsManager = () => {
                         <Switch
                           id="is_sondertarif"
                           checked={formData.is_sondertarif}
-                          onCheckedChange={(checked) => setFormData({...formData, is_sondertarif: checked})}
+                          onCheckedChange={(checked) => setFormData({...formData, is_sondertarif: checked, sondertarif_k7_option_ids: checked ? formData.sondertarif_k7_option_ids : []})}
                         />
                       </div>
+                      
+                      {/* Sondertarif K7 Options-IDs Section */}
+                      {formData.is_sondertarif && (
+                        <div className="col-span-2 bg-amber-500/5 border border-amber-500/20 p-4 rounded-lg space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Label className="text-amber-700 font-medium">K7 Options-IDs für Sondertarif</Label>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Mind. 1 Options-ID erforderlich (z.B. Lebenshilfe, Mitarbeiter)
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setFormData({
+                                ...formData,
+                                sondertarif_k7_option_ids: [...formData.sondertarif_k7_option_ids, '']
+                              })}
+                              className="border-amber-500/50 text-amber-700 hover:bg-amber-500/10"
+                            >
+                              <Plus className="w-4 h-4 mr-1" />
+                              Options-ID hinzufügen
+                            </Button>
+                          </div>
+                          
+                          {formData.sondertarif_k7_option_ids.length === 0 ? (
+                            <div className="text-center py-4 text-amber-600 text-sm">
+                              Klicken Sie auf "Options-ID hinzufügen" um die erste K7 Options-ID einzutragen.
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {formData.sondertarif_k7_option_ids.map((optionId, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                  <div className="flex-1">
+                                    <Input
+                                      placeholder={`K7 Options-ID ${index + 1}`}
+                                      value={optionId}
+                                      onChange={(e) => {
+                                        const newIds = [...formData.sondertarif_k7_option_ids];
+                                        newIds[index] = e.target.value;
+                                        setFormData({...formData, sondertarif_k7_option_ids: newIds});
+                                      }}
+                                      className="border-amber-500/30"
+                                    />
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      const newIds = formData.sondertarif_k7_option_ids.filter((_, i) => i !== index);
+                                      setFormData({...formData, sondertarif_k7_option_ids: newIds});
+                                    }}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
