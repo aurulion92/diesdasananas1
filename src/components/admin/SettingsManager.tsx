@@ -656,10 +656,34 @@ export const SettingsManager = () => {
               </div>
 
               <div className="border-t pt-4">
-                <h4 className="font-medium mb-4">Geschäftskunden-Typ (EasyBusiness / Individuell)</h4>
-                <div className="grid grid-cols-1 gap-4">
+                <h4 className="font-medium mb-4">Geschäftskunden-Auswahl (Seite)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="easy_business_title">EasyBusiness Titel</Label>
+                    <Label htmlFor="business_selection_title">Seitentitel</Label>
+                    <Input
+                      id="business_selection_title"
+                      value={brandingSettings.business_selection_title || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, business_selection_title: e.target.value })}
+                      placeholder="Geschäftskunden-Lösungen"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="business_selection_subtitle">Seitenuntertitel</Label>
+                    <Input
+                      id="business_selection_subtitle"
+                      value={brandingSettings.business_selection_subtitle || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, business_selection_subtitle: e.target.value })}
+                      placeholder="Wählen Sie die passende Lösung für Ihr Unternehmen"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-4">EasyBusiness Karte</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="easy_business_title">Titel</Label>
                     <Input
                       id="easy_business_title"
                       value={brandingSettings.easy_business_title || ''}
@@ -668,17 +692,80 @@ export const SettingsManager = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="easy_business_subtitle">EasyBusiness Beschreibung</Label>
-                    <Textarea
+                    <Label htmlFor="easy_business_subtitle">Untertitel</Label>
+                    <Input
                       id="easy_business_subtitle"
                       value={brandingSettings.easy_business_subtitle || ''}
                       onChange={(e) => setBrandingSettings({ ...brandingSettings, easy_business_subtitle: e.target.value })}
-                      placeholder="Klassischer Internetanschluss für Unternehmen..."
-                      rows={4}
+                      placeholder="Klassischer Internetanschluss für Unternehmen"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-3 mt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="easy_business_feature_1">Feature 1</Label>
+                    <Textarea
+                      id="easy_business_feature_1"
+                      value={brandingSettings.easy_business_feature_1 || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, easy_business_feature_1: e.target.value })}
+                      placeholder="Asymmetrische Bandbreiten..."
+                      rows={2}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="individual_solutions_title">Individuelle Lösungen Titel</Label>
+                    <Label htmlFor="easy_business_feature_2">Feature 2</Label>
+                    <Input
+                      id="easy_business_feature_2"
+                      value={brandingSettings.easy_business_feature_2 || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, easy_business_feature_2: e.target.value })}
+                      placeholder="Bessere Service-Level als bei Privatkunden"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="easy_business_feature_3">Feature 3</Label>
+                    <Input
+                      id="easy_business_feature_3"
+                      value={brandingSettings.easy_business_feature_3 || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, easy_business_feature_3: e.target.value })}
+                      placeholder="Erweiterte Telefonie-Optionen"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="easy_business_feature_4">Feature 4</Label>
+                    <Input
+                      id="easy_business_feature_4"
+                      value={brandingSettings.easy_business_feature_4 || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, easy_business_feature_4: e.target.value })}
+                      placeholder="Direkt online bestellbar"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="easy_business_ideal">Ideal für... (Fußzeile)</Label>
+                    <Textarea
+                      id="easy_business_ideal"
+                      value={brandingSettings.easy_business_ideal || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, easy_business_ideal: e.target.value })}
+                      placeholder="Ideal für Büros, Praxen, Handel..."
+                      rows={2}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="easy_business_button">Button Text</Label>
+                    <Input
+                      id="easy_business_button"
+                      value={brandingSettings.easy_business_button || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, easy_business_button: e.target.value })}
+                      placeholder="Jetzt online bestellen"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-4">Individuelle Unternehmenslösungen Karte</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="individual_solutions_title">Titel</Label>
                     <Input
                       id="individual_solutions_title"
                       value={brandingSettings.individual_solutions_title || ''}
@@ -687,23 +774,104 @@ export const SettingsManager = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="individual_solutions_subtitle">Individuelle Lösungen Beschreibung</Label>
-                    <Textarea
+                    <Label htmlFor="individual_solutions_subtitle">Untertitel</Label>
+                    <Input
                       id="individual_solutions_subtitle"
                       value={brandingSettings.individual_solutions_subtitle || ''}
                       onChange={(e) => setBrandingSettings({ ...brandingSettings, individual_solutions_subtitle: e.target.value })}
-                      placeholder="D-Dienste & Dark Fiber..."
-                      rows={4}
+                      placeholder="(D-Dienste & Dark Fiber)"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-3 mt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="individual_feature_1">Feature 1</Label>
+                    <Input
+                      id="individual_feature_1"
+                      value={brandingSettings.individual_feature_1 || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, individual_feature_1: e.target.value })}
+                      placeholder="Garantierte und symmetrische Bandbreiten"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="easy_business_ideal">EasyBusiness ideal für...</Label>
-                    <Textarea
-                      id="easy_business_ideal"
-                      value={brandingSettings.easy_business_ideal || ''}
-                      onChange={(e) => setBrandingSettings({ ...brandingSettings, easy_business_ideal: e.target.value })}
-                      placeholder="➡️ Ideal für Büros, Praxen, Handel..."
-                      rows={2}
+                    <Label htmlFor="individual_feature_2">Feature 2</Label>
+                    <Input
+                      id="individual_feature_2"
+                      value={brandingSettings.individual_feature_2 || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, individual_feature_2: e.target.value })}
+                      placeholder="Feste Bandbreiten von 10 Mbit/s bis 100 Gbit/s"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="individual_feature_3">Feature 3</Label>
+                    <Input
+                      id="individual_feature_3"
+                      value={brandingSettings.individual_feature_3 || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, individual_feature_3: e.target.value })}
+                      placeholder="Standortvernetzung & Rechenzentrumsanbindung"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="individual_feature_4">Feature 4</Label>
+                    <Input
+                      id="individual_feature_4"
+                      value={brandingSettings.individual_feature_4 || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, individual_feature_4: e.target.value })}
+                      placeholder="Redundante Zuführung möglich"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="individual_feature_5">Feature 5</Label>
+                    <Input
+                      id="individual_feature_5"
+                      value={brandingSettings.individual_feature_5 || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, individual_feature_5: e.target.value })}
+                      placeholder="Professionelle Service-Level-Agreements"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="individual_feature_6">Feature 6</Label>
+                    <Input
+                      id="individual_feature_6"
+                      value={brandingSettings.individual_feature_6 || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, individual_feature_6: e.target.value })}
+                      placeholder='19" Router (z. B. Cisco, Juniper) inklusive'
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="individual_feature_7">Feature 7</Label>
+                    <Input
+                      id="individual_feature_7"
+                      value={brandingSettings.individual_feature_7 || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, individual_feature_7: e.target.value })}
+                      placeholder="Feste, öffentliche IP-Adressen"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="individual_feature_8">Feature 8</Label>
+                    <Input
+                      id="individual_feature_8"
+                      value={brandingSettings.individual_feature_8 || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, individual_feature_8: e.target.value })}
+                      placeholder="Kurzfristig upgradebar"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="individual_button">Button Text</Label>
+                    <Input
+                      id="individual_button"
+                      value={brandingSettings.individual_button || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, individual_button: e.target.value })}
+                      placeholder="Jetzt beraten lassen"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="individual_footer">Fußzeile</Label>
+                    <Input
+                      id="individual_footer"
+                      value={brandingSettings.individual_footer || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, individual_footer: e.target.value })}
+                      placeholder="(keine Online-Bestellung, individuelle Planung)"
                     />
                   </div>
                 </div>
