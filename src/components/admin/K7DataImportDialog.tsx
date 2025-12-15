@@ -130,21 +130,39 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
       console.log('First CSV row:', rows[0]);
 
       setStatusMessage(`${rows.length.toLocaleString()} Zeilen gefunden. Lade Gebäude...`);
-      
-      // Fetch all buildings for address matching
-      const { data: buildings, error: buildingsError } = await supabase
-        .from('buildings')
-        .select('id, street, house_number, postal_code, city, gebaeude_id_k7');
 
-      if (buildingsError) throw buildingsError;
+      const PAGE_SIZE = 1000;
+      const allBuildings: Array<{
+        id: string;
+        street: string;
+        house_number: string;
+        postal_code: string | null;
+        city: string;
+        gebaeude_id_k7: string | null;
+      }> = [];
 
-      console.log(`Loaded ${buildings?.length || 0} buildings from database`);
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const to = from + PAGE_SIZE - 1;
+        const { data: page, error: pageError } = await supabase
+          .from('buildings')
+          .select('id, street, house_number, postal_code, city, gebaeude_id_k7')
+          .range(from, to);
+
+        if (pageError) throw pageError;
+        allBuildings.push(...(page || []));
+
+        // PostgREST liefert standardmäßig max. 1000 Zeilen pro Request → daher paginiert laden
+        setStatusMessage(`Lade Gebäude... ${allBuildings.length.toLocaleString()} geladen`);
+        if (!page || page.length < PAGE_SIZE) break;
+      }
+
+      console.log(`Loaded ${allBuildings.length} buildings from database`);
 
       // Create lookup map by normalized address (street + house_number + postal_code/city)
       const buildingLookup = new Map<string, { id: string; gebaeude_id_k7: string | null }>();
       const normalizeStr = (s: string) => s?.toLowerCase().trim().replace(/\s+/g, ' ') || '';
       
-      for (const building of buildings || []) {
+      for (const building of allBuildings) {
         const street = normalizeStr(building.street);
         const houseNum = normalizeStr(building.house_number);
         const plz = building.postal_code?.trim() || '';
@@ -274,16 +292,33 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
 
       setStatusMessage(`Prüfe auf bereits vorhandene Einträge...`);
 
-      // Fetch existing K7 services to avoid duplicates
-      const { data: existingServices, error: existingError } = await supabase
-        .from('building_k7_services')
-        .select('building_id, leistungsprodukt_id, nt_dsl_bandbreite_id');
+      // Fetch existing K7 services to avoid duplicates (ebenfalls paginiert, sonst fehlen Daten >1000)
+      const allExistingServices: Array<{
+        building_id: string;
+        leistungsprodukt_id: string | null;
+        nt_dsl_bandbreite_id: string | null;
+      }> = [];
 
-      if (existingError) throw existingError;
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const to = from + PAGE_SIZE - 1;
+        const { data: page, error: pageError } = await supabase
+          .from('building_k7_services')
+          .select('building_id, leistungsprodukt_id, nt_dsl_bandbreite_id')
+          .range(from, to);
+
+        if (pageError) throw pageError;
+        allExistingServices.push(...(page || []));
+
+        if (!page || page.length < PAGE_SIZE) break;
+        // Status nicht bei jeder Seite spammen
+        if (from === 0 || from % (PAGE_SIZE * 10) === 0) {
+          setStatusMessage(`Prüfe Duplikate... ${allExistingServices.length.toLocaleString()} vorhandene Einträge geladen`);
+        }
+      }
 
       // Create a set of existing combinations for fast lookup
       const existingKeys = new Set<string>();
-      for (const service of existingServices || []) {
+      for (const service of allExistingServices) {
         const key = `${service.building_id}|${service.leistungsprodukt_id || ''}|${service.nt_dsl_bandbreite_id || ''}`;
         existingKeys.add(key);
       }
