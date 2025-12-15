@@ -1065,15 +1065,20 @@ async function processOrderEmail(requestData: OrderEmailRequest): Promise<{ succ
   // Build placeholder data
   const orderNumber = vzfData?.orderNumber || `COMIN-${new Date().getFullYear()}-${orderId.substring(0, 4).toUpperCase()}`;
   
-  // Get logo URL from template or find a template with an image
+  // Get logo URL from template or find a template with email_logo use case
   let logoUrl = templateData?.image_url || '';
-  if (!logoUrl) {
-    // Try to find any template with an image (e.g., a logo template)
-    const logoTemplate = attachmentTemplates?.find(t => 
-      t.image_url && (t.name?.toLowerCase().includes('logo') || t.use_case === 'email_logo')
+  if (!logoUrl && attachmentTemplates) {
+    // Try to find template with email_logo use case (check both use_case and use_cases array)
+    const logoTemplate = attachmentTemplates.find(t => 
+      t.image_url && (
+        t.use_case === 'email_logo' || 
+        (Array.isArray(t.use_cases) && t.use_cases.includes('email_logo')) ||
+        t.name?.toLowerCase().includes('logo')
+      )
     );
     if (logoTemplate?.image_url) {
       logoUrl = logoTemplate.image_url;
+      console.log("Found logo URL from template:", logoTemplate.name, logoUrl);
     }
   }
   
