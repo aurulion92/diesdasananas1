@@ -721,10 +721,21 @@ export function CustomerForm() {
                         )}
                       </div>
 
-                      <div className={cn(
-                        "p-3 rounded-lg border transition-all cursor-pointer",
-                        !cancellationData.portToNewConnection && cancellationData.preferredDate === 'specific' ? "border-accent bg-accent/5" : "border-border"
-                      )}>
+                      <div
+                        className={cn(
+                          "p-3 rounded-lg border transition-all cursor-pointer",
+                          !cancellationData.portToNewConnection && cancellationData.preferredDate === 'specific'
+                            ? "border-accent bg-accent/5"
+                            : "border-border"
+                        )}
+                        onClick={() => {
+                          // Direktes Anwählen des Wunschtermins im Wechselzeitpunkt
+                          handleCancellationChange('portToNewConnection', false);
+                          handleCancellationChange('preferredDate', 'specific');
+                          setDateType('specific');
+                          setExpressActivation(false);
+                        }}
+                      >
                         <div className="flex items-center space-x-3">
                           <RadioGroupItem value="specific" id="cancel-specific" />
                           <Label htmlFor="cancel-specific" className="cursor-pointer flex-1">
