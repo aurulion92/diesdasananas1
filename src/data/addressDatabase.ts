@@ -38,6 +38,60 @@ export function getConnectionType(ausbauart: string | null): ConnectionType {
   return 'not-connected';
 }
 
+// Result type for checking building tariff availability
+export interface BuildingAvailabilityResult {
+  exists: boolean;
+  pkAvailable: boolean;
+  kmuAvailable: boolean;
+  addressData: AddressData | null;
+}
+
+// Check if building exists and what tariffs are available
+export async function checkBuildingAvailability(
+  street: string, 
+  houseNumber: string, 
+  city: string
+): Promise<BuildingAvailabilityResult> {
+  try {
+    // Get building without customer type filter to see what's available
+    const { data: buildingData, error } = await supabase
+      .from('buildings')
+      .select('id, street, house_number, city, ausbau_art, ausbau_status, kabel_tv_available, residential_units, pk_tariffs_available, kmu_tariffs_available')
+      .ilike('street', street)
+      .ilike('house_number', houseNumber)
+      .ilike('city', city)
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !buildingData) {
+      return { exists: false, pkAvailable: false, kmuAvailable: false, addressData: null };
+    }
+
+    // Building exists - check availability
+    const pkAvailable = buildingData.pk_tariffs_available && buildingData.ausbau_status === 'abgeschlossen';
+    const kmuAvailable = buildingData.kmu_tariffs_available === true;
+
+    return {
+      exists: true,
+      pkAvailable,
+      kmuAvailable,
+      addressData: {
+        street: buildingData.street,
+        houseNumber: buildingData.house_number,
+        city: buildingData.city,
+        ausbauart: buildingData.ausbau_art || '',
+        connectionType: getConnectionType(buildingData.ausbau_art),
+        kabelTvAvailable: buildingData.kabel_tv_available || false,
+        buildingId: buildingData.id,
+        residentialUnits: buildingData.residential_units || 1
+      }
+    };
+  } catch (error) {
+    console.error('Error checking building availability:', error);
+    return { exists: false, pkAvailable: false, kmuAvailable: false, addressData: null };
+  }
+}
+
 // Check address against Supabase database - get full building info including ID
 // customerType parameter filters by pk_tariffs_available or kmu_tariffs_available
 export async function checkAddress(

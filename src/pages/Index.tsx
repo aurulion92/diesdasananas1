@@ -72,9 +72,10 @@ const LandingChoice = ({ onNewCustomer, onExistingCustomer, onLogoClick }: { onN
 interface OrderFlowInnerProps {
   onBackToStart: () => void;
   customerType: CustomerType;
+  onSwitchToKmu?: () => void;
 }
 
-const OrderFlowInner = ({ onBackToStart, customerType }: OrderFlowInnerProps) => {
+const OrderFlowInner = ({ onBackToStart, customerType, onSwitchToKmu }: OrderFlowInnerProps) => {
   const { step, connectionType } = useOrder();
 
   return (
@@ -87,7 +88,7 @@ const OrderFlowInner = ({ onBackToStart, customerType }: OrderFlowInnerProps) =>
             <ProgressSteps currentStep={step} steps={steps} />
 
             <div className="mt-8">
-              {step === 1 && <AddressCheck customerType={customerType} />}
+              {step === 1 && <AddressCheck customerType={customerType} onSwitchToKmu={onSwitchToKmu} />}
               {step === 2 && connectionType && connectionType !== 'not-connected' && <TariffSelection customerType={customerType} />}
               {step === 3 && <CustomerForm />}
               {step === 4 && <OrderSummary />}
@@ -106,12 +107,13 @@ const OrderFlowInner = ({ onBackToStart, customerType }: OrderFlowInnerProps) =>
 interface OrderFlowProps {
   onBackToStart: () => void;
   customerType: CustomerType;
+  onSwitchToKmu?: () => void;
 }
 
-const OrderFlow = ({ onBackToStart, customerType }: OrderFlowProps) => {
+const OrderFlow = ({ onBackToStart, customerType, onSwitchToKmu }: OrderFlowProps) => {
   return (
     <OrderProvider initialCustomerType={customerType}>
-      <OrderFlowInner onBackToStart={onBackToStart} customerType={customerType} />
+      <OrderFlowInner onBackToStart={onBackToStart} customerType={customerType} onSwitchToKmu={onSwitchToKmu} />
     </OrderProvider>
   );
 };
@@ -188,7 +190,11 @@ const Index = () => {
       )}
       
       {viewState === 'order-flow' && (
-        <OrderFlow onBackToStart={handleBackToStart} customerType={customerType} />
+        <OrderFlow 
+          onBackToStart={handleBackToStart} 
+          customerType={customerType} 
+          onSwitchToKmu={handleSelectEasyBusiness}
+        />
       )}
       
       <GustavChatbot />
