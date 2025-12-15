@@ -57,9 +57,11 @@ export type Database = {
           id: string
           is_manual_entry: boolean | null
           kabel_tv_available: boolean | null
+          kmu_tariffs_available: boolean | null
           last_import_batch_id: string | null
           manual_override_active: boolean | null
           original_csv_data: Json | null
+          pk_tariffs_available: boolean | null
           postal_code: string | null
           residential_units: number | null
           street: string
@@ -84,9 +86,11 @@ export type Database = {
           id?: string
           is_manual_entry?: boolean | null
           kabel_tv_available?: boolean | null
+          kmu_tariffs_available?: boolean | null
           last_import_batch_id?: string | null
           manual_override_active?: boolean | null
           original_csv_data?: Json | null
+          pk_tariffs_available?: boolean | null
           postal_code?: string | null
           residential_units?: number | null
           street: string
@@ -111,9 +115,11 @@ export type Database = {
           id?: string
           is_manual_entry?: boolean | null
           kabel_tv_available?: boolean | null
+          kmu_tariffs_available?: boolean | null
           last_import_batch_id?: string | null
           manual_override_active?: boolean | null
           original_csv_data?: Json | null
+          pk_tariffs_available?: boolean | null
           postal_code?: string | null
           residential_units?: number | null
           street?: string

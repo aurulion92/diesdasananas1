@@ -87,7 +87,7 @@ const OrderFlowInner = ({ onBackToStart, customerType }: OrderFlowInnerProps) =>
             <ProgressSteps currentStep={step} steps={steps} />
 
             <div className="mt-8">
-              {step === 1 && <AddressCheck />}
+              {step === 1 && <AddressCheck customerType={customerType} />}
               {step === 2 && connectionType && connectionType !== 'not-connected' && <TariffSelection customerType={customerType} />}
               {step === 3 && <CustomerForm />}
               {step === 4 && <OrderSummary />}
