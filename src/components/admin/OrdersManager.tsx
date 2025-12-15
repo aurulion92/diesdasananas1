@@ -181,7 +181,7 @@ export const OrdersManager = () => {
       if (timePeriod === 'all' || isWithinInterval(orderDate, { start: periodStart, end: periodEnd })) {
         productCounts[order.product_name] = (productCounts[order.product_name] || 0) + 1;
         totalMonthlyRevenue += order.monthly_total || 0;
-        totalOneTimeRevenue += (order.one_time_total || 0) + (order.setup_fee || 0);
+        totalOneTimeRevenue += order.one_time_total || 0;
       }
     });
 
