@@ -11,6 +11,7 @@ export interface AddressData {
   kabelTvAvailable: boolean;
   buildingId?: string;
   residentialUnits?: number; // WE - Wohneinheiten
+  kmuOnly?: boolean; // True if building only has KMU tariffs (no PK)
 }
 
 // Determine connection type based on ausbau_art from database
@@ -127,6 +128,10 @@ export async function checkBuildingAvailability(
 
     const pkAvailable = (products || []).some((p: { customer_type: string }) => p.customer_type === 'pk');
     const kmuAvailable = (products || []).some((p: { customer_type: string }) => p.customer_type === 'kmu');
+    
+    // Mark as KMU-only if only KMU products available (no PK)
+    const kmuOnly = kmuAvailable && !pkAvailable;
+    addressData.kmuOnly = kmuOnly;
 
     return {
       exists: true,

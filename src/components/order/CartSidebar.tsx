@@ -162,9 +162,15 @@ export function CartSidebar({ customerType = 'pk' }: CartSidebarProps) {
                 )}
               </div>
             </div>
-            {/* Gebäudetyp Icon - EFH: 1 WE, MFH: 2 WE, WoWi: 3+ WE */}
+            {/* Gebäudetyp Icon - Bei KMU-only Gebäude: "Gewerbeobjekt", sonst: EFH/MFH/WoWi */}
             <div className="flex flex-col items-center text-muted-foreground">
-              {(address.residentialUnits || 1) === 1 ? (
+              {/* KMU-only Gebäude (kmu_tariffs_available=true, pk_tariffs_available=false) */}
+              {isKMU && address.kmuOnly ? (
+                <>
+                  <Building2 className="w-5 h-5" />
+                  <span className="text-[10px] font-medium mt-0.5">Gewerbe</span>
+                </>
+              ) : (address.residentialUnits || 1) === 1 ? (
                 <>
                   <Home className="w-5 h-5" />
                   <span className="text-[10px] font-medium mt-0.5">EFH</span>
@@ -458,11 +464,11 @@ export function CartSidebar({ customerType = 'pk' }: CartSidebarProps) {
                 </div>
               ))}
               
-              {/* Phone */}
-              {phoneSelection.enabled && isEinfachTariff && (
+              {/* Phone - show for both einfach (PK) and easy business (KMU) tariffs */}
+              {phoneSelection.enabled && hasPhoneOptions && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Telefon ({phoneSelection.lines}x)</span>
-                  <span>{(phoneSelection.lines * 2.95).toFixed(2).replace('.', ',')} €</span>
+                  <span>{phoneSelection.selectedOptionName || 'Telefon'} ({phoneSelection.lines}x)</span>
+                  <span>{(phoneSelection.lines * phoneSelection.selectedOptionPrice).toFixed(2).replace('.', ',')} €</span>
                 </div>
               )}
             </div>
