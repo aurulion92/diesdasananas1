@@ -6,6 +6,7 @@ export interface AddressData {
   street: string;
   houseNumber: string;
   city: string;
+  postalCode?: string;
   ausbauart: string;
   connectionType: ConnectionType;
   kabelTvAvailable: boolean;
@@ -74,6 +75,7 @@ export async function checkBuildingAvailability(
       street: string;
       house_number: string;
       city: string;
+      postal_code: string | null;
       ausbau_art: string | null;
       ausbau_status: string | null;
       kabel_tv_available: boolean | null;
@@ -85,6 +87,7 @@ export async function checkBuildingAvailability(
       street: result.street,
       houseNumber: result.house_number,
       city: result.city,
+      postalCode: result.postal_code || undefined,
       ausbauart: result.ausbau_art || '',
       connectionType: getConnectionType(result.ausbau_art),
       kabelTvAvailable: result.kabel_tv_available || false,

@@ -1070,6 +1070,7 @@ export type Database = {
           city: string
           house_number: string
           kabel_tv_available: boolean
+          postal_code: string
           residential_units: number
           street: string
         }[]
