@@ -145,6 +145,14 @@ const Index = () => {
     setViewState('order-flow');
   };
 
+  // Handler for switching from PK to KMU flow within address check
+  const handleSwitchToKmuFromPk = () => {
+    setCustomerType('kmu');
+    // Force re-render by briefly changing state
+    setViewState('landing');
+    setTimeout(() => setViewState('order-flow'), 0);
+  };
+
   return (
     <>
       {viewState === 'landing' && (
@@ -193,7 +201,7 @@ const Index = () => {
         <OrderFlow 
           onBackToStart={handleBackToStart} 
           customerType={customerType} 
-          onSwitchToKmu={handleSelectEasyBusiness}
+          onSwitchToKmu={handleSwitchToKmuFromPk}
         />
       )}
       
