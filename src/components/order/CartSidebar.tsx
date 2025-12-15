@@ -476,7 +476,10 @@ export function CartSidebar({ customerType = 'pk' }: CartSidebarProps) {
             {/* Monthly Total */}
             <div className="flex justify-between pt-2 border-t border-border">
               <span className="font-semibold">Gesamt monatlich</span>
-              <span className="font-bold text-xl text-primary">{totalMonthly.toFixed(2).replace('.', ',')} €</span>
+              <div className="text-right">
+                <span className="font-bold text-xl text-primary">{totalMonthly.toFixed(2).replace('.', ',')} €</span>
+                {isKMU && <span className="ml-1 text-xs text-accent font-medium">netto</span>}
+              </div>
             </div>
             
             {/* One-time costs */}
@@ -561,7 +564,10 @@ export function CartSidebar({ customerType = 'pk' }: CartSidebarProps) {
             {/* One-time Total */}
             <div className="flex justify-between pt-2 border-t border-border">
               <span className="font-semibold">Gesamt einmalig</span>
-              <span className="font-bold text-lg">{totalOneTime.toFixed(2).replace('.', ',')} €</span>
+              <div className="text-right">
+                <span className="font-bold text-lg">{totalOneTime.toFixed(2).replace('.', ',')} €</span>
+                {isKMU && <span className="ml-1 text-xs text-accent font-medium">netto</span>}
+              </div>
             </div>
           </div>
           
