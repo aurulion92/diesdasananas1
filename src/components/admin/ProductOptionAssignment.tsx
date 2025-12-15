@@ -333,6 +333,20 @@ export function ProductOptionAssignment({
                                         [option.id]: e.target.value,
                                       }))
                                     }
+                                    onBlur={() => {
+                                      // Auto-save on blur if value changed
+                                      const currentValue = mapping?.option_id_k7 || '';
+                                      const newValue = k7Inputs[option.id]?.trim() || '';
+                                      if (currentValue !== newValue) {
+                                        updateK7Id(option.id);
+                                      }
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        updateK7Id(option.id);
+                                      }
+                                    }}
                                     placeholder="K7-ID eingeben"
                                     className="h-8 text-sm"
                                     disabled={saving === option.id}
@@ -352,6 +366,7 @@ export function ProductOptionAssignment({
                                   variant="ghost"
                                   onClick={() => updateK7Id(option.id)}
                                   disabled={saving === option.id}
+                                  title="K7-ID speichern"
                                 >
                                   {saving === option.id ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
