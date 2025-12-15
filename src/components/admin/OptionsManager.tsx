@@ -58,6 +58,7 @@ interface ProductOption {
   quantity_label: string | null;
   vzf_text: string | null;
   customer_type: string;
+  is_sondertarif_only: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -97,6 +98,7 @@ export const OptionsManager = () => {
   const [selectedOptionForBuildings, setSelectedOptionForBuildings] = useState<ProductOption | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [customerTypeFilter, setCustomerTypeFilter] = useState<'all' | 'pk' | 'kmu'>('all');
+  const [showSondertarifOptions, setShowSondertarifOptions] = useState(false);
   const [productMappings, setProductMappings] = useState<Record<string, ProductMapping>>({});
   const [optionMappingsCount, setOptionMappingsCount] = useState<Record<string, number>>({});
   const [optionBuildingsCount, setOptionBuildingsCount] = useState<Record<string, number>>({});
@@ -127,6 +129,7 @@ export const OptionsManager = () => {
     quantity_label: 'Anzahl',
     vzf_text: '',
     customer_type: 'pk',
+    is_sondertarif_only: false,
   });
 
   useEffect(() => {
@@ -250,6 +253,7 @@ export const OptionsManager = () => {
         quantity_label: formData.quantity_label || null,
         vzf_text: formData.vzf_text || null,
         customer_type: formData.customer_type,
+        is_sondertarif_only: formData.is_sondertarif_only,
       };
 
       if (editingOption) {
@@ -352,6 +356,7 @@ export const OptionsManager = () => {
       quantity_label: 'Anzahl',
       vzf_text: '',
       customer_type: 'pk',
+      is_sondertarif_only: false,
     });
     setEditingOption(null);
   };
@@ -383,6 +388,7 @@ export const OptionsManager = () => {
       quantity_label: option.quantity_label || 'Anzahl',
       vzf_text: option.vzf_text || '',
       customer_type: option.customer_type || 'pk',
+      is_sondertarif_only: option.is_sondertarif_only || false,
     });
     setIsDialogOpen(true);
   };
@@ -448,10 +454,11 @@ export const OptionsManager = () => {
     return CATEGORIES.find(c => c.value === category)?.label || category;
   };
 
-  // Filter by category and customer type, then sort alphabetically
+  // Filter by category, customer type, and sondertarif, then sort alphabetically
   const filteredOptions = options
     .filter(o => filterCategory === 'all' || o.category === filterCategory)
     .filter(o => customerTypeFilter === 'all' || o.customer_type === customerTypeFilter)
+    .filter(o => showSondertarifOptions || !o.is_sondertarif_only)
     .sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true }));
 
   const hasMissingK7Ids = (optionId: string) => {
@@ -472,7 +479,17 @@ export const OptionsManager = () => {
               Verwalten Sie Hardware, TV und Telefon-Optionen und deren Produkt-Zuordnungen.
             </CardDescription>
           </div>
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
+            <div className="flex items-center gap-2 border rounded-md px-3 py-1.5 bg-amber-500/10 border-amber-500/30">
+              <Checkbox
+                id="showSondertarif"
+                checked={showSondertarifOptions}
+                onCheckedChange={(checked) => setShowSondertarifOptions(checked === true)}
+              />
+              <Label htmlFor="showSondertarif" className="text-sm cursor-pointer text-amber-700">
+                Sondertarif-Optionen
+              </Label>
+            </div>
             <Select value={customerTypeFilter} onValueChange={(v: 'all' | 'pk' | 'kmu') => setCustomerTypeFilter(v)}>
               <SelectTrigger className="w-[100px]">
                 <SelectValue />
@@ -654,6 +671,22 @@ export const OptionsManager = () => {
                           id="is_active"
                           checked={formData.is_active}
                           onCheckedChange={(checked) => setFormData({...formData, is_active: checked})}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between col-span-2 bg-amber-500/10 border border-amber-500/30 p-3 rounded-lg">
+                        <div>
+                          <Label htmlFor="is_sondertarif_only" className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-amber-500/20 text-amber-700 border-amber-500/50">Sondertarif</Badge>
+                            Nur für Sondertarife
+                          </Label>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Diese Option ist nur bei Produkten verfügbar, die als Sondertarif markiert sind
+                          </p>
+                        </div>
+                        <Switch
+                          id="is_sondertarif_only"
+                          checked={formData.is_sondertarif_only}
+                          onCheckedChange={(checked) => setFormData({...formData, is_sondertarif_only: checked})}
                         />
                       </div>
                     </div>
