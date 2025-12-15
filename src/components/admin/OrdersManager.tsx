@@ -20,7 +20,8 @@ import {
   Users,
   Calendar,
   Download,
-  BarChart3
+  BarChart3,
+  FileCode
 } from 'lucide-react';
 import {
   Table,
@@ -378,6 +379,45 @@ export const OrdersManager = () => {
       toast({
         title: "Fehler",
         description: "VZF konnte nicht generiert werden.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const generateK7Xml = async (order: Order) => {
+    toast({
+      title: "K7 XML wird generiert",
+      description: "Bitte warten...",
+    });
+
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-k7-xml', {
+        body: { orderId: order.id }
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      // Create download
+      const blob = new Blob([data.xml], { type: 'application/xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = data.fileName || `Bestellung_${order.id.substring(0, 8)}.xml`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "K7 XML erstellt",
+        description: "Download gestartet.",
+      });
+    } catch (error: any) {
+      console.error('Error generating K7 XML:', error);
+      toast({
+        title: "Fehler",
+        description: error.message || "K7 XML konnte nicht generiert werden.",
         variant: "destructive",
       });
     }
@@ -929,6 +969,14 @@ export const OrdersManager = () => {
                               title="VZF rekonstruieren"
                             >
                               <FileText className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => generateK7Xml(order)}
+                              title="K7 XML exportieren"
+                            >
+                              <FileCode className="w-4 h-4" />
                             </Button>
                             <Button
                               variant="outline"
