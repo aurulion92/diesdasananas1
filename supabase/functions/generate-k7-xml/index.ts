@@ -22,6 +22,73 @@ function cleanNumericId(value: string | null): string {
   return value.replace(/,\d+$/, '').replace(/\.\d+$/, '').trim();
 }
 
+// Helper to escape XML special characters
+function escapeXml(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+// Map provider name to K7 EKP ID
+function getProviderK7Id(providerName: string | null): string {
+  if (!providerName) return '411'; // Default to Faxverfahren
+  
+  const lowerName = providerName.toLowerCase();
+  
+  if (lowerName.includes('telekom') || lowerName.includes('t-online')) return '2';
+  if (lowerName.includes('vodafone') && lowerName.includes('kabel')) return '171';
+  if (lowerName.includes('vodafone') || lowerName.includes('d2')) return '8';
+  if (lowerName.includes('o2') || lowerName.includes('telefonica')) return '17';
+  if (lowerName.includes('mnet') || lowerName.includes('m-net')) return '44';
+  if (lowerName.includes('1&1') || lowerName.includes('1und1')) return '181';
+  
+  return '411'; // Faxverfahren for unknown/manual providers
+}
+
+// Parse phone number into area code and number
+function parsePhoneNumber(phoneNumber: string): { areaCode: string; number: string } {
+  if (!phoneNumber) return { areaCode: '', number: '' };
+  
+  // Remove spaces, dashes, slashes
+  const cleaned = phoneNumber.replace(/[\s\-\/]/g, '');
+  
+  // Check for common German area code patterns
+  // Format could be: 0841123456789, +49841123456789, 0841/123456789
+  let digits = cleaned.replace(/[^\d]/g, '');
+  
+  // Remove leading country code if present
+  if (digits.startsWith('49')) {
+    digits = '0' + digits.substring(2);
+  } else if (digits.startsWith('0049')) {
+    digits = '0' + digits.substring(4);
+  }
+  
+  // Try to extract area code (typically 3-5 digits after 0)
+  // German area codes: 030 (Berlin), 089 (Munich), 0841 (Ingolstadt), etc.
+  if (digits.startsWith('0')) {
+    // Check for 2-digit area codes (major cities)
+    const twoDigitCodes = ['30', '40', '69', '89'];
+    const threeDigitCodes = ['841', '851', '911', '621', '711', '351', '511', '201', '211', '221', '228', '231', '234', '241'];
+    
+    const potentialCode = digits.substring(1, 4);
+    if (twoDigitCodes.includes(digits.substring(1, 3))) {
+      return { areaCode: '0' + digits.substring(1, 3), number: digits.substring(3) };
+    } else if (threeDigitCodes.some(c => potentialCode.startsWith(c))) {
+      const matchedCode = threeDigitCodes.find(c => potentialCode.startsWith(c))!;
+      return { areaCode: '0' + matchedCode, number: digits.substring(1 + matchedCode.length) };
+    } else {
+      // Default: assume 4-digit area code
+      return { areaCode: digits.substring(0, 5), number: digits.substring(5) };
+    }
+  }
+  
+  return { areaCode: '', number: digits };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -53,6 +120,12 @@ serve(async (req) => {
 
     console.log('Order loaded:', order.customer_name);
 
+    // Extract vzf_data for additional info
+    const vzfData = order.vzf_data || {};
+    const alternateBillingAddress = vzfData.alternateBillingAddress;
+    const alternatePaymentPerson = vzfData.alternatePaymentPerson;
+    const phonePortingData = vzfData.phonePortingData;
+
     // Fetch product with speeds for bandwidth matching
     let productK7Id = '';
     let productDownloadSpeed = 0;
@@ -80,7 +153,6 @@ serve(async (req) => {
     let bandbreiteId = '';
     let vorleistungsproduktId = '';
     
-    // First get building ID from address
     const { data: buildings } = await supabase
       .from('buildings')
       .select('id, gebaeude_id_k7')
@@ -93,22 +165,17 @@ serve(async (req) => {
       const building = buildings[0];
       buildingK7Id = cleanNumericId(building.gebaeude_id_k7);
       
-      // Fetch ALL K7 services for this building
       const { data: k7Services } = await supabase
         .from('building_k7_services')
         .select('*')
         .eq('building_id', building.id);
 
       if (k7Services && k7Services.length > 0) {
-        // Try to find matching K7 service based on bandwidth
-        // Format in DB: "1000/250", "500/100", "100/10", etc.
         const targetBandwidth = `${productDownloadSpeed}/${productUploadSpeed}`;
         
         let matchedK7 = k7Services.find(k7 => {
           if (!k7.bandbreite) return false;
-          // Direct match
           if (k7.bandbreite === targetBandwidth) return true;
-          // Try parsing the bandwidth string
           const parts = k7.bandbreite.split('/');
           if (parts.length === 2) {
             const down = parseInt(parts[0], 10);
@@ -118,7 +185,6 @@ serve(async (req) => {
           return false;
         });
         
-        // Fallback to first entry if no match found
         if (!matchedK7) {
           console.log('No bandwidth match found for', targetBandwidth, '- using first K7 service');
           matchedK7 = k7Services[0];
@@ -129,7 +195,7 @@ serve(async (req) => {
         buildingK7Id = cleanNumericId(matchedK7.std_kabel_gebaeude_id) || buildingK7Id;
         bandbreiteId = cleanNumericId(matchedK7.nt_dsl_bandbreite_id);
         vorleistungsproduktId = cleanNumericId(matchedK7.leistungsprodukt_id);
-        console.log('K7 Data:', { buildingK7Id, bandbreiteId, vorleistungsproduktId, matchedBandwidth: matchedK7.bandbreite });
+        console.log('K7 Data:', { buildingK7Id, bandbreiteId, vorleistungsproduktId });
       }
     }
 
@@ -139,7 +205,6 @@ serve(async (req) => {
     
     for (const opt of selectedOptions) {
       if (opt.optionId && order.product_id) {
-        // Get K7 ID from product_option_mappings
         const { data: mapping } = await supabase
           .from('product_option_mappings')
           .select('option_id_k7')
@@ -164,12 +229,17 @@ serve(async (req) => {
     const produktGuid = generateGuid();
     const anschlussGuid = generateGuid();
     const telefonbuchGuid = generateGuid();
+    const lieferAdresseGuid = generateGuid();
+    const lieferAnsprechpartnerGuid = generateGuid();
+    const kontoinhaberAdresseGuid = generateGuid();
+    const kontoinhaberAnsprechpartnerGuid = generateGuid();
+    const voipRAccountGuid = generateGuid();
 
     const today = formatDate(new Date());
     
     // Determine customer type
-    const isKmu = order.vzf_data?.customerType === 'kmu';
-    const organisationsstufe = isKmu ? '2' : '6'; // 2=Firma, 6=Privatkunde
+    const isKmu = vzfData.customerType === 'kmu';
+    const organisationsstufe = isKmu ? '2' : '6';
     
     // Parse customer name
     const firstName = order.customer_first_name || '';
@@ -190,9 +260,207 @@ serve(async (req) => {
                         </Option>`;
     }
 
-    // Phone book entry settings
-    const phoneBookUmfang = order.phone_book_show_address ? '3' : '1'; // 3=with address, 1=only name+number
-    const phoneBookSuchverzeichnis = isKmu ? 'F' : 'P'; // F=Firma, P=Privat
+    // Phone book settings
+    const phoneBookUmfang = order.phone_book_show_address ? '3' : '1';
+    const phoneBookSuchverzeichnis = isKmu ? 'F' : 'P';
+
+    // === Build UserExtInfo ===
+    let userExtInfoXml = `
+      <UserExtInfo>
+        <ExtInfo3>${order.id}</ExtInfo3>`;
+    
+    // KwK (Kunden werben Kunden)
+    if (order.referral_customer_number) {
+      userExtInfoXml += `
+        <ExtInfo4>${escapeXml(order.referral_customer_number)} - 50/50</ExtInfo4>`;
+      console.log('KwK referral:', order.referral_customer_number);
+    }
+    
+    userExtInfoXml += `
+      </UserExtInfo>`;
+
+    // === Build AbweichenderKontoinhaber if needed ===
+    let abweichenderKontoinhaberXml = '';
+    const hasAlternatePayment = alternatePaymentPerson?.enabled && alternatePaymentPerson?.name;
+    
+    if (hasAlternatePayment) {
+      abweichenderKontoinhaberXml = `
+        <AbweichenderKontoinhaber>
+          <KontoinhaberAbweichendVomRechnungsempfaenger>true</KontoinhaberAbweichendVomRechnungsempfaenger>
+          <KontoinhaberAdresse>
+            <LookupGuid>${kontoinhaberAdresseGuid}</LookupGuid>
+          </KontoinhaberAdresse>
+          <KontoinhaberAnsprechpartner>
+            <LookupGuid>${kontoinhaberAnsprechpartnerGuid}</LookupGuid>
+          </KontoinhaberAnsprechpartner>
+          <Rechnungsempfaenger>${escapeXml(alternatePaymentPerson.name)}</Rechnungsempfaenger>
+        </AbweichenderKontoinhaber>`;
+      console.log('Abweichender Kontoinhaber:', alternatePaymentPerson.name);
+    }
+
+    // === Build additional addresses ===
+    let additionalAddressesXml = '';
+    
+    // Lieferadresse
+    const hasAlternateBilling = alternateBillingAddress?.enabled && alternateBillingAddress?.street;
+    if (hasAlternateBilling) {
+      const lieferName = alternateBillingAddress.name || `${firstName} ${lastName}`;
+      const lieferNameParts = lieferName.split(' ');
+      const lieferVorname = lieferNameParts.slice(0, -1).join(' ') || firstName;
+      const lieferNachname = lieferNameParts.slice(-1)[0] || lastName;
+      
+      additionalAddressesXml += `
+        <Adresse xsi:type="AdresseType" Guid="${lieferAdresseGuid}">
+          <Postleitzahl>${escapeXml(alternateBillingAddress.postalCode || order.postal_code || '')}</Postleitzahl>
+          <Ort>${escapeXml(alternateBillingAddress.city || order.city)}</Ort>
+          <Strasse>${escapeXml(alternateBillingAddress.street)} ${escapeXml(alternateBillingAddress.houseNumber || '')}</Strasse>
+          <Adressart>
+            <LookupValue>LIEFER</LookupValue>
+          </Adressart>
+          <Ansprechpartner>
+            <Ansprechpartner xsi:type="AnsprechpartnerType" Guid="${lieferAnsprechpartnerGuid}">
+              <Vorname>${escapeXml(lieferVorname)}</Vorname>
+              <Nachname>${escapeXml(lieferNachname)}</Nachname>
+              <Telefon>${escapeXml(order.customer_phone || '')}</Telefon>
+              <E_Mail>${escapeXml(order.customer_email)}</E_Mail>
+              <Ansprechpartnerart>
+                <LookupValue>LIEFER</LookupValue>
+              </Ansprechpartnerart>
+            </Ansprechpartner>
+          </Ansprechpartner>
+        </Adresse>`;
+      console.log('Lieferadresse:', alternateBillingAddress.street);
+    }
+    
+    // Kontoinhaber-Adresse
+    if (hasAlternatePayment) {
+      const kontoinhaberName = alternatePaymentPerson.name || '';
+      const kontoinhaberNameParts = kontoinhaberName.split(' ');
+      const kontoinhaberVorname = kontoinhaberNameParts.slice(0, -1).join(' ') || '';
+      const kontoinhaberNachname = kontoinhaberNameParts.slice(-1)[0] || kontoinhaberName;
+      
+      // Use alternate billing address for Kontoinhaber if available, otherwise use main address
+      const kontoinhaberStreet = alternateBillingAddress?.enabled ? 
+        `${alternateBillingAddress.street} ${alternateBillingAddress.houseNumber || ''}` : 
+        `${order.street} ${order.house_number}`;
+      const kontoinhaberCity = alternateBillingAddress?.enabled ? alternateBillingAddress.city : order.city;
+      const kontoinhaberPLZ = alternateBillingAddress?.enabled ? alternateBillingAddress.postalCode : order.postal_code;
+      
+      additionalAddressesXml += `
+        <Adresse xsi:type="AdresseType" Guid="${kontoinhaberAdresseGuid}">
+          <Postleitzahl>${escapeXml(kontoinhaberPLZ || '')}</Postleitzahl>
+          <Ort>${escapeXml(kontoinhaberCity || '')}</Ort>
+          <Strasse>${escapeXml(kontoinhaberStreet)}</Strasse>
+          <Adressart>
+            <LookupValue>KONTOINH</LookupValue>
+          </Adressart>
+          <Ansprechpartner>
+            <Ansprechpartner xsi:type="AnsprechpartnerType" Guid="${kontoinhaberAnsprechpartnerGuid}">
+              <Vorname>${escapeXml(kontoinhaberVorname)}</Vorname>
+              <Nachname>${escapeXml(kontoinhaberNachname)}</Nachname>
+              <Telefon>${escapeXml(order.customer_phone || '')}</Telefon>
+              <E_Mail>${escapeXml(order.customer_email)}</E_Mail>
+              <Ansprechpartnerart>
+                <LookupValue>KONTOINH</LookupValue>
+              </Ansprechpartnerart>
+            </Ansprechpartner>
+          </Ansprechpartner>
+        </Adresse>`;
+    }
+
+    // === Build Dienst UserExtInfo (for sonstiger EKP) ===
+    let dienstUserExtInfoXml = '';
+    if (order.cancel_previous_provider && order.previous_provider_name) {
+      dienstUserExtInfoXml = `
+          <UserExtInfo>
+            <ExtInfo3>${escapeXml(order.previous_provider_name)}</ExtInfo3>
+          </UserExtInfo>`;
+      console.log('Sonstiger abgebender EKP:', order.previous_provider_name);
+    }
+
+    // === Build Portierung section ===
+    let portierungVoipAccountXml = '';
+    let flnpImportAuftraegeXml = '';
+    const hasPortierung = order.phone_porting && order.phone_porting_numbers && 
+                          Array.isArray(order.phone_porting_numbers) && 
+                          order.phone_porting_numbers.length > 0;
+    
+    if (hasPortierung) {
+      const portingNumbers = order.phone_porting_numbers;
+      const firstNumber = portingNumbers[0]?.number || portingNumbers[0] || '';
+      const parsed = parsePhoneNumber(firstNumber);
+      
+      const providerK7Id = getProviderK7Id(order.phone_porting_provider);
+      
+      // Get porting contact info
+      const portierungVorname = phonePortingData?.connectionHolder?.split(' ').slice(0, -1).join(' ') || firstName;
+      const portierungNachname = phonePortingData?.connectionHolder?.split(' ').slice(-1)[0] || lastName;
+      
+      portierungVoipAccountXml = `
+            <Account xsi:type="VoIPAccountType" Guid="${voipRAccountGuid}">
+              <Allgemein>
+                <Accountart>
+                  <LookupValue>R</LookupValue>
+                </Accountart>
+                <IntVorwahl>0049</IntVorwahl>
+                <NatVorwahl>${escapeXml(parsed.areaCode)}</NatVorwahl>
+                <Startnummer>${escapeXml(parsed.number)}</Startnummer>
+              </Allgemein>
+              <Erweitert>
+                <Telefonbucheintrag>
+                  <LookupGuid>${telefonbuchGuid}</LookupGuid>
+                </Telefonbucheintrag>
+                <PortierungEingehend>true</PortierungEingehend>
+              </Erweitert>
+            </Account>`;
+      
+      flnpImportAuftraegeXml = `
+          <FLNPImportAuftraege>
+            <FLNPAuftrag>
+              <PortierungAdresse>
+                <LookupGuid>${anschlussAdresseGuid}</LookupGuid>
+              </PortierungAdresse>
+              <AbgebenderEKP>
+                <LookupValue>${providerK7Id}</LookupValue>
+              </AbgebenderEKP>
+              <WbciAnfrageTyp>
+                <LookupValue>KUE_MRN</LookupValue>
+              </WbciAnfrageTyp>
+              <Portierungstermin>${order.desired_start_date || today}</Portierungstermin>
+              <PortierungsansprechpartnerKunde>
+                <Anrede><LookupValue>${isKmu ? 'Firma' : 'Herr'}</LookupValue></Anrede>
+                <Vorname>${escapeXml(portierungVorname)}</Vorname>
+                <Nachname>${escapeXml(portierungNachname)}</Nachname>
+              </PortierungsansprechpartnerKunde>
+              <VoIPAccounts>
+                <VoIPAccount>
+                  <VoIPAccount>
+                    <LookupGuid>${voipRAccountGuid}</LookupGuid>
+                  </VoIPAccount>
+                </VoIPAccount>
+              </VoIPAccounts>
+            </FLNPAuftrag>
+          </FLNPImportAuftraege>`;
+      
+      console.log('Portierung:', firstNumber, 'von Provider:', order.phone_porting_provider, '(K7 ID:', providerK7Id + ')');
+    }
+
+    // Standard VoIP R Account (without porting)
+    const standardVoipRAccountXml = !hasPortierung ? `
+            <Account xsi:type="VoIPAccountType">
+              <Allgemein>
+                <Accountart>
+                  <LookupValue>R</LookupValue>
+                </Accountart>
+                <IntVorwahl>0049</IntVorwahl>
+                <NatVorwahl>0</NatVorwahl>
+              </Allgemein>
+              <Erweitert>
+                <Telefonbucheintrag>
+                  <LookupGuid>${telefonbuchGuid}</LookupGuid>
+                </Telefonbucheintrag>
+              </Erweitert>
+            </Account>` : '';
 
     // Build XML
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -203,10 +471,7 @@ serve(async (req) => {
     <ReferenceNumberPartner>${order.id}</ReferenceNumberPartner>
   </Header>
   <BusinessAct xsi:type="Create">
-    <Data xsi:type="KundeType" Guid="${customerGuid}">
-      <UserExtInfo>
-        <ExtInfo3>${order.id}</ExtInfo3>
-      </UserExtInfo>
+    <Data xsi:type="KundeType" Guid="${customerGuid}">${userExtInfoXml}
       <Mandant>
         <LookupValue>1</LookupValue>
       </Mandant>
@@ -223,7 +488,7 @@ serve(async (req) => {
         <Zahlungsart>
           <LookupValue>LB</LookupValue>
         </Zahlungsart>
-        <IBAN>${escapeXml(order.bank_iban || '')}</IBAN>
+        <IBAN>${escapeXml(order.bank_iban || '')}</IBAN>${abweichenderKontoinhaberXml}
         <SEPALastschriftmandate>
           <SEPALastschriftmandat xsi:type="SEPALastschriftmandatType">
             <MandatsReferenz AutoGenerate="true"/>
@@ -277,10 +542,10 @@ serve(async (req) => {
               </Ansprechpartnerart>
             </Ansprechpartner>
           </Ansprechpartner>
-        </Adresse>
+        </Adresse>${additionalAddressesXml}
       </Adressen>
       <Dienste>
-        <Dienst xsi:type="DienstMultiplayType">
+        <Dienst xsi:type="DienstMultiplayType">${dienstUserExtInfoXml}
           <Produkte>
             <Produkt xsi:type="DienstProduktRefType" Guid="${produktGuid}">
               <Vertragsart>
@@ -324,27 +589,13 @@ serve(async (req) => {
                 <Account AutoGenerate="true"/>
                 <Passwort AutoGenerate="true"/>
               </Allgemein>
-            </Account>
-            <Account xsi:type="VoIPAccountType">
-              <Allgemein>
-                <Accountart>
-                  <LookupValue>R</LookupValue>
-                </Accountart>
-                <IntVorwahl>0049</IntVorwahl>
-                <NatVorwahl>0</NatVorwahl>
-              </Allgemein>
-              <Erweitert>
-                <Telefonbucheintrag>
-                  <LookupGuid>${telefonbuchGuid}</LookupGuid>
-                </Telefonbucheintrag>
-              </Erweitert>
-            </Account>
-          </Accounts>
+            </Account>${hasPortierung ? portierungVoipAccountXml : standardVoipRAccountXml}
+          </Accounts>${flnpImportAuftraegeXml}
         </Dienst>
       </Dienste>
       <Anschluesse>
         <Anschluss xsi:type="AnschlussType" Guid="${anschlussGuid}">
-          <Installationstermin>${order.desired_start_date || today}</Installationstermin>
+          <Installationstermin>${order.desired_start_date || ''}</Installationstermin>
           <Standort>
             <LookupGuid>${anschlussAdresseGuid}</LookupGuid>
           </Standort>
@@ -404,13 +655,3 @@ serve(async (req) => {
     });
   }
 });
-
-// Helper to escape XML special characters
-function escapeXml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
