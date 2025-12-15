@@ -228,13 +228,14 @@ serve(async (req) => {
         
         if (mapping?.option_id_k7) {
           const cleanedK7Id = cleanNumericId(mapping.option_id_k7);
-          const quantity = opt.quantity || 1;
+          // Use quantity for regular options, lines for phone options
+          const quantity = opt.lines || opt.quantity || 1;
           
-          // Add the K7 ID multiple times for quantitative options
+          // Add the K7 ID multiple times for quantitative options (including phone lines)
           for (let i = 0; i < quantity; i++) {
             optionK7Ids.push(cleanedK7Id);
           }
-          console.log('Option K7 ID:', mapping.option_id_k7, 'for option', opt.name, 'quantity:', quantity);
+          console.log('Option K7 ID:', mapping.option_id_k7, 'for option', opt.name || opt.type, 'quantity:', quantity);
         }
       }
     }
