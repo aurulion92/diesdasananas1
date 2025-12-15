@@ -29,6 +29,10 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
   const [showHouseNumberDropdown, setShowHouseNumberDropdown] = useState(false);
   const [isLoadingStreets, setIsLoadingStreets] = useState(false);
   const [isLoadingHouseNumbers, setIsLoadingHouseNumbers] = useState(false);
+  
+  // Keyboard navigation states
+  const [streetHighlightIndex, setStreetHighlightIndex] = useState(-1);
+  const [houseNumberHighlightIndex, setHouseNumberHighlightIndex] = useState(-1);
 
   const streetInputRef = useRef<HTMLInputElement>(null);
   const houseNumberInputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +94,7 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
   const handleStreetSelect = (selectedStreet: string) => {
     setStreet(selectedStreet);
     setShowStreetDropdown(false);
+    setStreetHighlightIndex(-1);
     setHouseNumber('');
     setResult(null);
     // Focus house number input after selecting street
@@ -99,7 +104,80 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
   const handleHouseNumberSelect = (selectedNumber: string) => {
     setHouseNumber(selectedNumber);
     setShowHouseNumberDropdown(false);
+    setHouseNumberHighlightIndex(-1);
     setResult(null);
+  };
+
+  // Keyboard navigation for street dropdown
+  const handleStreetKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showStreetDropdown || streetSuggestions.length === 0) {
+      // Open dropdown on arrow down if there are suggestions
+      if (e.key === 'ArrowDown' && streetSuggestions.length > 0) {
+        setShowStreetDropdown(true);
+        setStreetHighlightIndex(0);
+        e.preventDefault();
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setStreetHighlightIndex(prev => 
+          prev < streetSuggestions.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setStreetHighlightIndex(prev => prev > 0 ? prev - 1 : 0);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (streetHighlightIndex >= 0 && streetHighlightIndex < streetSuggestions.length) {
+          handleStreetSelect(streetSuggestions[streetHighlightIndex]);
+        }
+        break;
+      case 'Escape':
+        setShowStreetDropdown(false);
+        setStreetHighlightIndex(-1);
+        break;
+    }
+  };
+
+  // Keyboard navigation for house number dropdown
+  const handleHouseNumberKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showHouseNumberDropdown || houseNumberSuggestions.length === 0) {
+      // Open dropdown on arrow down if there are suggestions
+      if (e.key === 'ArrowDown' && houseNumberSuggestions.length > 0) {
+        setShowHouseNumberDropdown(true);
+        setHouseNumberHighlightIndex(0);
+        e.preventDefault();
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHouseNumberHighlightIndex(prev => 
+          prev < houseNumberSuggestions.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHouseNumberHighlightIndex(prev => prev > 0 ? prev - 1 : 0);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (houseNumberHighlightIndex >= 0 && houseNumberHighlightIndex < houseNumberSuggestions.length) {
+          handleHouseNumberSelect(houseNumberSuggestions[houseNumberHighlightIndex]);
+        }
+        break;
+      case 'Escape':
+        setShowHouseNumberDropdown(false);
+        setHouseNumberHighlightIndex(-1);
+        break;
+    }
   };
 
   const handleCheck = async () => {
@@ -199,12 +277,14 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
                   setStreet(e.target.value);
                   setHouseNumber('');
                   setResult(null);
+                  setStreetHighlightIndex(-1);
                 }}
                 onFocus={() => {
                   if (streetSuggestions.length > 0) {
                     setShowStreetDropdown(true);
                   }
                 }}
+                onKeyDown={handleStreetKeyDown}
                 className={cn(
                   "h-12 rounded-full bg-background border-border text-center pr-10",
                   isLoadingStreets && "pr-10"
@@ -229,8 +309,14 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
                 {streetSuggestions.map((suggestion, index) => (
                   <button
                     key={index}
-                    className="w-full px-4 py-3 text-left hover:bg-accent/10 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                    className={cn(
+                      "w-full px-4 py-3 text-left transition-colors first:rounded-t-xl last:rounded-b-xl",
+                      index === streetHighlightIndex 
+                        ? "bg-primary/10 text-primary" 
+                        : "hover:bg-accent/10"
+                    )}
                     onClick={() => handleStreetSelect(suggestion)}
+                    onMouseEnter={() => setStreetHighlightIndex(index)}
                   >
                     {suggestion}
                   </button>
@@ -249,12 +335,14 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
                 onChange={(e) => {
                   setHouseNumber(e.target.value);
                   setResult(null);
+                  setHouseNumberHighlightIndex(-1);
                 }}
                 onFocus={() => {
                   if (houseNumberSuggestions.length > 0) {
                     setShowHouseNumberDropdown(true);
                   }
                 }}
+                onKeyDown={handleHouseNumberKeyDown}
                 className="h-12 rounded-full bg-background border-border text-center pr-10"
               />
               {houseNumberSuggestions.length > 0 && (
@@ -273,8 +361,14 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
                 {houseNumberSuggestions.map((suggestion, index) => (
                   <button
                     key={index}
-                    className="w-full px-4 py-3 text-left hover:bg-accent/10 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                    className={cn(
+                      "w-full px-4 py-3 text-left transition-colors first:rounded-t-xl last:rounded-b-xl",
+                      index === houseNumberHighlightIndex 
+                        ? "bg-primary/10 text-primary" 
+                        : "hover:bg-accent/10"
+                    )}
                     onClick={() => handleHouseNumberSelect(suggestion)}
+                    onMouseEnter={() => setHouseNumberHighlightIndex(index)}
                   >
                     {suggestion}
                   </button>
