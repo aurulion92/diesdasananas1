@@ -56,7 +56,9 @@ interface TvSelection {
 interface PhoneSelection {
   enabled: boolean;
   selectedOptionId: string | null; // ID of the selected phone option from database
-  lines: number; // Number of phone lines (each 2.95€)
+  selectedOptionName: string | null; // Name of the selected phone option
+  selectedOptionPrice: number; // Monthly price per line of selected option
+  lines: number; // Number of phone lines
   portingRequired: boolean;
   portingData: PhonePortingData | null;
   // Phone book options
@@ -167,6 +169,8 @@ const initialTvSelection: TvSelection = {
 const initialPhoneSelection: PhoneSelection = {
   enabled: false,
   selectedOptionId: null,
+  selectedOptionName: null,
+  selectedOptionPrice: 0,
   lines: 1,
   portingRequired: false,
   portingData: null,
