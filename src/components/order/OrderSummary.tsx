@@ -906,7 +906,14 @@ export function OrderSummary() {
         <ConsentCheckboxes
           data={consentData}
           onChange={setConsentData}
-          errors={!consentData.agb && vzfConfirmed ? { agb: 'Bitte akzeptieren Sie die AGB, um fortzufahren.' } : undefined}
+          errors={{
+            agb: !consentData.agb && vzfConfirmed ? 'Bitte akzeptieren Sie die AGB, um fortzufahren.' : undefined,
+            datenschutz: !consentData.datenschutz && vzfConfirmed ? 'Bitte akzeptieren Sie die Datenschutzbestimmungen.' : undefined,
+            widerruf: !consentData.widerruf && vzfConfirmed ? 'Bitte bestätigen Sie die Widerrufsbelehrung.' : undefined,
+            sepaMandat: !consentData.sepaMandat && vzfConfirmed ? 'Bitte erteilen Sie das SEPA-Lastschriftmandat.' : undefined,
+            advertising: consentData.advertising === null && vzfConfirmed ? 'Bitte wählen Sie eine Option.' : undefined,
+          }}
+          showSepa={true}
         />
 
         {/* VZF Download */}
@@ -978,7 +985,7 @@ export function OrderSummary() {
           </Button>
           <Button 
             onClick={handleOrder}
-            disabled={!vzfConfirmed || !consentData.agb || isSubmitting}
+            disabled={!vzfConfirmed || !consentData.agb || !consentData.datenschutz || !consentData.widerruf || !consentData.sepaMandat || consentData.advertising === null || isSubmitting}
             className="flex-1 h-12"
             variant="orange"
           >
