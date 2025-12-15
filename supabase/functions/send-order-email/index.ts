@@ -172,7 +172,10 @@ async function fillVZFPdf(data: VZFData, orderId: string, customerName: string):
   if (data.tariffName) drawRow('Tarif:', data.tariffName);
   if (data.routerName) drawRow('Router:', data.routerName);
   if (data.tvName) drawRow('TV:', data.tvName);
-  if (data.phoneName) drawRow('Telefon:', data.phoneName);
+  if (data.phoneName) {
+    const phoneQty = data.phoneLines && data.phoneLines > 1 ? `${data.phoneLines}x ` : '';
+    drawRow('Telefon:', `${phoneQty}${data.phoneName}`);
+  }
   if (data.selectedOptions) {
     for (const opt of data.selectedOptions) {
       const qty = opt.quantity && opt.quantity > 1 ? `${opt.quantity}x ` : '';
@@ -197,7 +200,28 @@ async function fillVZFPdf(data: VZFData, orderId: string, customerName: string):
   if (data.tariffName && data.tariffPrice) drawRow(data.tariffName, formatCurrency(data.tariffPrice));
   if (data.routerName && data.routerMonthlyPrice) drawRow(data.routerName, formatCurrency(data.routerMonthlyPrice));
   if (data.tvName && data.tvMonthlyPrice) drawRow(data.tvName, formatCurrency(data.tvMonthlyPrice));
-  if (data.phoneName && data.phoneMonthlyPrice) drawRow(data.phoneName, formatCurrency(data.phoneMonthlyPrice));
+  if (data.phoneName && data.phoneMonthlyPrice) {
+    const phoneQty = data.phoneLines && data.phoneLines > 1 ? `${data.phoneLines}x ` : '';
+    drawRow(`${phoneQty}${data.phoneName}`, formatCurrency(data.phoneMonthlyPrice * (data.phoneLines || 1)));
+  }
+  // Show selected options with prices
+  if (data.selectedOptions) {
+    for (const opt of data.selectedOptions) {
+      if (opt.monthlyPrice && opt.monthlyPrice > 0) {
+        const qty = opt.quantity && opt.quantity > 1 ? `${opt.quantity}x ` : '';
+        const totalPrice = opt.monthlyPrice * (opt.quantity || 1);
+        drawRow(`${qty}${opt.name}`, formatCurrency(totalPrice));
+      }
+    }
+  }
+  // Show monthly discounts
+  if (data.discounts) {
+    for (const discount of data.discounts) {
+      if (discount.type === 'monthly') {
+        drawRow(discount.name, `-${formatCurrency(discount.amount)}`);
+      }
+    }
+  }
   
   page.drawRectangle({ x: margin, y: y - 5, width: contentWidth, height: 18, color: lightGray });
   drawText('Summe der monatlichen Grundbetraege', margin + 5, y, { font: helveticaBold, size: 9 });
@@ -208,11 +232,39 @@ async function fillVZFPdf(data: VZFData, orderId: string, customerName: string):
   y -= 14;
   if (data.setupFee) drawRow('Bereitstellungspreis:', formatCurrency(data.setupFee));
   if (data.routerOneTimePrice) drawRow(data.routerName || 'Router', formatCurrency(data.routerOneTimePrice));
+  // Show one-time option prices
+  if (data.selectedOptions) {
+    for (const opt of data.selectedOptions) {
+      if (opt.oneTimePrice && opt.oneTimePrice > 0) {
+        const qty = opt.quantity && opt.quantity > 1 ? `${opt.quantity}x ` : '';
+        const totalPrice = opt.oneTimePrice * (opt.quantity || 1);
+        drawRow(`${qty}${opt.name}`, formatCurrency(totalPrice));
+      }
+    }
+  }
+  // Show one-time discounts
+  if (data.discounts) {
+    for (const discount of data.discounts) {
+      if (discount.type === 'one_time') {
+        drawRow(discount.name, `-${formatCurrency(discount.amount)}`);
+      }
+    }
+  }
   
   page.drawRectangle({ x: margin, y: y - 5, width: contentWidth, height: 18, color: lightGray });
   drawText('Summe der einmaligen Betraege', margin + 5, y, { font: helveticaBold, size: 9 });
   drawText(formatCurrency(data.oneTimeTotal || 0), margin + contentWidth - 80, y, { font: helveticaBold, size: 10 });
   y -= 25;
+  
+  // Aktionen & Rabatte (if any)
+  if (data.discounts && data.discounts.length > 0) {
+    drawSectionHeader('Aktionen & Rabatte');
+    for (const discount of data.discounts) {
+      const typeStr = discount.type === 'monthly' ? '/Monat' : ' einmalig';
+      drawRow(discount.name, `-${formatCurrency(discount.amount)}${typeStr}`);
+    }
+    y -= 10;
+  }
   
   // Laufzeit
   drawSectionHeader('Laufzeit, Verlaengerung und Kuendigung');
@@ -330,7 +382,10 @@ async function fillAuftragPdf(data: VZFData, orderId: string, customerName: stri
   if (data.tariffName) drawRow('Tarif:', data.tariffName);
   if (data.routerName) drawRow('Router:', data.routerName);
   if (data.tvName) drawRow('TV:', data.tvName);
-  if (data.phoneName) drawRow('Telefon:', data.phoneName);
+  if (data.phoneName) {
+    const phoneQty = data.phoneLines && data.phoneLines > 1 ? `${data.phoneLines}x ` : '';
+    drawRow('Telefon:', `${phoneQty}${data.phoneName}`);
+  }
   if (data.selectedOptions) {
     for (const opt of data.selectedOptions) {
       const qty = opt.quantity && opt.quantity > 1 ? `${opt.quantity}x ` : '';
@@ -346,7 +401,28 @@ async function fillAuftragPdf(data: VZFData, orderId: string, customerName: stri
   if (data.tariffName && data.tariffPrice) drawRow(data.tariffName, formatCurrency(data.tariffPrice));
   if (data.routerName && data.routerMonthlyPrice) drawRow(data.routerName, formatCurrency(data.routerMonthlyPrice));
   if (data.tvName && data.tvMonthlyPrice) drawRow(data.tvName, formatCurrency(data.tvMonthlyPrice));
-  if (data.phoneName && data.phoneMonthlyPrice) drawRow(data.phoneName, formatCurrency(data.phoneMonthlyPrice));
+  if (data.phoneName && data.phoneMonthlyPrice) {
+    const phoneQty = data.phoneLines && data.phoneLines > 1 ? `${data.phoneLines}x ` : '';
+    drawRow(`${phoneQty}${data.phoneName}`, formatCurrency(data.phoneMonthlyPrice * (data.phoneLines || 1)));
+  }
+  // Show selected options with monthly prices
+  if (data.selectedOptions) {
+    for (const opt of data.selectedOptions) {
+      if (opt.monthlyPrice && opt.monthlyPrice > 0) {
+        const qty = opt.quantity && opt.quantity > 1 ? `${opt.quantity}x ` : '';
+        const totalPrice = opt.monthlyPrice * (opt.quantity || 1);
+        drawRow(`${qty}${opt.name}`, formatCurrency(totalPrice));
+      }
+    }
+  }
+  // Show monthly discounts inline
+  if (data.discounts) {
+    for (const discount of data.discounts) {
+      if (discount.type === 'monthly') {
+        drawRow(discount.name, `-${formatCurrency(discount.amount)}`);
+      }
+    }
+  }
   
   page.drawRectangle({ x: margin, y: y - 5, width: contentWidth, height: 18, color: lightGray });
   drawText('Summe der monatlichen Grundbetraege', margin + 5, y, { font: helveticaBold, size: 9 });
@@ -357,6 +433,24 @@ async function fillAuftragPdf(data: VZFData, orderId: string, customerName: stri
   y -= 14;
   if (data.setupFee) drawRow('Bereitstellung:', formatCurrency(data.setupFee));
   if (data.routerOneTimePrice) drawRow(data.routerName || 'Router einmalig', formatCurrency(data.routerOneTimePrice));
+  // Show selected options with one-time prices
+  if (data.selectedOptions) {
+    for (const opt of data.selectedOptions) {
+      if (opt.oneTimePrice && opt.oneTimePrice > 0) {
+        const qty = opt.quantity && opt.quantity > 1 ? `${opt.quantity}x ` : '';
+        const totalPrice = opt.oneTimePrice * (opt.quantity || 1);
+        drawRow(`${qty}${opt.name}`, formatCurrency(totalPrice));
+      }
+    }
+  }
+  // Show one-time discounts inline
+  if (data.discounts) {
+    for (const discount of data.discounts) {
+      if (discount.type === 'one_time') {
+        drawRow(discount.name, `-${formatCurrency(discount.amount)}`);
+      }
+    }
+  }
   
   page.drawRectangle({ x: margin, y: y - 5, width: contentWidth, height: 18, color: lightGray });
   drawText('Summe der einmaligen Betraege', margin + 5, y, { font: helveticaBold, size: 9 });
