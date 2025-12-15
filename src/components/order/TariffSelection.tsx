@@ -46,6 +46,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { PhoneBookOptions } from '@/components/order/PhoneBookOptions';
 import { ContactForm } from '@/components/order/ContactForm';
 import { ImageGalleryDialog } from '@/components/order/ImageGalleryDialog';
+import { useBranding } from '@/hooks/useBranding';
 
 interface ReferralData {
   type: 'none' | 'internet' | 'social-media' | 'referral' | 'promo-code';
@@ -166,6 +167,9 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
     clearPromoCode,
     setStep 
   } = useOrder();
+
+  // Load branding settings
+  const { branding } = useBranding();
 
   // Use promotions from database
   const { 
@@ -1356,6 +1360,58 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
               data={phoneSelection}
               onChange={setPhoneSelection}
             />
+          )}
+
+          {/* Standard-Installation Info Box */}
+          {branding.installation_info_enabled && selectedTariff && (
+            <div className="bg-gradient-to-br from-primary/5 to-muted/30 rounded-xl p-5 border border-primary/20">
+              <div className="flex items-center gap-2 mb-4">
+                <HardHat className="w-5 h-5 text-primary" />
+                <h3 className="font-semibold text-foreground">{branding.installation_info_title}</h3>
+              </div>
+              
+              <p className="text-sm text-muted-foreground mb-3">{branding.installation_info_intro}</p>
+              
+              <ul className="space-y-2 text-sm text-muted-foreground mb-4">
+                {branding.installation_info_efh && (
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-1">•</span>
+                    <span><strong>Einfamilienhäuser:</strong> {branding.installation_info_efh.replace(/^Einfamilienhäuser:\s*/i, '')}</span>
+                  </li>
+                )}
+                {branding.installation_info_mfh && (
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-1">•</span>
+                    <span><strong>Mehrfamilienhäuser:</strong> {branding.installation_info_mfh.replace(/^Mehrfamilienhäuser:\s*/i, '')}</span>
+                  </li>
+                )}
+                {branding.installation_info_additional && (
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-1">•</span>
+                    <span>{branding.installation_info_additional}</span>
+                  </li>
+                )}
+              </ul>
+              
+              {/* Price Badge */}
+              {selectedTariff.setupFee !== undefined && selectedTariff.setupFee > 0 && (
+                <div className="flex items-center gap-2 pt-3 border-t border-primary/10">
+                  <span className="bg-primary text-primary-foreground font-semibold px-3 py-1.5 rounded-lg text-sm">
+                    {selectedTariff.setupFee.toFixed(2).replace('.', ',')} €
+                  </span>
+                  <span className="text-xs text-muted-foreground">einmalig</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Additional Services Title */}
+          {branding.installation_info_enabled && (serviceOptions.length > 0 || installationOptions.length > 0) && (
+            <div className="flex items-center gap-3 pt-2">
+              <div className="h-px flex-1 bg-border"></div>
+              <p className="text-sm font-medium text-muted-foreground">{branding.installation_info_services_title}</p>
+              <div className="h-px flex-1 bg-border"></div>
+            </div>
           )}
 
           {/* Service-Leistungen - Options with category 'service' */}
