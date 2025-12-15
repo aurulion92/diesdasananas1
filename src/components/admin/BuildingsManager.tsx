@@ -101,6 +101,8 @@ export const BuildingsManager = () => {
     gnv_vorhanden: false,
     gebaeude_id_v2: '',
     gebaeude_id_k7: '',
+    pk_tariffs_available: true,
+    kmu_tariffs_available: true,
   });
 
   // Only fetch when search term has 3+ characters
@@ -232,6 +234,8 @@ export const BuildingsManager = () => {
       gnv_vorhanden: false,
       gebaeude_id_v2: '',
       gebaeude_id_k7: '',
+      pk_tariffs_available: true,
+      kmu_tariffs_available: true,
     });
     setEditingBuilding(null);
   };
@@ -252,6 +256,8 @@ export const BuildingsManager = () => {
       gnv_vorhanden: building.gnv_vorhanden,
       gebaeude_id_v2: building.gebaeude_id_v2 || '',
       gebaeude_id_k7: building.gebaeude_id_k7 || '',
+      pk_tariffs_available: building.pk_tariffs_available ?? true,
+      kmu_tariffs_available: building.kmu_tariffs_available ?? true,
     });
     setIsDialogOpen(true);
   };
@@ -577,6 +583,28 @@ export const BuildingsManager = () => {
                           id="gnv_vorhanden"
                           checked={formData.gnv_vorhanden}
                           onCheckedChange={(checked) => setFormData({...formData, gnv_vorhanden: checked})}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 border-t pt-4">
+                    <h4 className="font-medium">Tarif-Verfügbarkeit</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="pk_tariffs_available">PK-Tarife verfügbar</Label>
+                        <Switch
+                          id="pk_tariffs_available"
+                          checked={formData.pk_tariffs_available}
+                          onCheckedChange={(checked) => setFormData({...formData, pk_tariffs_available: checked})}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="kmu_tariffs_available">KMU-Tarife verfügbar</Label>
+                        <Switch
+                          id="kmu_tariffs_available"
+                          checked={formData.kmu_tariffs_available}
+                          onCheckedChange={(checked) => setFormData({...formData, kmu_tariffs_available: checked})}
                         />
                       </div>
                     </div>
