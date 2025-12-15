@@ -106,8 +106,11 @@ interface PhoneSelection {
 }
 
 interface ConsentData {
-  advertising: boolean;
+  advertising: boolean | null; // null = not yet selected
   agb: boolean;
+  datenschutz: boolean;
+  widerruf: boolean;
+  sepaMandat: boolean;
 }
 
 interface ExpressOption {
@@ -223,8 +226,11 @@ const initialPhoneSelection: PhoneSelection = {
 };
 
 const initialConsentData: ConsentData = {
-  advertising: false,
+  advertising: null,
   agb: false,
+  datenschutz: false,
+  widerruf: false,
+  sepaMandat: false,
 };
 
 const initialReferralData: ReferralData = {
