@@ -196,19 +196,43 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
 
       importStats.matchedBuildings = matchedBuildingIds.size;
 
-      setStatusMessage(`${entriesToInsert.length.toLocaleString()} Einträge werden gespeichert...`);
+      setStatusMessage(`Prüfe auf bereits vorhandene Einträge...`);
 
-      // Insert in batches
+      // Fetch existing K7 services to avoid duplicates
+      const { data: existingServices, error: existingError } = await supabase
+        .from('building_k7_services')
+        .select('building_id, leistungsprodukt_id, nt_dsl_bandbreite_id');
+
+      if (existingError) throw existingError;
+
+      // Create a set of existing combinations for fast lookup
+      const existingKeys = new Set<string>();
+      for (const service of existingServices || []) {
+        const key = `${service.building_id}|${service.leistungsprodukt_id || ''}|${service.nt_dsl_bandbreite_id || ''}`;
+        existingKeys.add(key);
+      }
+
+      // Filter out entries that already exist
+      const newEntries = entriesToInsert.filter(entry => {
+        const key = `${entry.building_id}|${entry.leistungsprodukt_id || ''}|${entry.nt_dsl_bandbreite_id || ''}`;
+        return !existingKeys.has(key);
+      });
+
+      const duplicatesSkipped = entriesToInsert.length - newEntries.length;
+      if (duplicatesSkipped > 0) {
+        setStatusMessage(`${duplicatesSkipped.toLocaleString()} bereits vorhandene Einträge übersprungen. Speichere ${newEntries.length.toLocaleString()} neue Einträge...`);
+      } else {
+        setStatusMessage(`${newEntries.length.toLocaleString()} Einträge werden gespeichert...`);
+      }
+
+      // Insert only new entries in batches
       let insertedCount = 0;
-      for (let i = 0; i < entriesToInsert.length; i += BATCH_SIZE) {
-        const batch = entriesToInsert.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < newEntries.length; i += BATCH_SIZE) {
+        const batch = newEntries.slice(i, i + BATCH_SIZE);
         
         const { error: insertError } = await supabase
           .from('building_k7_services')
-          .upsert(batch, { 
-            onConflict: 'id',
-            ignoreDuplicates: false 
-          });
+          .insert(batch);
 
         if (insertError) {
           importStats.errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${insertError.message}`);
@@ -216,11 +240,12 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
           insertedCount += batch.length;
         }
 
-        setProgress(50 + Math.round(((i + batch.length) / entriesToInsert.length) * 50));
-        setStatusMessage(`${insertedCount.toLocaleString()} / ${entriesToInsert.length.toLocaleString()} Einträge gespeichert...`);
+        setProgress(50 + Math.round(((i + batch.length) / newEntries.length) * 50));
+        setStatusMessage(`${insertedCount.toLocaleString()} / ${newEntries.length.toLocaleString()} Einträge gespeichert...`);
       }
 
       importStats.newEntries = insertedCount;
+      importStats.skippedRows += duplicatesSkipped;
       setStats(importStats);
       setStatusMessage('Import abgeschlossen');
       
