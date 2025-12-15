@@ -12,7 +12,8 @@ import {
   Shield,
   ShoppingCart,
   FileText,
-  Cog
+  Cog,
+  Phone
 } from 'lucide-react';
 import { BuildingsManager } from './BuildingsManager';
 import { ProductsManager } from './ProductsManager';
@@ -22,6 +23,7 @@ import { CustomersManager } from './CustomersManager';
 import { OrdersManager } from './OrdersManager';
 import { DocumentTemplatesManager } from './DocumentTemplatesManager';
 import { SettingsManager } from './SettingsManager';
+import { PortingProvidersManager } from './PortingProvidersManager';
 
 interface AdminDashboardProps {
   user: User;
@@ -74,7 +76,7 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 md:grid-cols-7 lg:w-auto lg:inline-grid gap-1">
+          <TabsList className="grid w-full grid-cols-4 md:grid-cols-8 lg:w-auto lg:inline-grid gap-1">
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <ShoppingCart className="w-4 h-4" />
               <span className="hidden sm:inline">Bestellungen</span>
@@ -94,6 +96,10 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
             <TabsTrigger value="promotions" className="flex items-center gap-2">
               <Tag className="w-4 h-4" />
               <span className="hidden sm:inline">Aktionen</span>
+            </TabsTrigger>
+            <TabsTrigger value="porting" className="flex items-center gap-2">
+              <Phone className="w-4 h-4" />
+              <span className="hidden sm:inline">Portierung</span>
             </TabsTrigger>
             <TabsTrigger value="customers" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
@@ -123,6 +129,10 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
 
           <TabsContent value="promotions">
             <PromotionsManager />
+          </TabsContent>
+
+          <TabsContent value="porting">
+            <PortingProvidersManager />
           </TabsContent>
 
           <TabsContent value="customers">
