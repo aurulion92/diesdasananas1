@@ -38,8 +38,14 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
     const lines = text.split('\n');
     if (lines.length < 2) return [];
     
-    // Parse header - handle different separators
-    const separator = lines[0].includes(';') ? ';' : ',';
+    // Parse header - handle different separators (tab, semicolon, comma)
+    let separator = ',';
+    if (lines[0].includes('\t')) {
+      separator = '\t';
+    } else if (lines[0].includes(';')) {
+      separator = ';';
+    }
+    
     const headers = lines[0].split(separator).map(h => h.trim().replace(/"/g, ''));
     
     const rows: Record<string, string>[] = [];
