@@ -1,23 +1,24 @@
 import { useState, useEffect, useRef } from 'react';
 import { useOrder } from '@/context/OrderContext';
-import { checkAddress, searchStreets, getHouseNumbers, ConnectionType } from '@/data/addressDatabase';
+import { checkAddress, searchStreets, getHouseNumbers, ConnectionType, checkBuildingAvailability } from '@/data/addressDatabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Rocket, Loader2, AlertCircle, CheckCircle2, AlertTriangle, ChevronDown } from 'lucide-react';
+import { Rocket, Loader2, AlertCircle, CheckCircle2, AlertTriangle, ChevronDown, Building2 } from 'lucide-react';
 import { ContactForm } from './ContactForm';
 import { cn } from '@/lib/utils';
 
 interface AddressCheckProps {
   customerType?: 'pk' | 'kmu';
+  onSwitchToKmu?: () => void; // Callback to switch to KMU order flow
 }
 
-export function AddressCheck({ customerType = 'pk' }: AddressCheckProps) {
+export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressCheckProps) {
   const { setAddress, setStep, setConnectionType } = useOrder();
   const [city, setCity] = useState('Ingolstadt');
   const [street, setStreet] = useState('');
   const [houseNumber, setHouseNumber] = useState('');
   const [isChecking, setIsChecking] = useState(false);
-  const [result, setResult] = useState<'ftth' | 'limited' | 'not-connected' | 'not-found' | null>(null);
+  const [result, setResult] = useState<'ftth' | 'limited' | 'not-connected' | 'not-found' | 'kmu-only' | null>(null);
   const [foundAddress, setFoundAddress] = useState<{ street: string; houseNumber: string; city: string } | null>(null);
   const [showLimitedContactForm, setShowLimitedContactForm] = useState(false);
 
@@ -120,15 +121,25 @@ export function AddressCheck({ customerType = 'pk' }: AddressCheckProps) {
           setResult('not-connected');
         }
       } else {
+        // If not found for this customer type, check if building exists with different availability
+        if (customerType === 'pk') {
+          const availability = await checkBuildingAvailability(street, houseNumber, city);
+          if (availability.exists && !availability.pkAvailable && availability.kmuAvailable) {
+            // Building exists but only KMU is available
+            setResult('kmu-only');
+            setFoundAddress({ street, houseNumber, city });
+            return;
+          }
+        }
         setResult('not-found');
         setFoundAddress({ street, houseNumber, city });
       }
     } catch (error) {
       console.error('Error checking address:', error);
       setResult('not-found');
+    } finally {
+      setIsChecking(false);
     }
-    
-    setIsChecking(false);
   };
 
   const handleContinue = () => {
@@ -384,6 +395,30 @@ export function AddressCheck({ customerType = 'pk' }: AddressCheckProps) {
             {foundAddress && (
               <ContactForm reason="not-connected" address={foundAddress} />
             )}
+          </div>
+        )}
+
+        {/* KMU only - Building exists but only business tariffs available */}
+        {result === 'kmu-only' && (
+          <div className="animate-scale-in mt-6 space-y-4">
+            <div className="p-5 bg-primary/10 border border-primary/20 rounded-xl">
+              <div className="flex items-start gap-4">
+                <Building2 className="w-6 h-6 text-primary flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-bold text-primary text-lg">Nur Geschäftskunden-Anschlüsse verfügbar</h4>
+                  <p className="text-muted-foreground mt-1">
+                    An Ihrer Adresse bieten wir ausschließlich Geschäftskunden-Anschlüsse an. 
+                    Unsere <strong>easy business</strong> Produkte stehen Ihnen in der Bestellstrecke für Geschäftskunden zur Verfügung.
+                  </p>
+                  {onSwitchToKmu && (
+                    <Button onClick={onSwitchToKmu} variant="default" className="mt-4">
+                      <Building2 className="w-4 h-4 mr-2" />
+                      Zur Geschäftskunden-Bestellung
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
