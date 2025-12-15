@@ -1,11 +1,34 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
+import { PDFDocument, rgb } from "https://esm.sh/pdf-lib@1.17.1";
+import fontkit from "https://esm.sh/@pdf-lib/fontkit@1.1.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Open Sans font URLs from Google Fonts
+const OPEN_SANS_REGULAR_URL = "https://fonts.gstatic.com/s/opensans/v40/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsjZ0B4gaVI.woff2";
+const OPEN_SANS_BOLD_URL = "https://fonts.gstatic.com/s/opensans/v40/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsg-1x4gaVI.woff2";
+
+// Cache for fonts
+let openSansRegular: ArrayBuffer | null = null;
+let openSansBold: ArrayBuffer | null = null;
+
+async function loadOpenSansFonts() {
+  if (!openSansRegular) {
+    console.log("Loading Open Sans Regular font...");
+    const response = await fetch(OPEN_SANS_REGULAR_URL);
+    openSansRegular = await response.arrayBuffer();
+  }
+  if (!openSansBold) {
+    console.log("Loading Open Sans Bold font...");
+    const response = await fetch(OPEN_SANS_BOLD_URL);
+    openSansBold = await response.arrayBuffer();
+  }
+  return { regular: openSansRegular, bold: openSansBold };
+}
 
 interface VZFData {
   orderNumber?: string;
@@ -76,12 +99,9 @@ function formatCurrency(amount: number): string {
   return amount.toFixed(2).replace('.', ',') + ' €';
 }
 
-// Sanitize text for PDF (replace special chars that pdf-lib can't handle)
+// Sanitize text for PDF - now only handles € symbol since Open Sans supports German umlauts
 function sanitizeText(text: string): string {
-  return text
-    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
-    .replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue')
-    .replace(/ß/g, 'ss').replace(/€/g, 'EUR');
+  return text.replace(/€/g, 'EUR');
 }
 
 // Try to fill form fields in template PDF
@@ -235,8 +255,12 @@ async function fillTemplatePdf(templatePdfBytes: Uint8Array, data: VZFData): Pro
 // Generate VZF PDF from scratch (fallback)
 async function generateVZFPdfFromScratch(data: VZFData): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
-  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  pdfDoc.registerFontkit(fontkit);
+  
+  // Load and embed Open Sans fonts
+  const fonts = await loadOpenSansFonts();
+  const openSans = await pdfDoc.embedFont(fonts.regular);
+  const openSansBold = await pdfDoc.embedFont(fonts.bold);
   
   const primaryColor = rgb(0, 0.2, 0.4);
   const textColor = rgb(0.2, 0.2, 0.2);
@@ -259,7 +283,7 @@ async function generateVZFPdfFromScratch(data: VZFData): Promise<Uint8Array> {
   };
   
   const drawText = (text: string, x: number, yPos: number, options: { font?: any; size?: number; color?: any } = {}) => {
-    const font = options.font || helvetica;
+    const font = options.font || openSans;
     const size = options.size || 10;
     const color = options.color || textColor;
     page.drawText(sanitizeText(text), { x, y: yPos, font, size, color });
@@ -269,14 +293,14 @@ async function generateVZFPdfFromScratch(data: VZFData): Promise<Uint8Array> {
     checkNewPage(40);
     y -= 20;
     page.drawRectangle({ x: margin, y: y - 5, width: contentWidth, height: 22, color: primaryColor });
-    drawText(title, margin + 10, y, { font: helveticaBold, size: 11, color: rgb(1, 1, 1) });
+    drawText(title, margin + 10, y, { font: openSansBold, size: 11, color: rgb(1, 1, 1) });
     y -= 25;
   };
   
   const drawRow = (label: string, value: string, indent = 0) => {
     checkNewPage(20);
-    drawText(label, margin + indent, y, { font: helvetica, size: 9, color: rgb(0.4, 0.4, 0.4) });
-    drawText(value, margin + 200 + indent, y, { font: helvetica, size: 9 });
+    drawText(label, margin + indent, y, { font: openSans, size: 9, color: rgb(0.4, 0.4, 0.4) });
+    drawText(value, margin + 200 + indent, y, { font: openSans, size: 9 });
     y -= 14;
   };
   
@@ -284,18 +308,18 @@ async function generateVZFPdfFromScratch(data: VZFData): Promise<Uint8Array> {
   const date = data.date || new Date().toLocaleDateString('de-DE');
   
   // Header
-  drawText('COM-IN Telekommunikations GmbH', pageWidth - margin - 180, y, { font: helveticaBold, size: 9, color: primaryColor });
+  drawText('COM-IN Telekommunikations GmbH', pageWidth - margin - 180, y, { font: openSansBold, size: 9, color: primaryColor });
   y -= 12;
-  drawText('Erni-Singerl-Strasse 2b, 85053 Ingolstadt', pageWidth - margin - 180, y, { font: helvetica, size: 8 });
+  drawText('Erni-Singerl-Straße 2b, 85053 Ingolstadt', pageWidth - margin - 180, y, { font: openSans, size: 8 });
   y -= 11;
-  drawText('Tel: 0841 88511-0', pageWidth - margin - 180, y, { font: helvetica, size: 8 });
+  drawText('Tel: 0841 88511-0', pageWidth - margin - 180, y, { font: openSans, size: 8 });
   
   y = pageHeight - margin - 20;
-  drawText('VERTRAGSZUSAMMENFASSUNG', margin, y, { font: helveticaBold, size: 18, color: primaryColor });
+  drawText('VERTRAGSZUSAMMENFASSUNG', margin, y, { font: openSansBold, size: 18, color: primaryColor });
   y -= 25;
   
   page.drawRectangle({ x: margin, y: y - 8, width: contentWidth, height: 24, color: lightGray });
-  drawText(`Bestellnummer: ${orderNumber}  |  Datum: ${date}`, margin + 10, y, { font: helvetica, size: 10 });
+  drawText(`Bestellnummer: ${orderNumber}  |  Datum: ${date}`, margin + 10, y, { font: openSans, size: 10 });
   y -= 35;
   
   // Kundendaten
@@ -308,7 +332,7 @@ async function generateVZFPdfFromScratch(data: VZFData): Promise<Uint8Array> {
   y -= 10;
   
   // Dienste und Geräte
-  drawSectionHeader('Dienste und Geraete');
+  drawSectionHeader('Dienste und Geräte');
   if (data.tariffName) drawRow('Tarif:', data.tariffName);
   if (data.routerName) drawRow('Router:', data.routerName);
   if (data.tvName) drawRow('TV:', data.tvName);
@@ -335,7 +359,7 @@ async function generateVZFPdfFromScratch(data: VZFData): Promise<Uint8Array> {
   // Preis
   drawSectionHeader('Preis');
   y -= 5;
-  drawText('Monatliche Grundbetraege', margin, y, { font: helveticaBold, size: 9 });
+  drawText('Monatliche Grundbeträge', margin, y, { font: openSansBold, size: 9 });
   y -= 14;
   if (data.tariffName && data.tariffPrice) drawRow(data.tariffName, formatCurrency(data.tariffPrice));
   if (data.routerName && data.routerMonthlyPrice) drawRow(data.routerName, formatCurrency(data.routerMonthlyPrice));
@@ -361,11 +385,11 @@ async function generateVZFPdfFromScratch(data: VZFData): Promise<Uint8Array> {
   }
   
   page.drawRectangle({ x: margin, y: y - 5, width: contentWidth, height: 18, color: lightGray });
-  drawText('Summe der monatlichen Grundbetraege', margin + 5, y, { font: helveticaBold, size: 9 });
-  drawText(formatCurrency(data.monthlyTotal || 0), margin + contentWidth - 80, y, { font: helveticaBold, size: 10, color: accentColor });
+  drawText('Summe der monatlichen Grundbeträge', margin + 5, y, { font: openSansBold, size: 9 });
+  drawText(formatCurrency(data.monthlyTotal || 0), margin + contentWidth - 80, y, { font: openSansBold, size: 10, color: accentColor });
   y -= 25;
   
-  drawText('Einmalige Betraege', margin, y, { font: helveticaBold, size: 9 });
+  drawText('Einmalige Beträge', margin, y, { font: openSansBold, size: 9 });
   y -= 14;
   if (data.setupFee) drawRow('Bereitstellungspreis:', formatCurrency(data.setupFee));
   if (data.routerOneTimePrice) drawRow(data.routerName || 'Router', formatCurrency(data.routerOneTimePrice));
@@ -386,24 +410,24 @@ async function generateVZFPdfFromScratch(data: VZFData): Promise<Uint8Array> {
   }
   
   page.drawRectangle({ x: margin, y: y - 5, width: contentWidth, height: 18, color: lightGray });
-  drawText('Summe der einmaligen Betraege', margin + 5, y, { font: helveticaBold, size: 9 });
-  drawText(formatCurrency(data.oneTimeTotal || 0), margin + contentWidth - 80, y, { font: helveticaBold, size: 10 });
+  drawText('Summe der einmaligen Beträge', margin + 5, y, { font: openSansBold, size: 9 });
+  drawText(formatCurrency(data.oneTimeTotal || 0), margin + contentWidth - 80, y, { font: openSansBold, size: 10 });
   y -= 25;
   
   // Laufzeit
-  drawSectionHeader('Laufzeit, Verlaengerung und Kuendigung');
+  drawSectionHeader('Laufzeit, Verlängerung und Kündigung');
   const duration = data.contractDuration || 24;
-  drawText(`Die Mindestvertragslaufzeit betraegt ${duration} Monat(e), beginnend ab dem Tag der Dienstbereitstellung.`, margin, y, { font: helvetica, size: 9 });
+  drawText(`Die Mindestvertragslaufzeit beträgt ${duration} Monat(e), beginnend ab dem Tag der Dienstbereitstellung.`, margin, y, { font: openSans, size: 9 });
   y -= 14;
-  drawText('Das Vertragsverhaeltnis verlaengert sich um jeweils einen weiteren Monat, sofern es nicht mit einer', margin, y, { font: helvetica, size: 9 });
+  drawText('Das Vertragsverhältnis verlängert sich um jeweils einen weiteren Monat, sofern es nicht mit einer', margin, y, { font: openSans, size: 9 });
   y -= 12;
-  drawText('Frist von einem (1) Monat zum Ende der Mindestvertragslaufzeit gekuendigt wird.', margin, y, { font: helvetica, size: 9 });
+  drawText('Frist von einem (1) Monat zum Ende der Mindestvertragslaufzeit gekündigt wird.', margin, y, { font: openSans, size: 9 });
   
   // Footer
   checkNewPage(60);
   y = margin + 30;
   page.drawLine({ start: { x: margin, y: y + 10 }, end: { x: pageWidth - margin, y: y + 10 }, thickness: 1, color: rgb(0.8, 0.8, 0.8) });
-  drawText('COM-IN Telekommunikations GmbH | Erni-Singerl-Strasse 2b | 85053 Ingolstadt', margin, y - 5, { font: helvetica, size: 8, color: rgb(0.5, 0.5, 0.5) });
+  drawText('COM-IN Telekommunikations GmbH | Erni-Singerl-Straße 2b | 85053 Ingolstadt', margin, y - 5, { font: openSans, size: 8, color: rgb(0.5, 0.5, 0.5) });
   
   return await pdfDoc.save();
 }
