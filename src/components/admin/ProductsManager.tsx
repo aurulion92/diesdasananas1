@@ -314,11 +314,20 @@ export const ProductsManager = () => {
       const newProductData = {
         name: `Kopie von ${copyProduct.name}`,
         slug: `${copyProduct.slug}-copy-${Date.now()}`,
+        display_name: copyProduct.display_name,
         description: copyProduct.description,
+        info_text: copyProduct.info_text,
+        phone_terms_text: copyProduct.phone_terms_text,
+        external_link_url: copyProduct.external_link_url,
+        external_link_label: copyProduct.external_link_label,
         monthly_price: copyProduct.monthly_price,
         setup_fee: copyProduct.setup_fee,
         download_speed: copyProduct.download_speed,
         upload_speed: copyProduct.upload_speed,
+        download_speed_normal: copyProduct.download_speed_normal,
+        download_speed_min: copyProduct.download_speed_min,
+        upload_speed_normal: copyProduct.upload_speed_normal,
+        upload_speed_min: copyProduct.upload_speed_min,
         is_ftth: copyOptions.copyAvailability ? copyProduct.is_ftth : true,
         is_fttb: copyOptions.copyAvailability ? copyProduct.is_fttb : true,
         is_ftth_limited: copyOptions.copyAvailability ? copyProduct.is_ftth_limited : true,
@@ -330,6 +339,7 @@ export const ProductsManager = () => {
         includes_fiber_tv: copyProduct.includes_fiber_tv,
         hide_for_ftth: copyProduct.hide_for_ftth,
         is_building_restricted: copyOptions.copyBuildingAssignments ? copyProduct.is_building_restricted : false,
+        customer_type: copyProduct.customer_type,
       };
 
       const { data: newProduct, error: insertError } = await supabase
