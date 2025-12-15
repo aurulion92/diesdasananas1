@@ -101,6 +101,9 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
     return s;
   };
 
+  // Key token for address matching (ignore hyphen vs space, etc.)
+  const toKeyToken = (input: string): string => normalizeForMatching(input).replace(/\s+/g, '');
+
   const parseCSV = (
     text: string,
     encodingHint: string
