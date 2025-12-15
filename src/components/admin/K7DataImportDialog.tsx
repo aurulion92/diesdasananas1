@@ -64,39 +64,50 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
       .replace(/Ãœ/g, 'Ü');
   };
 
-  // Normalize string for tolerant matching (remove/standardize umlauts)
-  const normalizeForMatching = (s: string): string => {
-    if (!s) return '';
-    return s
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, ' ')
-      // Normalize umlauts to base characters for matching
-      .replace(/ä|ae|ï¿½/gi, 'a')
-      .replace(/ö|oe|ï¿½/gi, 'o')
-      .replace(/ü|ue|ï¿½/gi, 'u')
-      .replace(/ß|ss|ï¿½/gi, 's')
-      // Remove common encoding artifacts
-      .replace(/[ï¿½Ã]/g, '')
-      // Normalize straße variations
-      .replace(/strasse|str\.|straße/gi, 'str');
+  // Normalize string for tolerant matching (umlauts, ß, encoding artifacts)
+  const normalizeForMatching = (input: string): string => {
+    if (!input) return '';
+
+    // keep original as much as possible, then normalize
+    let s = input.toLowerCase().trim();
+    s = s.replace(/\s+/g, ' ');
+
+    // Fix obvious mojibake patterns (Ã¼ → ü, etc.)
+    s = fixEncodingIssues(s);
+
+    // If the source already contains '?' as replacement (e.g. "stra?e"), treat it as ß→ss (common in these exports)
+    s = s.replace(/([a-z])\?([a-z])/g, '$1ss$2');
+    // Also handle replacement char between letters
+    s = s.replace(/([a-z])�([a-z])/g, '$1ss$2');
+
+    // Normalize Straße variants before ß mapping
+    s = s
+      .replace(/\bstraße\b/g, 'strasse')
+      .replace(/\bstrasse\b/g, 'strasse')
+      .replace(/\bstr\.\b/g, 'strasse')
+      .replace(/\bstr\b/g, 'strasse');
+
+    // Transliterate German characters
+    s = s
+      .replace(/ä/g, 'ae')
+      .replace(/ö/g, 'oe')
+      .replace(/ü/g, 'ue')
+      .replace(/ß/g, 'ss');
+
+    // Remove punctuation (keep letters, numbers, spaces)
+    s = s.replace(/[^a-z0-9 ]/g, '');
+    s = s.replace(/\s+/g, ' ').trim();
+
+    return s;
   };
 
-  const parseCSV = (text: string): { rows: Record<string, string>[]; separator: string; headers: string[]; encoding: string } => {
-    // First try to fix encoding issues
-    let encoding = 'UTF-8';
-    let fixedText = text;
-    
-    // Check for encoding issues
-    if (text.includes('Ã') || text.includes('ï¿½')) {
-      console.log('Encoding issues detected, attempting to fix...');
-      fixedText = fixEncodingIssues(text);
-      encoding = 'UTF-8 (korrigiert)';
-    }
-    
-    const lines = fixedText.split('\n');
-    if (lines.length < 2) return { rows: [], separator: ',', headers: [], encoding };
-    
+  const parseCSV = (
+    text: string,
+    encodingHint: string
+  ): { rows: Record<string, string>[]; separator: string; headers: string[]; encoding: string } => {
+    const lines = text.split('\n');
+    if (lines.length < 2) return { rows: [], separator: ',', headers: [], encoding: encodingHint };
+
     // Parse header - handle different separators (tab, semicolon, comma)
     let separator = ',';
     if (lines[0].includes('\t')) {
@@ -104,28 +115,71 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
     } else if (lines[0].includes(';')) {
       separator = ';';
     }
-    
+
     console.log('CSV Separator detected:', separator === '\t' ? 'TAB' : separator);
-    
-    const headers = lines[0].split(separator).map(h => h.trim().replace(/"/g, ''));
+
+    const headers = lines[0].split(separator).map((h) => h.trim().replace(/"/g, ''));
     console.log('CSV Headers:', headers);
-    
+
     const rows: Record<string, string>[] = [];
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
-      
-      const values = line.split(separator).map(v => v.trim().replace(/"/g, ''));
+
+      const values = line.split(separator).map((v) => v.trim().replace(/"/g, ''));
       const row: Record<string, string> = {};
-      
+
       headers.forEach((header, index) => {
         row[header] = values[index] || '';
       });
-      
+
       rows.push(row);
     }
-    
-    return { rows, separator, headers, encoding };
+
+    return { rows, separator, headers, encoding: encodingHint };
+  };
+
+  const readFileTextSmart = async (file: File): Promise<{ text: string; encoding: string }> => {
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+
+    const safeDecode = (label: string): string => {
+      // Some browsers might not support windows-1252 label; fallback handled outside.
+      return new TextDecoder(label as any, { fatal: false }).decode(bytes);
+    };
+
+    const utf8 = safeDecode('utf-8');
+
+    let legacy = '';
+    let legacyLabel = 'Windows-1252';
+    try {
+      legacy = safeDecode('windows-1252');
+    } catch {
+      legacyLabel = 'ISO-8859-1';
+      legacy = safeDecode('iso-8859-1');
+    }
+
+    const score = (t: string) => {
+      const count = (re: RegExp) => t.match(re)?.length ?? 0;
+      // Prefer fewer replacement chars and fewer mojibake markers
+      return count(/�/g) * 50 + count(/Ã/g) * 5 + count(/ï¿½/g) * 50;
+    };
+
+    let chosen = utf8;
+    let encoding = 'UTF-8';
+
+    if (score(legacy) < score(utf8)) {
+      chosen = legacy;
+      encoding = legacyLabel;
+    }
+
+    // If it still looks like mojibake, fix common patterns
+    const fixed = chosen.includes('Ã') ? fixEncodingIssues(chosen) : chosen;
+    if (fixed !== chosen) {
+      encoding = `${encoding} → UTF-8 korrigiert`;
+    }
+
+    return { text: fixed, encoding };
   };
 
   const downloadUnmatchedRows = () => {
@@ -176,8 +230,8 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
     setStatusMessage('Datei wird gelesen...');
 
     try {
-      const text = await file.text();
-      const { rows, separator, headers, encoding } = parseCSV(text);
+      const { text, encoding } = await readFileTextSmart(file);
+      const { rows, separator, headers } = parseCSV(text, encoding);
       
       if (rows.length === 0) {
         throw new Error('Keine Daten in der Datei gefunden');
@@ -221,7 +275,7 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
       
       for (const building of allBuildings) {
         const street = normalizeForMatching(building.street);
-        const houseNum = building.house_number?.toLowerCase().trim() || '';
+        const houseNum = (building.house_number ?? '').toLowerCase().replace(/\s+/g, '');
         const plz = building.postal_code?.trim() || '';
         const city = normalizeForMatching(building.city);
         
@@ -277,7 +331,7 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
 
         // Use TOLERANT matching normalization
         const street = normalizeForMatching(streetRaw);
-        const houseNum = houseNumRaw.toLowerCase().trim();
+        const houseNum = houseNumRaw.toLowerCase().replace(/\s+/g, '');
         const plz = plzRaw.trim();
         const city = normalizeForMatching(cityRaw);
 
