@@ -960,38 +960,68 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
               </div>
               
               <div className="space-y-4">
-                {/* Use first phone option from database */}
-                {(() => {
-                  const phoneOption = dbPhoneOptions[0];
-                  const phonePrice = phoneOption?.option.monthly_price ?? 0;
-                  const phoneName = phoneOption?.option.name ?? 'Telefon-Flat';
-                  const phoneInfoText = phoneOption?.option.info_text;
+                {/* Phone option selection as RadioGroup */}
+                <RadioGroup 
+                  value={phoneSelection.enabled && phoneSelection.selectedOptionId ? phoneSelection.selectedOptionId : 'none'}
+                  onValueChange={(value) => {
+                    if (value === 'none') {
+                      setPhoneSelection({
+                        ...phoneSelection,
+                        enabled: false,
+                        selectedOptionId: null,
+                        lines: 1,
+                      });
+                    } else {
+                      setPhoneSelection({
+                        ...phoneSelection,
+                        enabled: true,
+                        selectedOptionId: value,
+                        lines: phoneSelection.lines || 1,
+                      });
+                    }
+                  }}
+                  className="space-y-2"
+                >
+                  {/* No phone option */}
+                  <div className="flex items-center space-x-3">
+                    <RadioGroupItem value="none" id="phone-none" />
+                    <Label htmlFor="phone-none" className="cursor-pointer flex-1">
+                      <span>Keine Telefonie</span>
+                    </Label>
+                  </div>
                   
-                  return (
-                    <>
-                      <div className="flex items-center space-x-3">
-                        <Checkbox 
-                          id="phone-enabled" 
-                          checked={phoneSelection.enabled}
-                          onCheckedChange={(checked) => setPhoneSelection({
-                            ...phoneSelection,
-                            enabled: checked === true,
-                            lines: checked ? phoneSelection.lines : 1,
-                          })}
-                        />
-                        <Label htmlFor="phone-enabled" className="cursor-pointer flex-1">
+                  {/* All available phone options */}
+                  {dbPhoneOptions.map((mapping) => {
+                    const phoneOption = mapping.option;
+                    const phonePrice = phoneOption.monthly_price ?? 0;
+                    const phoneInfoText = phoneOption.info_text;
+                    
+                    return (
+                      <div key={mapping.option_id} className="flex items-center space-x-3">
+                        <RadioGroupItem value={phoneOption.id} id={`phone-${phoneOption.id}`} />
+                        <Label htmlFor={`phone-${phoneOption.id}`} className="cursor-pointer flex-1">
                           <div className="flex justify-between items-center">
                             <span className="flex items-center gap-2">
-                              {phoneName}
+                              {phoneOption.name}
                               {phoneInfoText && <InfoTooltip text={phoneInfoText} />}
                             </span>
                             <span className="text-accent">{phonePrice.toFixed(2).replace('.', ',')} €/Monat je Leitung</span>
                           </div>
                         </Label>
                       </div>
+                    );
+                  })}
+                </RadioGroup>
+                
+                {phoneSelection.enabled && phoneSelection.selectedOptionId && (
+                  <div className="ml-6 space-y-4">
+                    {/* Get selected phone option price */}
+                    {(() => {
+                      const selectedPhoneMapping = dbPhoneOptions.find(m => m.option.id === phoneSelection.selectedOptionId);
+                      const phonePrice = selectedPhoneMapping?.option.monthly_price ?? 0;
                       
-                      {phoneSelection.enabled && (
-                        <div className="ml-6 space-y-4">
+                      return (
+                        <>
                           <div className="flex items-center gap-4">
                             <Label className="text-sm">Anzahl Leitungen:</Label>
                             <div className="flex items-center gap-2">
@@ -1099,11 +1129,11 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
                               </div>
                             </div>
                           )}
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
           )}
