@@ -193,9 +193,10 @@ export function OrderSummary() {
         // TV
         tvName: tvSelection.type === 'comin' ? 'COM-IN TV' : tvSelection.package?.name,
         tvMonthlyPrice: tvSelection.package?.monthlyPrice,
-        // Phone - use selectedOptionPrice from database
-        phoneName: phoneIsBooked ? (phoneSelection.selectedOptionName || 'Telefonie') : undefined,
-        phoneMonthlyPrice: phoneSelection.enabled ? phoneSelection.selectedOptionPrice * phoneSelection.lines : undefined,
+        // Phone - use selectedOptionPrice from database with line count in name
+        phoneName: phoneIsBooked && phoneSelection.selectedOptionName ? 
+          `${phoneSelection.selectedOptionName} (${phoneSelection.lines} Leitung${phoneSelection.lines > 1 ? 'en' : ''})` : undefined,
+        phoneMonthlyPrice: phoneIsBooked ? phoneSelection.selectedOptionPrice * phoneSelection.lines : undefined,
         phoneLines: phoneSelection.lines,
         // Totals
         monthlyTotal: getTotalMonthly(),
