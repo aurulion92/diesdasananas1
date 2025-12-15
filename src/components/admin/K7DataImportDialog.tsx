@@ -23,12 +23,13 @@ interface ImportStats {
   matchedBuildings: number;
   newEntries: number;
   skippedRows: number;
-  unmatchedAddresses: Array<{ street: string; houseNum: string; plz: string; city: string }>;
+  unmatchedRows: Array<Record<string, string>>; // Full row data for export
   errors: string[];
   debugInfo: {
     separator: string;
     headers: string[];
     sampleRow: Record<string, string> | null;
+    encoding: string;
   };
 }
 
@@ -40,9 +41,61 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
   const [statusMessage, setStatusMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const parseCSV = (text: string): { rows: Record<string, string>[]; separator: string; headers: string[] } => {
-    const lines = text.split('\n');
-    if (lines.length < 2) return { rows: [], separator: ',', headers: [] };
+  // Fix common encoding issues (UTF-8 read as Latin-1 or vice versa)
+  const fixEncodingIssues = (text: string): string => {
+    // Common UTF-8 interpreted as Windows-1252/Latin-1 corruptions
+    return text
+      // ß corruption patterns
+      .replace(/ÃŸ/g, 'ß')
+      .replace(/Ã\u009F/g, 'ß')
+      .replace(/ï¿½/g, 'ß') // replacement character often means ß in German context
+      // ä corruption patterns
+      .replace(/Ã¤/g, 'ä')
+      .replace(/Ã\u0084/g, 'Ä')
+      // ö corruption patterns
+      .replace(/Ã¶/g, 'ö')
+      .replace(/Ã\u0096/g, 'Ö')
+      // ü corruption patterns
+      .replace(/Ã¼/g, 'ü')
+      .replace(/Ã\u009C/g, 'Ü')
+      // Uppercase umlauts
+      .replace(/Ã„/g, 'Ä')
+      .replace(/Ã–/g, 'Ö')
+      .replace(/Ãœ/g, 'Ü');
+  };
+
+  // Normalize string for tolerant matching (remove/standardize umlauts)
+  const normalizeForMatching = (s: string): string => {
+    if (!s) return '';
+    return s
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ')
+      // Normalize umlauts to base characters for matching
+      .replace(/ä|ae|ï¿½/gi, 'a')
+      .replace(/ö|oe|ï¿½/gi, 'o')
+      .replace(/ü|ue|ï¿½/gi, 'u')
+      .replace(/ß|ss|ï¿½/gi, 's')
+      // Remove common encoding artifacts
+      .replace(/[ï¿½Ã]/g, '')
+      // Normalize straße variations
+      .replace(/strasse|str\.|straße/gi, 'str');
+  };
+
+  const parseCSV = (text: string): { rows: Record<string, string>[]; separator: string; headers: string[]; encoding: string } => {
+    // First try to fix encoding issues
+    let encoding = 'UTF-8';
+    let fixedText = text;
+    
+    // Check for encoding issues
+    if (text.includes('Ã') || text.includes('ï¿½')) {
+      console.log('Encoding issues detected, attempting to fix...');
+      fixedText = fixEncodingIssues(text);
+      encoding = 'UTF-8 (korrigiert)';
+    }
+    
+    const lines = fixedText.split('\n');
+    if (lines.length < 2) return { rows: [], separator: ',', headers: [], encoding };
     
     // Parse header - handle different separators (tab, semicolon, comma)
     let separator = ',';
@@ -72,33 +125,37 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
       rows.push(row);
     }
     
-    return { rows, separator, headers };
+    return { rows, separator, headers, encoding };
   };
 
-  const downloadUnmatchedAddresses = () => {
-    if (!stats?.unmatchedAddresses.length) return;
+  const downloadUnmatchedRows = () => {
+    if (!stats?.unmatchedRows.length || !stats.debugInfo.headers.length) return;
     
-    // Get unique addresses
-    const uniqueAddresses = new Map<string, typeof stats.unmatchedAddresses[0]>();
-    for (const addr of stats.unmatchedAddresses) {
-      const key = `${addr.street}|${addr.houseNum}|${addr.plz}|${addr.city}`;
-      if (!uniqueAddresses.has(key)) {
-        uniqueAddresses.set(key, addr);
-      }
-    }
+    const headers = stats.debugInfo.headers;
     
-    const csvContent = [
-      'Straße;Hausnummer;PLZ;Ort',
-      ...Array.from(uniqueAddresses.values()).map(a => 
-        `${a.street};${a.houseNum};${a.plz};${a.city}`
+    // Build CSV with all original columns
+    const csvLines = [
+      headers.join(';'),
+      ...stats.unmatchedRows.map(row => 
+        headers.map(h => {
+          const val = row[h] || '';
+          // Escape semicolons and quotes
+          if (val.includes(';') || val.includes('"')) {
+            return `"${val.replace(/"/g, '""')}"`;
+          }
+          return val;
+        }).join(';')
       )
-    ].join('\n');
+    ];
+    
+    // Add BOM for Excel UTF-8 compatibility
+    const csvContent = '\uFEFF' + csvLines.join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'nicht_gematchte_adressen.csv';
+    link.download = 'nicht_gematchte_zeilen.csv';
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -120,7 +177,7 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
 
     try {
       const text = await file.text();
-      const { rows, separator, headers } = parseCSV(text);
+      const { rows, separator, headers, encoding } = parseCSV(text);
       
       if (rows.length === 0) {
         throw new Error('Keine Daten in der Datei gefunden');
@@ -158,15 +215,15 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
 
       console.log(`Loaded ${allBuildings.length} buildings from database`);
 
-      // Create lookup map by normalized address (street + house_number + postal_code/city)
+      // Create lookup map by TOLERANT normalized address (street + house_number + postal_code/city)
+      // Using normalizeForMatching which handles umlauts and encoding issues
       const buildingLookup = new Map<string, { id: string; gebaeude_id_k7: string | null }>();
-      const normalizeStr = (s: string) => s?.toLowerCase().trim().replace(/\s+/g, ' ') || '';
       
       for (const building of allBuildings) {
-        const street = normalizeStr(building.street);
-        const houseNum = normalizeStr(building.house_number);
+        const street = normalizeForMatching(building.street);
+        const houseNum = building.house_number?.toLowerCase().trim() || '';
         const plz = building.postal_code?.trim() || '';
-        const city = normalizeStr(building.city);
+        const city = normalizeForMatching(building.city);
         
         // Key with PLZ
         if (plz) {
@@ -185,12 +242,13 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
         matchedBuildings: 0,
         newEntries: 0,
         skippedRows: 0,
-        unmatchedAddresses: [],
+        unmatchedRows: [],
         errors: [],
         debugInfo: {
           separator: separator === '\t' ? 'TAB' : separator,
           headers,
-          sampleRow: rows[0] || null
+          sampleRow: rows[0] || null,
+          encoding
         }
       };
 
@@ -206,7 +264,7 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
       }> = [];
 
       const matchedBuildingIds = new Set<string>();
-      const seenUnmatchedAddresses = new Set<string>();
+      const seenUnmatchedKeys = new Set<string>();
       
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
@@ -217,10 +275,11 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
         const plzRaw = row['PLZ'] || row['Plz'] || row['plz'] || '';
         const cityRaw = row['ORT'] || row['Ort'] || row['ort'] || row['TEILORT_NAME'] || '';
 
-        const street = normalizeStr(streetRaw);
-        const houseNum = normalizeStr(houseNumRaw);
+        // Use TOLERANT matching normalization
+        const street = normalizeForMatching(streetRaw);
+        const houseNum = houseNumRaw.toLowerCase().trim();
         const plz = plzRaw.trim();
-        const city = normalizeStr(cityRaw);
+        const city = normalizeForMatching(cityRaw);
 
         if (!street || !houseNum) {
           importStats.skippedRows++;
@@ -265,16 +324,11 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
         } else {
           importStats.skippedRows++;
           
-          // Track unmatched addresses (limit to first 1000 unique addresses for memory)
+          // Track unmatched rows with FULL row data (limit to first 5000 for memory)
           const addrKey = `${street}|${houseNum}|${plz}|${city}`;
-          if (!seenUnmatchedAddresses.has(addrKey) && importStats.unmatchedAddresses.length < 1000) {
-            seenUnmatchedAddresses.add(addrKey);
-            importStats.unmatchedAddresses.push({
-              street: streetRaw.trim(),
-              houseNum: houseNumRaw.trim(),
-              plz: plz,
-              city: cityRaw.trim()
-            });
+          if (!seenUnmatchedKeys.has(addrKey) && importStats.unmatchedRows.length < 5000) {
+            seenUnmatchedKeys.add(addrKey);
+            importStats.unmatchedRows.push(row); // Store full row for export
           }
         }
 
@@ -288,7 +342,7 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
       importStats.matchedBuildings = matchedBuildingIds.size;
 
       console.log(`Matched ${matchedBuildingIds.size} buildings, ${entriesToInsert.length} entries to insert`);
-      console.log('Sample unmatched addresses:', importStats.unmatchedAddresses.slice(0, 5));
+      console.log('Sample unmatched rows:', importStats.unmatchedRows.slice(0, 3));
 
       setStatusMessage(`Prüfe auf bereits vorhandene Einträge...`);
 
@@ -475,7 +529,8 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
             {/* Debug Info */}
             <div className="text-xs bg-muted p-2 rounded space-y-1">
               <p><strong>Separator:</strong> {stats.debugInfo.separator}</p>
-              <p><strong>Spalten:</strong> {stats.debugInfo.headers.join(', ')}</p>
+              <p><strong>Encoding:</strong> {stats.debugInfo.encoding}</p>
+              <p><strong>Spalten:</strong> {stats.debugInfo.headers.slice(0, 8).join(', ')}{stats.debugInfo.headers.length > 8 ? ` (+${stats.debugInfo.headers.length - 8} weitere)` : ''}</p>
               {stats.debugInfo.sampleRow && (
                 <p><strong>Erste Zeile STRASSE:</strong> "{stats.debugInfo.sampleRow['STRASSE'] || stats.debugInfo.sampleRow['Strasse'] || 'nicht gefunden'}"</p>
               )}
@@ -500,30 +555,36 @@ export function K7DataImportDialog({ onImportComplete }: K7DataImportDialogProps
               </div>
             </div>
             
-            {/* Unmatched addresses preview */}
-            {stats.unmatchedAddresses.length > 0 && (
+            {/* Unmatched rows preview */}
+            {stats.unmatchedRows.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm font-medium text-orange-600">
-                  {stats.unmatchedAddresses.length >= 1000 ? '1000+' : stats.unmatchedAddresses.length} nicht-gematchte Adressen (Beispiele):
+                  {stats.unmatchedRows.length >= 5000 ? '5000+' : stats.unmatchedRows.length} nicht-gematchte Zeilen (Beispiele):
                 </p>
                 <div className="text-xs bg-orange-50 dark:bg-orange-950/20 p-2 rounded max-h-32 overflow-y-auto">
-                  {stats.unmatchedAddresses.slice(0, 10).map((addr, i) => (
-                    <p key={i} className="text-orange-700 dark:text-orange-300">
-                      {addr.street} {addr.houseNum}, {addr.plz} {addr.city}
-                    </p>
-                  ))}
-                  {stats.unmatchedAddresses.length > 10 && (
+                  {stats.unmatchedRows.slice(0, 10).map((row, i) => {
+                    const street = row['STRASSE'] || row['Strasse'] || '';
+                    const houseNum = row['HAUSNUMMER'] || row['Hausnummer'] || '';
+                    const plz = row['PLZ'] || row['Plz'] || '';
+                    const city = row['ORT'] || row['Ort'] || '';
+                    return (
+                      <p key={i} className="text-orange-700 dark:text-orange-300">
+                        {street} {houseNum}, {plz} {city}
+                      </p>
+                    );
+                  })}
+                  {stats.unmatchedRows.length > 10 && (
                     <p className="text-orange-500">...und weitere</p>
                   )}
                 </div>
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={downloadUnmatchedAddresses}
+                  onClick={downloadUnmatchedRows}
                   className="w-full"
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Nicht-gematchte Adressen exportieren
+                  Nicht-gematchte Zeilen exportieren (alle Spalten)
                 </Button>
               </div>
             )}
