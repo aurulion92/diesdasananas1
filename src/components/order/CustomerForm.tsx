@@ -33,6 +33,7 @@ export function CustomerForm() {
     isMFH,
     setStep,
     phoneSelection,
+    customerType, // Get customer type from context
   } = useOrder();
   
   const [expressOptionFromDb, setExpressOptionFromDb] = useState<{
@@ -133,7 +134,8 @@ export function CustomerForm() {
   const [cancellationDate, setCancellationDate] = useState<Date | undefined>(undefined);
 
   const isMFHBuilding = isMFH();
-  const canHaveExpress = connectionType === 'ftth' || connectionType === 'limited';
+  // Express only available for PK customers with ftth or limited connection
+  const canHaveExpress = customerType === 'pk' && (connectionType === 'ftth' || connectionType === 'limited');
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -677,16 +679,26 @@ export function CustomerForm() {
                       className="space-y-3"
                     >
                       <div className={cn(
-                        "flex items-center space-x-3 p-3 rounded-lg border transition-all",
+                        "flex flex-col p-3 rounded-lg border transition-all",
                         cancellationData.portToNewConnection ? "border-accent bg-accent/5" : "border-border"
                       )}>
-                        <RadioGroupItem value="port" id="port-seamless" />
-                        <Label htmlFor="port-seamless" className="cursor-pointer flex-1">
-                          <span className="font-medium">Nahtloser Übergang (Portierung)</span>
-                          <span className="block text-xs text-muted-foreground">
-                            Wechsel zum COM-IN-Anschluss ohne Unterbrechung
-                          </span>
-                        </Label>
+                        <div className="flex items-center space-x-3">
+                          <RadioGroupItem value="port" id="port-seamless" />
+                          <Label htmlFor="port-seamless" className="cursor-pointer flex-1">
+                            <span className="font-medium">Nahtloser Übergang (Portierung)</span>
+                            <span className="block text-xs text-muted-foreground">
+                              Wechsel zum COM-IN-Anschluss ohne Unterbrechung
+                            </span>
+                          </Label>
+                        </div>
+                        {cancellationData.portToNewConnection && phoneSelection.portingRequired && (
+                          <div className="mt-2 ml-6 p-2 bg-accent/10 rounded-lg border border-accent/20">
+                            <p className="text-xs text-accent flex items-start gap-1">
+                              <Phone className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                              Ihre Rufnummer wird nahtlos zu COM-IN portiert. Der Wechseltermin richtet sich nach der Portierung.
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       <div className={cn(
@@ -702,6 +714,14 @@ export function CustomerForm() {
                             </span>
                           </Label>
                         </div>
+                        {!cancellationData.portToNewConnection && cancellationData.preferredDate === 'asap' && (
+                          <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                            <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1">
+                              <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                              Hinweis: Ggfls. Doppelzahlung bei Ihrem bisherigen Anbieter möglich, falls keine Vertragsübernahme stattfindet.
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       <div className={cn(
@@ -721,7 +741,7 @@ export function CustomerForm() {
                         </div>
                         
                         {!cancellationData.portToNewConnection && cancellationData.preferredDate === 'specific' && (
-                          <div className="mt-3 ml-6">
+                          <div className="mt-3 ml-6 space-y-2">
                             <Popover>
                               <PopoverTrigger asChild>
                                 <Button
@@ -756,10 +776,16 @@ export function CustomerForm() {
                                 />
                               </PopoverContent>
                             </Popover>
-                            <p className="text-xs text-muted-foreground mt-2 flex items-start gap-1">
+                            <p className="text-xs text-muted-foreground flex items-start gap-1">
                               <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
                               Datum wird automatisch für den Anschalttermin übernommen.
                             </p>
+                            <div className="p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                              <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1">
+                                <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                Hinweis: Ggfls. Doppelzahlung bei Ihrem bisherigen Anbieter möglich, falls keine Vertragsübernahme stattfindet.
+                              </p>
+                            </div>
                           </div>
                         )}
                       </div>
