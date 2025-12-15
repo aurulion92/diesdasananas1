@@ -76,6 +76,9 @@ interface DiscountEntry {
   discount_type: 'fixed' | 'percentage' | 'waive';
   discount_amount: number | null;
   price_type: 'monthly' | 'one_time';
+  // K7 Options-IDs pro Produkt (bei Produkt-basierten Aktionen)
+  k7_option_mappings: { [productId: string]: string };
+  // Legacy single fields (für globale/building-only Aktionen)
   k7_product_id: string;
   k7_template_id: string;
   k7_template_type: string;
@@ -217,7 +220,28 @@ export const PromotionsManager = () => {
 
       if (error) throw error;
       
-      const entries: DiscountEntry[] = (data || []).map(d => ({
+      // Group discounts by their core properties (same discount applied to different products)
+      // to reconstruct k7_option_mappings
+      const discountGroups = new Map<string, { entry: any; productMappings: { [productId: string]: string } }>();
+      
+      for (const d of data || []) {
+        // Create a key based on discount properties (excluding product-specific fields)
+        const key = `${d.applies_to}-${d.target_option_id || 'null'}-${d.discount_type}-${d.discount_amount}-${d.price_type}`;
+        
+        if (!discountGroups.has(key)) {
+          discountGroups.set(key, {
+            entry: d,
+            productMappings: {}
+          });
+        }
+        
+        const group = discountGroups.get(key)!;
+        if (d.target_product_id && d.k7_template_id) {
+          group.productMappings[d.target_product_id] = d.k7_template_id;
+        }
+      }
+      
+      const entries: DiscountEntry[] = Array.from(discountGroups.values()).map(({ entry: d, productMappings }) => ({
         id: d.id,
         applies_to: d.applies_to as 'product' | 'option' | 'setup_fee',
         target_product_id: d.target_product_id,
@@ -225,6 +249,7 @@ export const PromotionsManager = () => {
         discount_type: d.discount_type as 'fixed' | 'percentage' | 'waive',
         discount_amount: d.discount_amount,
         price_type: (d.price_type as 'monthly' | 'one_time') || 'monthly',
+        k7_option_mappings: productMappings,
         k7_product_id: d.k7_product_id || '',
         k7_template_id: d.k7_template_id || '',
         k7_template_type: d.k7_template_type || '',
@@ -321,8 +346,10 @@ export const PromotionsManager = () => {
         
         if ((formData.scope === 'product' || formData.scope === 'building_and_product') && selectedProducts.length > 0) {
           // Create discount entries linked to each selected product
+          // Each product gets its own K7 option ID from k7_option_mappings
           for (const productId of selectedProducts) {
             for (const entry of discountEntries) {
+              const k7OptionId = entry.k7_option_mappings?.[productId] || '';
               discountData.push({
                 promotion_id: promotionId,
                 applies_to: entry.applies_to,
@@ -331,9 +358,9 @@ export const PromotionsManager = () => {
                 discount_type: entry.discount_type,
                 discount_amount: entry.discount_amount,
                 price_type: entry.price_type,
-                k7_product_id: entry.k7_product_id || null,
-                k7_template_id: entry.k7_template_id || null,
-                k7_template_type: entry.k7_template_type || null,
+                k7_product_id: null,
+                k7_template_id: k7OptionId || null, // Store product-specific K7 option ID
+                k7_template_type: null,
               });
             }
           }
@@ -490,10 +517,24 @@ export const PromotionsManager = () => {
       discount_type: 'fixed',
       discount_amount: 0,
       price_type: 'monthly',
+      k7_option_mappings: {},
       k7_product_id: '',
       k7_template_id: '',
       k7_template_type: '',
     }]);
+  };
+
+  const updateK7OptionMapping = (discountIndex: number, productId: string, value: string) => {
+    setDiscountEntries(prev => prev.map((entry, i) => {
+      if (i !== discountIndex) return entry;
+      return {
+        ...entry,
+        k7_option_mappings: {
+          ...entry.k7_option_mappings,
+          [productId]: value
+        }
+      };
+    }));
   };
 
   const updateDiscountEntry = (index: number, field: keyof DiscountEntry, value: any) => {
@@ -834,41 +875,71 @@ export const PromotionsManager = () => {
                             </div>
 
                             {entry.discount_type !== 'waive' && (
-                              <div className="grid grid-cols-4 gap-4">
-                                <div className="space-y-2">
-                                  <Label>Rabatt {entry.discount_type === 'fixed' ? '(€)' : '(%)'}</Label>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={entry.discount_amount || ''}
-                                    onChange={(e) => updateDiscountEntry(index, 'discount_amount', parseFloat(e.target.value) || 0)}
-                                  />
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-1 gap-4">
+                                  <div className="space-y-2">
+                                    <Label>Rabatt {entry.discount_type === 'fixed' ? '(€)' : '(%)'}</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      className="w-32"
+                                      value={entry.discount_amount || ''}
+                                      onChange={(e) => updateDiscountEntry(index, 'discount_amount', parseFloat(e.target.value) || 0)}
+                                    />
+                                  </div>
                                 </div>
-                                <div className="space-y-2">
-                                  <Label>K7 Produkt ID</Label>
-                                  <Input
-                                    value={entry.k7_product_id}
-                                    onChange={(e) => updateDiscountEntry(index, 'k7_product_id', e.target.value)}
-                                    placeholder="optional"
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>K7 Template ID</Label>
-                                  <Input
-                                    value={entry.k7_template_id}
-                                    onChange={(e) => updateDiscountEntry(index, 'k7_template_id', e.target.value)}
-                                    placeholder="optional"
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>K7 Template Typ</Label>
-                                  <Input
-                                    value={entry.k7_template_type}
-                                    onChange={(e) => updateDiscountEntry(index, 'k7_template_type', e.target.value)}
-                                    placeholder="z.B. Kosten, Erlös"
-                                  />
-                                </div>
+
+                                {/* K7 Options-IDs pro Produkt bei Produkt-basierten Aktionen */}
+                                {(formData.scope === 'product' || formData.scope === 'building_and_product') && selectedProducts.length > 0 ? (
+                                  <div className="space-y-3 border rounded-lg p-3 bg-muted/30">
+                                    <Label className="text-sm font-medium">K7 Options-IDs pro Produkt</Label>
+                                    <div className="grid gap-2">
+                                      {selectedProducts.map(productId => {
+                                        const product = products.find(p => p.id === productId);
+                                        return (
+                                          <div key={productId} className="flex items-center gap-3">
+                                            <span className="text-sm min-w-[150px] font-medium">{product?.name || productId}</span>
+                                            <Input
+                                              value={entry.k7_option_mappings?.[productId] || ''}
+                                              onChange={(e) => updateK7OptionMapping(index, productId, e.target.value)}
+                                              placeholder="K7 Options-ID"
+                                              className="flex-1"
+                                            />
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  // Legacy K7 fields for global/building-only promotions
+                                  <div className="grid grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                      <Label>K7 Produkt ID</Label>
+                                      <Input
+                                        value={entry.k7_product_id}
+                                        onChange={(e) => updateDiscountEntry(index, 'k7_product_id', e.target.value)}
+                                        placeholder="optional"
+                                      />
+                                    </div>
+                                    <div className="space-y-2">
+                                      <Label>K7 Template ID</Label>
+                                      <Input
+                                        value={entry.k7_template_id}
+                                        onChange={(e) => updateDiscountEntry(index, 'k7_template_id', e.target.value)}
+                                        placeholder="optional"
+                                      />
+                                    </div>
+                                    <div className="space-y-2">
+                                      <Label>K7 Template Typ</Label>
+                                      <Input
+                                        value={entry.k7_template_type}
+                                        onChange={(e) => updateDiscountEntry(index, 'k7_template_type', e.target.value)}
+                                        placeholder="z.B. Kosten, Erlös"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
