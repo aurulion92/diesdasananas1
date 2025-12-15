@@ -87,7 +87,6 @@ function sanitizeText(text: string): string {
 // Try to fill form fields in template PDF
 async function fillTemplatePdf(templatePdfBytes: Uint8Array, data: VZFData): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(templatePdfBytes, { ignoreEncryption: true });
-  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
   
   // Try to get form and fill fields
   try {
@@ -192,46 +191,23 @@ async function fillTemplatePdf(templatePdfBytes: Uint8Array, data: VZFData): Pro
       }
     }
     
-    // Flatten form to make it non-editable
-    form.flatten();
+    // Don't flatten - it causes stack overflow with some PDFs
+    // The form fields will remain editable but data is visible
+    console.log("Form fields filled, skipping flatten to avoid stack overflow");
     
   } catch (formError) {
-    console.log('No form fields found or error accessing form, will overlay text:', formError);
-    
-    // Overlay text on PDF if no form fields
-    const pages = pdfDoc.getPages();
-    if (pages.length > 0) {
-      const firstPage = pages[0];
-      const { height } = firstPage.getSize();
-      const textColor = rgb(0.1, 0.1, 0.1);
-      
-      // Overlay key information at typical positions
-      // These positions should be adjusted based on the actual template layout
-      const overlayData = [
-        { text: sanitizeText(data.orderNumber || ''), x: 450, y: height - 120 },
-        { text: sanitizeText(data.date || new Date().toLocaleDateString('de-DE')), x: 450, y: height - 140 },
-        { text: sanitizeText(`${data.customerFirstName || ''} ${data.customerLastName || ''}`), x: 100, y: height - 200 },
-        { text: sanitizeText(`${data.street || ''} ${data.houseNumber || ''}`), x: 100, y: height - 215 },
-        { text: sanitizeText(`${data.postalCode || ''} ${data.city || ''}`), x: 100, y: height - 230 },
-        { text: sanitizeText(data.tariffName || ''), x: 100, y: height - 300 },
-        { text: data.monthlyTotal ? formatCurrency(data.monthlyTotal) : '', x: 450, y: height - 300 },
-      ];
-      
-      for (const item of overlayData) {
-        if (item.text) {
-          firstPage.drawText(item.text, {
-            x: item.x,
-            y: item.y,
-            size: 10,
-            font: helvetica,
-            color: textColor,
-          });
-        }
-      }
-    }
+    console.log('No form fields found or error accessing form:', formError);
+    // Continue without form filling - the template will be returned as-is
   }
   
-  return await pdfDoc.save();
+  try {
+    const savedBytes = await pdfDoc.save();
+    console.log("PDF saved successfully, size:", savedBytes.length);
+    return savedBytes;
+  } catch (saveError) {
+    console.error("Error saving PDF:", saveError);
+    throw saveError;
+  }
 }
 
 // Generate VZF PDF from scratch (fallback)
