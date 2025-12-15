@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -35,8 +36,11 @@ import {
   Trash2, 
   FileText, 
   Eye,
-  Copy,
-  Code
+  Code,
+  Upload,
+  FileUp,
+  X,
+  Loader2
 } from 'lucide-react';
 
 import { TEMPLATE_USE_CASES } from '@/services/templateService';
@@ -53,7 +57,9 @@ interface DocumentTemplate {
   description: string | null;
   template_type: string;
   use_case: string | null;
+  use_cases: string[];
   content: string;
+  pdf_url: string | null;
   placeholders: Placeholder[];
   is_active: boolean;
   created_at: string;
@@ -66,6 +72,7 @@ const TEMPLATE_TYPES = [
   { value: 'invoice', label: 'Rechnung' },
   { value: 'welcome', label: 'Willkommens-E-Mail' },
   { value: 'general', label: 'Allgemein' },
+  { value: 'pdf', label: 'PDF-Vorlage' },
 ];
 
 const DEFAULT_PLACEHOLDERS: Placeholder[] = [
@@ -101,14 +108,17 @@ export function DocumentTemplatesManager() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<DocumentTemplate | null>(null);
   const [previewHtml, setPreviewHtml] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Form state
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     template_type: 'general',
-    use_case: '',
+    use_cases: [] as string[],
     content: '',
+    pdf_url: '',
     is_active: true,
   });
 
@@ -126,11 +136,11 @@ export function DocumentTemplatesManager() {
     if (error) {
       toast({ title: 'Fehler beim Laden', description: error.message, variant: 'destructive' });
     } else {
-      // Parse placeholders from JSON and include use_case (cast to any to handle new column)
       const parsed = (data || []).map((t: any) => ({
         ...t,
         placeholders: Array.isArray(t.placeholders) ? t.placeholders as Placeholder[] : [],
-        use_case: t.use_case || null,
+        use_cases: Array.isArray(t.use_cases) ? t.use_cases : (t.use_case ? [t.use_case] : []),
+        pdf_url: t.pdf_url || null,
       })) as DocumentTemplate[];
       setTemplates(parsed);
     }
@@ -143,8 +153,9 @@ export function DocumentTemplatesManager() {
       name: '',
       description: '',
       template_type: 'general',
-      use_case: '',
+      use_cases: [],
       content: getDefaultTemplate(),
+      pdf_url: '',
       is_active: true,
     });
     setIsDialogOpen(true);
@@ -156,8 +167,9 @@ export function DocumentTemplatesManager() {
       name: template.name,
       description: template.description || '',
       template_type: template.template_type,
-      use_case: template.use_case || '',
+      use_cases: template.use_cases || [],
       content: template.content,
+      pdf_url: template.pdf_url || '',
       is_active: template.is_active,
     });
     setIsDialogOpen(true);
@@ -195,9 +207,57 @@ export function DocumentTemplatesManager() {
 </html>`;
   };
 
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (file.type !== 'application/pdf') {
+      toast({ title: 'Nur PDF-Dateien erlaubt', variant: 'destructive' });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fileName = `templates/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      
+      const { data, error } = await supabase.storage
+        .from('admin-uploads')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage
+        .from('admin-uploads')
+        .getPublicUrl(fileName);
+
+      setFormData(prev => ({ 
+        ...prev, 
+        pdf_url: urlData.publicUrl,
+        template_type: 'pdf'
+      }));
+      
+      toast({ title: 'PDF hochgeladen', description: file.name });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({ title: 'Upload fehlgeschlagen', description: error.message, variant: 'destructive' });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const removePdf = () => {
+    setFormData(prev => ({ ...prev, pdf_url: '' }));
+  };
+
   const handleSave = async () => {
-    if (!formData.name || !formData.content) {
-      toast({ title: 'Bitte Name und Inhalt ausfüllen', variant: 'destructive' });
+    if (!formData.name || (!formData.content && !formData.pdf_url)) {
+      toast({ title: 'Bitte Name und Inhalt/PDF ausfüllen', variant: 'destructive' });
       return;
     }
 
@@ -205,8 +265,10 @@ export function DocumentTemplatesManager() {
       name: formData.name,
       description: formData.description || null,
       template_type: formData.template_type,
-      use_case: formData.use_case || null,
+      use_case: formData.use_cases[0] || null, // Keep legacy field
+      use_cases: formData.use_cases,
       content: formData.content,
+      pdf_url: formData.pdf_url || null,
       placeholders: JSON.parse(JSON.stringify(DEFAULT_PLACEHOLDERS)),
       is_active: formData.is_active,
     };
@@ -269,7 +331,11 @@ export function DocumentTemplatesManager() {
   };
 
   const showPreview = (template: DocumentTemplate) => {
-    // Replace placeholders with example values
+    if (template.pdf_url) {
+      window.open(template.pdf_url, '_blank');
+      return;
+    }
+    
     let html = template.content;
     DEFAULT_PLACEHOLDERS.forEach(p => {
       html = html.replace(new RegExp(p.key.replace(/[{}]/g, '\\$&'), 'g'), p.example);
@@ -285,12 +351,22 @@ export function DocumentTemplatesManager() {
     }));
   };
 
+  const toggleUseCase = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      use_cases: prev.use_cases.includes(value)
+        ? prev.use_cases.filter(uc => uc !== value)
+        : [...prev.use_cases, value]
+    }));
+  };
+
   const getTypeBadge = (type: string) => {
     const colors: Record<string, string> = {
       vzf: 'bg-blue-100 text-blue-800',
       confirmation: 'bg-green-100 text-green-800',
       invoice: 'bg-yellow-100 text-yellow-800',
       welcome: 'bg-purple-100 text-purple-800',
+      pdf: 'bg-red-100 text-red-800',
       general: 'bg-gray-100 text-gray-800',
     };
     const label = TEMPLATE_TYPES.find(t => t.value === type)?.label || type;
@@ -358,7 +434,7 @@ export function DocumentTemplatesManager() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Typ</TableHead>
-              <TableHead>Anwendungsfall</TableHead>
+              <TableHead>Anwendungsfälle</TableHead>
               <TableHead>Beschreibung</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Aktionen</TableHead>
@@ -380,16 +456,24 @@ export function DocumentTemplatesManager() {
                 <TableRow key={template.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-muted-foreground" />
+                      {template.pdf_url ? (
+                        <FileUp className="w-4 h-4 text-red-500" />
+                      ) : (
+                        <FileText className="w-4 h-4 text-muted-foreground" />
+                      )}
                       {template.name}
                     </div>
                   </TableCell>
                   <TableCell>{getTypeBadge(template.template_type)}</TableCell>
                   <TableCell>
-                    {template.use_case ? (
-                      <Badge variant="secondary" className="font-mono text-xs">
-                        {TEMPLATE_USE_CASES.find(uc => uc.value === template.use_case)?.label || template.use_case}
-                      </Badge>
+                    {template.use_cases && template.use_cases.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {template.use_cases.map(uc => (
+                          <Badge key={uc} variant="secondary" className="font-mono text-xs">
+                            {TEMPLATE_USE_CASES.find(u => u.value === uc)?.label || uc}
+                          </Badge>
+                        ))}
+                      </div>
                     ) : (
                       <span className="text-muted-foreground text-xs">–</span>
                     )}
@@ -425,7 +509,7 @@ export function DocumentTemplatesManager() {
 
       {/* Edit/Create Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingTemplate ? 'Vorlage bearbeiten' : 'Neue Vorlage erstellen'}
@@ -462,49 +546,109 @@ export function DocumentTemplatesManager() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Beschreibung</Label>
-                  <Input
-                    value={formData.description}
-                    onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Kurze Beschreibung der Vorlage"
-                  />
-                </div>
-                <div>
-                  <Label>Anwendungsfall</Label>
-                  <Select
-                    value={formData.use_case || 'none'}
-                    onValueChange={v => setFormData(prev => ({ ...prev, use_case: v === 'none' ? '' : v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Keiner (manuell)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Keiner (manuell)</SelectItem>
-                      {TEMPLATE_USE_CASES.map(uc => (
-                        <SelectItem key={uc.value} value={uc.value}>
-                          <div>
-                            <div>{uc.label}</div>
-                            <div className="text-xs text-muted-foreground">{uc.description}</div>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Definiert wann diese Vorlage automatisch verwendet wird
-                  </p>
-                </div>
+              <div>
+                <Label>Beschreibung</Label>
+                <Input
+                  value={formData.description}
+                  onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Kurze Beschreibung der Vorlage"
+                />
               </div>
 
+              {/* Multiple Use Cases Selection */}
+              <div>
+                <Label className="mb-2 block">Anwendungsfälle (mehrere möglich)</Label>
+                <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto bg-muted/20">
+                  {TEMPLATE_USE_CASES.map(uc => (
+                    <div key={uc.value} className="flex items-start gap-2">
+                      <Checkbox
+                        id={`uc-${uc.value}`}
+                        checked={formData.use_cases.includes(uc.value)}
+                        onCheckedChange={() => toggleUseCase(uc.value)}
+                      />
+                      <div className="flex-1">
+                        <label htmlFor={`uc-${uc.value}`} className="text-sm font-medium cursor-pointer">
+                          {uc.label}
+                        </label>
+                        <p className="text-xs text-muted-foreground">{uc.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Definiert wann diese Vorlage automatisch verwendet wird
+                </p>
+              </div>
+
+              {/* PDF Upload Section */}
+              <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Upload className="w-5 h-5 text-muted-foreground" />
+                    <Label>PDF-Vorlage hochladen (optional)</Label>
+                  </div>
+                  {formData.pdf_url && (
+                    <Button variant="ghost" size="sm" onClick={removePdf}>
+                      <X className="w-4 h-4 mr-1" />
+                      Entfernen
+                    </Button>
+                  )}
+                </div>
+                
+                {formData.pdf_url ? (
+                  <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-950/30 rounded-lg">
+                    <FileUp className="w-8 h-8 text-red-500" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">PDF hochgeladen</p>
+                      <a 
+                        href={formData.pdf_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-500 hover:underline truncate block"
+                      >
+                        PDF ansehen
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf"
+                      onChange={handlePdfUpload}
+                      className="hidden"
+                      id="pdf-upload"
+                    />
+                    <label 
+                      htmlFor="pdf-upload"
+                      className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+                    >
+                      {uploading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Hochladen...
+                        </>
+                      ) : (
+                        <>
+                          <FileUp className="w-4 h-4" />
+                          PDF auswählen
+                        </>
+                      )}
+                    </label>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      PDF mit Platzhaltern wie {"{{kunde_name}}"} hochladen
+                    </p>
+                  </div>
+                )}
+              </div>
 
               <div>
-                <Label>HTML-Inhalt</Label>
+                <Label>HTML-Inhalt {formData.pdf_url && '(optional bei PDF)'}</Label>
                 <Textarea
                   value={formData.content}
                   onChange={e => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                  className="font-mono text-sm min-h-[400px]"
+                  className="font-mono text-sm min-h-[300px]"
                   placeholder="HTML-Vorlage mit Platzhaltern..."
                 />
               </div>
@@ -521,7 +665,7 @@ export function DocumentTemplatesManager() {
             {/* Right: Placeholders */}
             <div className="border-l pl-4">
               <Label className="mb-2 block">Platzhalter einfügen</Label>
-              <div className="space-y-1 max-h-[500px] overflow-y-auto">
+              <div className="space-y-1 max-h-[600px] overflow-y-auto">
                 {DEFAULT_PLACEHOLDERS.map(p => (
                   <button
                     key={p.key}

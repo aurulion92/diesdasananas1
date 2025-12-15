@@ -6,11 +6,14 @@ export interface TemplateData {
   content: string;
   template_type: string;
   use_case: string | null;
+  use_cases: string[];
+  pdf_url: string | null;
   is_active: boolean;
 }
 
 /**
  * Fetch a template by its use_case identifier
+ * Now searches in use_cases array
  * @param useCase - The unique use case identifier (e.g., 'order_vzf', 'contact_form')
  * @returns The template content or null if not found
  */
@@ -26,8 +29,11 @@ export async function getTemplateByUseCase(useCase: string): Promise<TemplateDat
     return null;
   }
 
-  // Filter by use_case manually since the column might not be in types yet
-  const template = data?.find((t: any) => t.use_case === useCase);
+  // Search in use_cases array or legacy use_case field
+  const template = data?.find((t: any) => {
+    const useCases = Array.isArray(t.use_cases) ? t.use_cases : [];
+    return useCases.includes(useCase) || t.use_case === useCase;
+  });
   
   if (!template) {
     return null;
@@ -39,6 +45,8 @@ export async function getTemplateByUseCase(useCase: string): Promise<TemplateDat
     content: template.content,
     template_type: template.template_type,
     use_case: template.use_case,
+    use_cases: Array.isArray(template.use_cases) ? template.use_cases : [],
+    pdf_url: template.pdf_url || null,
     is_active: template.is_active,
   };
 }

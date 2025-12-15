@@ -275,10 +275,12 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          pdf_url: string | null
           placeholders: Json | null
           template_type: string
           updated_at: string
           use_case: string | null
+          use_cases: string[] | null
         }
         Insert: {
           content: string
@@ -287,10 +289,12 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
+          pdf_url?: string | null
           placeholders?: Json | null
           template_type?: string
           updated_at?: string
           use_case?: string | null
+          use_cases?: string[] | null
         }
         Update: {
           content?: string
@@ -299,10 +303,12 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          pdf_url?: string | null
           placeholders?: Json | null
           template_type?: string
           updated_at?: string
           use_case?: string | null
+          use_cases?: string[] | null
         }
         Relationships: []
       }
