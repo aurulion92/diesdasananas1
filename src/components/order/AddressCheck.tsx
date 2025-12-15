@@ -407,14 +407,26 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
                 <div className="flex-1">
                   <h4 className="font-bold text-primary text-lg">Nur Geschäftskunden-Anschlüsse verfügbar</h4>
                   <p className="text-muted-foreground mt-1">
-                    An Ihrer Adresse bieten wir ausschließlich Geschäftskunden-Anschlüsse an. 
+                    An dieser Adresse bieten wir ausschließlich Geschäftskunden-Anschlüsse an. 
                     Unsere <strong>easy business</strong> Produkte stehen Ihnen in der Bestellstrecke für Geschäftskunden zur Verfügung.
                   </p>
-                  {onSwitchToKmu && (
-                    <Button onClick={onSwitchToKmu} variant="default" className="mt-4">
+                  {onSwitchToKmu ? (
+                    <Button 
+                      onClick={() => {
+                        console.log('Switch to KMU clicked');
+                        onSwitchToKmu();
+                      }} 
+                      variant="default" 
+                      className="mt-4"
+                      type="button"
+                    >
                       <Building2 className="w-4 h-4 mr-2" />
                       Zur Geschäftskunden-Bestellung
                     </Button>
+                  ) : (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Bitte wählen Sie auf der Startseite "Geschäftskunde" aus.
+                    </p>
                   )}
                 </div>
               </div>
