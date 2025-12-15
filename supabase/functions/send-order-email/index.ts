@@ -536,6 +536,77 @@ async function fillAuftragPdf(data: VZFData, orderId: string, customerName: stri
     drawText(value, margin + 180, y, { font: openSans, size: 9 });
     y -= 14;
   };
+
+  const wrapText = (text: string, maxWidth: number, font: any, size: number): string[] => {
+    const normalized = sanitizeText(text);
+    if (!normalized) return [''];
+
+    const words = normalized.split(/\s+/).filter(Boolean);
+    if (words.length === 0) return [''];
+
+    const lines: string[] = [];
+    let current = '';
+
+    const textWidth = (t: string) => font.widthOfTextAtSize(t, size);
+
+    for (const word of words) {
+      const next = current ? `${current} ${word}` : word;
+      if (textWidth(next) <= maxWidth) {
+        current = next;
+        continue;
+      }
+
+      if (current) lines.push(current);
+
+      // If a single word is too long, hard-split it
+      if (textWidth(word) > maxWidth) {
+        let chunk = '';
+        for (const ch of word) {
+          const nextChunk = chunk + ch;
+          if (textWidth(nextChunk) <= maxWidth) {
+            chunk = nextChunk;
+          } else {
+            if (chunk) lines.push(chunk);
+            chunk = ch;
+          }
+        }
+        current = chunk;
+      } else {
+        current = word;
+      }
+    }
+
+    if (current) lines.push(current);
+    return lines;
+  };
+
+  // Cost rows need wrapping to avoid overlapping with the amount column
+  const drawCostRow = (name: string, amount: string) => {
+    const font = openSans;
+    const size = 9;
+
+    const amountText = sanitizeText(amount);
+    const amountWidth = font.widthOfTextAtSize(amountText, size);
+    const amountX = margin + contentWidth - amountWidth;
+
+    const maxNameWidth = Math.max(50, amountX - margin - 10);
+    const nameLines = wrapText(name, maxNameWidth, font, size);
+
+    const lineHeight = 12;
+    checkNewPage(nameLines.length * lineHeight + 10);
+
+    // first line + amount
+    drawText(nameLines[0] || '', margin, y, { font, size });
+    drawText(amountText, amountX, y, { font, size });
+
+    // wrapped name lines (no repeated amount)
+    for (let i = 1; i < nameLines.length; i++) {
+      y -= lineHeight;
+      drawText(nameLines[i], margin, y, { font, size });
+    }
+
+    y -= lineHeight + 2;
+  };
   
   const orderNumber = data.orderNumber || `COMIN-${new Date().getFullYear()}-${orderId.substring(0, 4).toUpperCase()}`;
   const date = data.date || new Date().toLocaleDateString('de-DE');
@@ -588,8 +659,8 @@ async function fillAuftragPdf(data: VZFData, orderId: string, customerName: stri
   if (data.routerName) drawRow('Router:', data.routerName);
   if (data.tvName) drawRow('TV:', data.tvName);
   if (data.phoneName) {
-    const phoneQty = data.phoneLines && data.phoneLines > 1 ? `${data.phoneLines}x ` : '';
-    drawRow('Telefon:', `${phoneQty}${data.phoneName}`);
+    // phoneName already contains line count (e.g. "... (4 Leitungen)")
+    drawRow('Telefon:', data.phoneName);
   }
   if (data.selectedOptions) {
     for (const opt of data.selectedOptions) {
@@ -603,12 +674,12 @@ async function fillAuftragPdf(data: VZFData, orderId: string, customerName: stri
   drawSectionHeader('3. Preis');
   drawText('Monatliche Grundbeträge', margin, y, { font: openSansBold, size: 9 });
   y -= 14;
-  if (data.tariffName && data.tariffPrice) drawRow(data.tariffName, formatCurrency(data.tariffPrice));
-  if (data.routerName && data.routerMonthlyPrice) drawRow(data.routerName, formatCurrency(data.routerMonthlyPrice));
-  if (data.tvName && data.tvMonthlyPrice) drawRow(data.tvName, formatCurrency(data.tvMonthlyPrice));
+  if (data.tariffName && data.tariffPrice) drawCostRow(data.tariffName, formatCurrency(data.tariffPrice));
+  if (data.routerName && data.routerMonthlyPrice) drawCostRow(data.routerName, formatCurrency(data.routerMonthlyPrice));
+  if (data.tvName && data.tvMonthlyPrice) drawCostRow(data.tvName, formatCurrency(data.tvMonthlyPrice));
   if (data.phoneName && data.phoneMonthlyPrice) {
     // phoneName already contains line count, phoneMonthlyPrice is already total
-    drawRow(data.phoneName, formatCurrency(data.phoneMonthlyPrice));
+    drawCostRow(data.phoneName, formatCurrency(data.phoneMonthlyPrice));
   }
   // Show selected options with monthly prices
   if (data.selectedOptions) {
@@ -616,7 +687,7 @@ async function fillAuftragPdf(data: VZFData, orderId: string, customerName: stri
       if (opt.monthlyPrice && opt.monthlyPrice > 0) {
         const qty = opt.quantity && opt.quantity > 1 ? `${opt.quantity}x ` : '';
         const totalPrice = opt.monthlyPrice * (opt.quantity || 1);
-        drawRow(`${qty}${opt.name}`, formatCurrency(totalPrice));
+        drawCostRow(`${qty}${opt.name}`, formatCurrency(totalPrice));
       }
     }
   }
@@ -624,7 +695,7 @@ async function fillAuftragPdf(data: VZFData, orderId: string, customerName: stri
   if (data.discounts) {
     for (const discount of data.discounts) {
       if (discount.type === 'monthly') {
-        drawRow(discount.name, `-${formatCurrency(discount.amount)}`);
+        drawCostRow(discount.name, `-${formatCurrency(discount.amount)}`);
       }
     }
   }
@@ -636,15 +707,15 @@ async function fillAuftragPdf(data: VZFData, orderId: string, customerName: stri
   
   drawText('Einmalige Beträge', margin, y, { font: openSansBold, size: 9 });
   y -= 14;
-  if (data.setupFee) drawRow('Bereitstellung:', formatCurrency(data.setupFee));
-  if (data.routerOneTimePrice) drawRow(data.routerName || 'Router einmalig', formatCurrency(data.routerOneTimePrice));
+  if (data.setupFee) drawCostRow('Bereitstellung:', formatCurrency(data.setupFee));
+  if (data.routerOneTimePrice) drawCostRow(data.routerName || 'Router einmalig', formatCurrency(data.routerOneTimePrice));
   // Show selected options with one-time prices
   if (data.selectedOptions) {
     for (const opt of data.selectedOptions) {
       if (opt.oneTimePrice && opt.oneTimePrice > 0) {
         const qty = opt.quantity && opt.quantity > 1 ? `${opt.quantity}x ` : '';
         const totalPrice = opt.oneTimePrice * (opt.quantity || 1);
-        drawRow(`${qty}${opt.name}`, formatCurrency(totalPrice));
+        drawCostRow(`${qty}${opt.name}`, formatCurrency(totalPrice));
       }
     }
   }
@@ -652,7 +723,7 @@ async function fillAuftragPdf(data: VZFData, orderId: string, customerName: stri
   if (data.discounts) {
     for (const discount of data.discounts) {
       if (discount.type === 'one_time') {
-        drawRow(discount.name, `-${formatCurrency(discount.amount)}`);
+        drawCostRow(discount.name, `-${formatCurrency(discount.amount)}`);
       }
     }
   }
