@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff, Shield, Trash2, RefreshCw, Building2, Image, AlertTriangle } from 'lucide-react';
+import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff, Shield, Trash2, RefreshCw, Building2, Image, AlertTriangle, Globe, Plus, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -56,6 +56,7 @@ interface RateLimitSettings {
   login_max_attempts: number;
   login_window_minutes: number;
   login_block_minutes: number;
+  ip_whitelist: string[];
 }
 
 interface RateLimitEntry {
@@ -139,6 +140,7 @@ const DEFAULT_RATE_LIMIT: RateLimitSettings = {
   login_max_attempts: 5,
   login_window_minutes: 15,
   login_block_minutes: 30,
+  ip_whitelist: [],
 };
 
 export const SettingsManager = () => {
@@ -1529,6 +1531,75 @@ export const SettingsManager = () => {
                         onChange={(e) => setRateLimitSettings({ ...rateLimitSettings, login_block_minutes: parseInt(e.target.value) || 30 })}
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* IP Whitelist */}
+                <div className="space-y-4 p-4 border rounded-lg">
+                  <div>
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Globe className="w-4 h-4" />
+                      IP-Whitelist
+                    </h4>
+                    <p className="text-sm text-muted-foreground">IPs die Rate-Limits umgehen dürfen</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="z.B. 192.168.1.100"
+                        id="new-whitelist-ip"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const input = e.target as HTMLInputElement;
+                            const ip = input.value.trim();
+                            if (ip && !rateLimitSettings.ip_whitelist.includes(ip)) {
+                              setRateLimitSettings({
+                                ...rateLimitSettings,
+                                ip_whitelist: [...rateLimitSettings.ip_whitelist, ip]
+                              });
+                              input.value = '';
+                            }
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          const input = document.getElementById('new-whitelist-ip') as HTMLInputElement;
+                          const ip = input?.value.trim();
+                          if (ip && !rateLimitSettings.ip_whitelist.includes(ip)) {
+                            setRateLimitSettings({
+                              ...rateLimitSettings,
+                              ip_whitelist: [...rateLimitSettings.ip_whitelist, ip]
+                            });
+                            input.value = '';
+                          }
+                        }}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    {rateLimitSettings.ip_whitelist.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {rateLimitSettings.ip_whitelist.map((ip, index) => (
+                          <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                            {ip}
+                            <button
+                              onClick={() => setRateLimitSettings({
+                                ...rateLimitSettings,
+                                ip_whitelist: rateLimitSettings.ip_whitelist.filter((_, i) => i !== index)
+                              })}
+                              className="ml-1 hover:text-destructive"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Keine IPs auf der Whitelist</p>
+                    )}
                   </div>
                 </div>
 
