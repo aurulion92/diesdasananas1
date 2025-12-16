@@ -1,6 +1,14 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export type ConnectionType = 'ftth' | 'limited' | 'not-connected';
+export type BuildingType = 'efh' | 'mfh' | 'wowi';
+
+// Determine building type based on residential units (WE)
+export function getBuildingType(residentialUnits: number | null): BuildingType {
+  if (!residentialUnits || residentialUnits <= 1) return 'efh';
+  if (residentialUnits === 2) return 'mfh';
+  return 'wowi'; // 3+ units
+}
 
 export interface AddressData {
   street: string;
@@ -12,6 +20,7 @@ export interface AddressData {
   kabelTvAvailable: boolean;
   buildingId?: string;
   residentialUnits?: number; // WE - Wohneinheiten
+  buildingType?: BuildingType; // Derived from residentialUnits: efh=1, mfh=2, wowi=3+
   kmuOnly?: boolean; // True if building only has KMU tariffs (no PK)
 }
 
@@ -93,6 +102,7 @@ export async function checkBuildingAvailability(
       kabelTvAvailable: result.kabel_tv_available || false,
       buildingId: result.building_id || undefined,
       residentialUnits: result.residential_units || 1,
+      buildingType: getBuildingType(result.residential_units),
     };
 
     // If we for some reason don't have a building_id, we can't determine PK/KMU products
