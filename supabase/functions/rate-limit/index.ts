@@ -65,6 +65,16 @@ serve(async (req) => {
           );
         }
         
+        // Check if IP is whitelisted
+        const whitelist: string[] = dbSettings.ip_whitelist || [];
+        if (whitelist.length > 0 && whitelist.includes(ip)) {
+          console.log(`IP ${ip} is whitelisted, bypassing rate limit`);
+          return new Response(
+            JSON.stringify({ allowed: true, reason: 'ip_whitelisted' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
         // Map action_type to settings prefix (matching SettingsManager format)
         // SettingsManager saves: order_max_attempts, contact_max_attempts, login_max_attempts, existing_customer_max_attempts
         const prefixMap: Record<string, string> = {
