@@ -522,7 +522,7 @@ export const OrdersManager = () => {
       }
       productData[order.product_name].count++;
       productData[order.product_name].monthly += order.monthly_total || 0;
-      productData[order.product_name].oneTime += (order.one_time_total || 0) + (order.setup_fee || 0);
+      productData[order.product_name].oneTime += order.one_time_total || 0;
     });
 
     return Object.entries(productData).map(([name, data]) => ({
@@ -539,7 +539,7 @@ export const OrdersManager = () => {
     let monthly = 0, oneTime = 0;
     filteredOrders.forEach(order => {
       monthly += order.monthly_total || 0;
-      oneTime += (order.one_time_total || 0) + (order.setup_fee || 0);
+      oneTime += order.one_time_total || 0;
     });
     return { monthly, oneTime, count: filteredOrders.length };
   }, [filteredOrders]);
