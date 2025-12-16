@@ -6,8 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Rate limit configurations per action type
-const RATE_LIMITS: Record<string, { maxAttempts: number; windowMinutes: number; blockMinutes: number }> = {
+// Default rate limit configurations (fallback if DB settings not found)
+const DEFAULT_RATE_LIMITS: Record<string, { maxAttempts: number; windowMinutes: number; blockMinutes: number }> = {
   'login': { maxAttempts: 5, windowMinutes: 15, blockMinutes: 30 },
   'order_form': { maxAttempts: 3, windowMinutes: 60, blockMinutes: 60 },
   'contact_form': { maxAttempts: 5, windowMinutes: 30, blockMinutes: 30 },
@@ -38,13 +38,55 @@ serve(async (req) => {
     
     console.log(`Rate limit check for IP: ${ip}, action: ${action_type}`);
 
-    // Get rate limit config for this action
-    const config = RATE_LIMITS[action_type] || { maxAttempts: 5, windowMinutes: 15, blockMinutes: 30 };
-
     // Create Supabase client with service role (bypasses RLS)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Load rate limit settings from database
+    let config = DEFAULT_RATE_LIMITS[action_type] || { maxAttempts: 5, windowMinutes: 15, blockMinutes: 30 };
+    
+    try {
+      const { data: settingsData } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'rate_limit_settings')
+        .maybeSingle();
+      
+      if (settingsData?.value) {
+        const dbSettings = settingsData.value as Record<string, any>;
+        
+        // Check if rate limiting is globally enabled
+        if (dbSettings.enabled === false) {
+          console.log('Rate limiting is disabled globally');
+          return new Response(
+            JSON.stringify({ allowed: true, reason: 'rate_limiting_disabled' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Map action_type to settings prefix (matching SettingsManager format)
+        // SettingsManager saves: order_max_attempts, contact_max_attempts, login_max_attempts, existing_customer_max_attempts
+        const prefixMap: Record<string, string> = {
+          'order_form': 'order',
+          'contact_form': 'contact',
+          'login': 'login',
+          'existing_customer': 'existing_customer',
+        };
+        
+        const prefix = prefixMap[action_type];
+        if (prefix) {
+          config = {
+            maxAttempts: dbSettings[`${prefix}_max_attempts`] ?? config.maxAttempts,
+            windowMinutes: dbSettings[`${prefix}_window_minutes`] ?? config.windowMinutes,
+            blockMinutes: dbSettings[`${prefix}_block_minutes`] ?? config.blockMinutes,
+          };
+          console.log(`Using DB config for ${action_type}:`, config);
+        }
+      }
+    } catch (settingsError) {
+      console.warn('Could not load rate limit settings from DB, using defaults:', settingsError);
+    }
 
     // Call the rate limit check function
     const { data, error } = await supabase.rpc('check_rate_limit', {
