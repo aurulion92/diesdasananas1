@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useOrder } from '@/context/OrderContext';
 import { useOrderPromotions } from '@/hooks/useOrderPromotions';
 import { usePromotionsContext } from '@/context/PromotionsContext';
+import { useRateLimit } from '@/hooks/useRateLimit';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -88,6 +89,7 @@ export function OrderSummary() {
   } = useOrderPromotions();
   
   const { promotions } = usePromotionsContext();
+  const { checkRateLimit, isBlocked } = useRateLimit();
 
   const [orderComplete, setOrderComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -298,6 +300,12 @@ export function OrderSummary() {
 
   const handleOrder = async () => {
     if (!selectedTariff || !customerData || !address) return;
+    
+    // Rate limit check for order submissions
+    const allowed = await checkRateLimit('order_form');
+    if (!allowed) {
+      return; // Rate limit exceeded - toast already shown by hook
+    }
     
     setIsSubmitting(true);
     
