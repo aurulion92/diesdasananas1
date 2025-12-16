@@ -1,0 +1,154 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface ContactFormRequest {
+  topic: string;
+  desiredProduct: string;
+  street: string;
+  houseNumber: string;
+  city: string;
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+  // Honeypot field - should be empty if real user
+  website?: string;
+}
+
+const topicLabels: Record<string, string> = {
+  'tariff-request': 'Anderer Tarif gewünscht',
+  'availability': 'Verfügbarkeitsanfrage',
+  'product-info': 'Produktinformationen',
+  'other': 'Sonstiges'
+};
+
+serve(async (req: Request): Promise<Response> => {
+  // Handle CORS preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const data: ContactFormRequest = await req.json();
+    
+    // Honeypot check - if website field is filled, it's likely a bot
+    if (data.website && data.website.trim() !== '') {
+      console.log("Bot detected via honeypot field");
+      // Return success to not alert the bot, but don't send email
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    // Validate required fields
+    if (!data.name || !data.email || !data.phone) {
+      return new Response(
+        JSON.stringify({ error: "Name, Email und Telefon sind erforderlich" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.email)) {
+      return new Response(
+        JSON.stringify({ error: "Ungültige E-Mail-Adresse" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+    if (!RESEND_API_KEY) {
+      console.error("RESEND_API_KEY not configured");
+      throw new Error("Email service not configured");
+    }
+
+    const topicLabel = topicLabels[data.topic] || data.topic;
+    const addressInfo = data.street && data.houseNumber 
+      ? `${data.street} ${data.houseNumber}, ${data.city || 'N/A'}`
+      : 'Nicht angegeben';
+
+    // Send notification email to COM-IN via Resend API
+    const emailResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: "COM-IN Kontaktformular <onboarding@resend.dev>",
+        to: ["kontakt@comin-glasfaser.de"],
+        reply_to: data.email,
+        subject: `Kontaktanfrage: ${topicLabel}`,
+        html: `
+          <h2>Neue Kontaktanfrage über das Bestellformular</h2>
+          
+          <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Thema:</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${topicLabel}</td>
+            </tr>
+            ${data.desiredProduct ? `
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Wunschprodukt:</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${data.desiredProduct}</td>
+            </tr>
+            ` : ''}
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Adresse:</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${addressInfo}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Name:</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${data.name}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">E-Mail:</td>
+              <td style="padding: 8px; border: 1px solid #ddd;"><a href="mailto:${data.email}">${data.email}</a></td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Telefon:</td>
+              <td style="padding: 8px; border: 1px solid #ddd;"><a href="tel:${data.phone}">${data.phone}</a></td>
+            </tr>
+          </table>
+          
+          ${data.message ? `
+          <h3 style="margin-top: 20px;">Nachricht:</h3>
+          <p style="background: #f5f5f5; padding: 15px; border-radius: 5px;">${data.message.replace(/\n/g, '<br>')}</p>
+          ` : ''}
+          
+          <hr style="margin-top: 30px; border: none; border-top: 1px solid #ddd;">
+          <p style="color: #666; font-size: 12px;">
+            Diese E-Mail wurde automatisch über das COM-IN Bestellformular generiert.
+          </p>
+        `,
+      }),
+    });
+
+    if (!emailResponse.ok) {
+      const errorText = await emailResponse.text();
+      console.error("Resend API error:", errorText);
+      throw new Error("Failed to send email");
+    }
+
+    const result = await emailResponse.json();
+    console.log("Contact form email sent successfully:", result.id);
+
+    return new Response(JSON.stringify({ success: true, id: result.id }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
+  } catch (error: unknown) {
+    console.error("Error in send-contact-form function:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+});
