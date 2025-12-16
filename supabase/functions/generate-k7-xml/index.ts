@@ -1,10 +1,123 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Fallback email for K7 ID issues
+const FALLBACK_EMAIL = 'samuel.wunderle@comin-glasfaser.de';
+
+// Send fallback email when K7 IDs are missing
+async function sendFallbackEmail(
+  order: any, 
+  missingK7Items: Array<{ type: string; name: string; reason: string }>,
+  productK7Id: string,
+  buildingK7Id: string
+): Promise<void> {
+  const resendApiKey = Deno.env.get('RESEND_API_KEY');
+  if (!resendApiKey) {
+    console.error('RESEND_API_KEY not configured, cannot send fallback email');
+    return;
+  }
+
+  const resend = new Resend(resendApiKey);
+
+  const vzfData = order.vzf_data || {};
+  const selectedOptions = order.selected_options || [];
+
+  // Build order summary
+  const orderSummary = `
+    <h2>Bestellübersicht</h2>
+    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+      <tr><td><strong>Bestellnummer</strong></td><td>${vzfData.orderNumber || order.id}</td></tr>
+      <tr><td><strong>Kunde</strong></td><td>${order.customer_name} (${order.customer_email})</td></tr>
+      <tr><td><strong>Telefon</strong></td><td>${order.customer_phone || '-'}</td></tr>
+      <tr><td><strong>Adresse</strong></td><td>${order.street} ${order.house_number}, ${order.postal_code || ''} ${order.city}</td></tr>
+      <tr><td><strong>Tarif</strong></td><td>${order.product_name}</td></tr>
+      <tr><td><strong>Monatlich</strong></td><td>${order.monthly_total?.toFixed(2).replace('.', ',')} €</td></tr>
+      <tr><td><strong>Einmalig</strong></td><td>${order.one_time_total?.toFixed(2).replace('.', ',')} €</td></tr>
+      <tr><td><strong>Produkt K7-ID</strong></td><td>${productK7Id || '<span style="color:red">FEHLT</span>'}</td></tr>
+      <tr><td><strong>Gebäude K7-ID</strong></td><td>${buildingK7Id || '<span style="color:red">FEHLT</span>'}</td></tr>
+    </table>
+  `;
+
+  // Build options list
+  let optionsHtml = '';
+  if (selectedOptions.length > 0) {
+    optionsHtml = `
+      <h3>Gebuchte Optionen</h3>
+      <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+        <tr style="background: #f5f5f5;"><th>Option</th><th>Preis</th><th>Anzahl</th></tr>
+        ${selectedOptions.map((opt: any) => `
+          <tr>
+            <td>${opt.name || opt.type || 'Unbekannt'}</td>
+            <td>${opt.monthlyPrice ? opt.monthlyPrice + ' €/Monat' : ''} ${opt.oneTimePrice ? opt.oneTimePrice + ' € einmalig' : ''}</td>
+            <td>${opt.quantity || opt.lines || 1}</td>
+          </tr>
+        `).join('')}
+      </table>
+    `;
+  }
+
+  // Build missing K7 IDs table
+  const missingK7Html = `
+    <h2 style="color: #d32f2f;">⚠️ Fehlende K7-IDs</h2>
+    <p>Die K7-XML konnte nicht vollständig generiert werden, da folgende K7-IDs fehlen:</p>
+    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; background: #fff3cd;">
+      <tr style="background: #ffc107;"><th>Typ</th><th>Name</th><th>Grund</th></tr>
+      ${missingK7Items.map(item => `
+        <tr>
+          <td>${item.type}</td>
+          <td><strong>${item.name}</strong></td>
+          <td>${item.reason}</td>
+        </tr>
+      `).join('')}
+    </table>
+    <p style="margin-top: 16px;"><strong>Handlungsempfehlung:</strong> Bitte hinterlegen Sie die fehlenden K7-IDs im Admin-Panel unter Produkte → Optionen und generieren Sie die XML anschließend erneut.</p>
+  `;
+
+  const emailHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        table { margin: 16px 0; }
+        h1 { color: #003366; }
+        h2 { color: #003366; margin-top: 24px; }
+      </style>
+    </head>
+    <body>
+      <h1>🔧 K7-XML Generierung fehlgeschlagen</h1>
+      <p>Bei der folgenden Bestellung konnten nicht alle erforderlichen K7-IDs gefunden werden:</p>
+      ${orderSummary}
+      ${optionsHtml}
+      ${missingK7Html}
+      <hr style="margin: 32px 0;">
+      <p style="color: #666; font-size: 12px;">
+        Diese E-Mail wurde automatisch vom COM-IN Bestellsystem generiert.<br>
+        Bestellung vom: ${new Date(order.created_at).toLocaleString('de-DE')}
+      </p>
+    </body>
+    </html>
+  `;
+
+  try {
+    await resend.emails.send({
+      from: 'COM-IN Bestellsystem <noreply@comin-glasfaser.de>',
+      to: [FALLBACK_EMAIL],
+      subject: `⚠️ K7-IDs fehlen: Bestellung ${vzfData.orderNumber || order.id.substring(0, 8)} - ${order.customer_name}`,
+      html: emailHtml,
+    });
+    console.log('Fallback email sent to', FALLBACK_EMAIL);
+  } catch (emailError) {
+    console.error('Failed to send fallback email:', emailError);
+  }
+}
 
 // Generate a random GUID
 function generateGuid(): string {
@@ -214,8 +327,10 @@ serve(async (req) => {
 
     // Fetch selected options with K7 IDs
     // For quantitative options, add the K7 ID multiple times (once per quantity)
+    // Track missing K7 IDs for fallback email
     const selectedOptions = order.selected_options || [];
     const optionK7Ids: string[] = [];
+    const missingK7Items: Array<{ type: string; name: string; reason: string }> = [];
     
     for (const opt of selectedOptions) {
       if (opt.optionId && order.product_id) {
@@ -236,6 +351,15 @@ serve(async (req) => {
             optionK7Ids.push(cleanedK7Id);
           }
           console.log('Option K7 ID:', mapping.option_id_k7, 'for option', opt.name || opt.type, 'quantity:', quantity);
+        } else {
+          // K7 ID is missing for this option
+          const optionName = opt.name || opt.type || 'Unbekannte Option';
+          console.warn(`Missing K7 ID for option: ${optionName}`);
+          missingK7Items.push({
+            type: 'Option',
+            name: optionName,
+            reason: `Keine K7-ID im product_option_mappings für Produkt ${order.product_name} hinterlegt`
+          });
         }
       }
     }
@@ -275,6 +399,38 @@ serve(async (req) => {
           console.log('Sondertarif K7 Option ID:', sondertarifId);
         }
       }
+    }
+
+    // Check for missing critical K7 IDs and send fallback email if needed
+    if (!productK7Id) {
+      missingK7Items.push({
+        type: 'Produkt',
+        name: order.product_name,
+        reason: 'Keine product_id_k7 im Produkt hinterlegt'
+      });
+    }
+    if (!buildingK7Id) {
+      missingK7Items.push({
+        type: 'Gebäude',
+        name: `${order.street} ${order.house_number}, ${order.city}`,
+        reason: 'Kein gebaeude_id_k7 oder building_k7_services für diese Adresse vorhanden'
+      });
+    }
+
+    // If there are missing K7 IDs, send fallback email
+    if (missingK7Items.length > 0) {
+      console.warn(`Missing K7 IDs detected: ${missingK7Items.length} items`);
+      await sendFallbackEmail(order, missingK7Items, productK7Id, buildingK7Id);
+      
+      // Return error response with details about missing K7 IDs
+      return new Response(JSON.stringify({ 
+        error: 'K7-IDs fehlen',
+        missingItems: missingK7Items,
+        message: `Es fehlen ${missingK7Items.length} K7-ID(s). Eine Fallback-Email wurde an ${FALLBACK_EMAIL} gesendet.`
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Generate GUIDs for XML elements
