@@ -4,8 +4,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Phone, Mail, Send, CheckCircle2 } from 'lucide-react';
+import { Phone, Mail, Send, CheckCircle2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface ContactFormProps {
   reason: 'limited-tariff' | 'not-connected' | 'general';
@@ -27,6 +29,7 @@ const topicLabels: Record<ContactTopic, string> = {
 
 export function ContactForm({ reason, address }: ContactFormProps) {
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
   
   const getDefaultTopic = (): ContactTopic => {
     if (reason === 'limited-tariff') return 'tariff-request';
@@ -53,14 +56,30 @@ export function ContactForm({ reason, address }: ContactFormProps) {
     name: '',
     email: '',
     phone: '',
-    message: getDefaultMessage()
+    message: getDefaultMessage(),
+    // Honeypot field - hidden from real users, bots will fill it
+    website: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Hier würde normalerweise ein API-Call erfolgen
-    console.log('Contact form submitted:', formData);
-    setSubmitted(true);
+    setLoading(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('send-contact-form', {
+        body: formData,
+      });
+
+      if (error) throw error;
+
+      setSubmitted(true);
+      toast.success('Ihre Anfrage wurde erfolgreich gesendet!');
+    } catch (error) {
+      console.error('Contact form error');
+      toast.error('Fehler beim Senden. Bitte versuchen Sie es erneut.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (submitted) {
@@ -214,9 +233,32 @@ export function ContactForm({ reason, address }: ContactFormProps) {
           />
         </div>
         
-        <Button type="submit" variant="orange" className="w-full">
-          <Send className="w-4 h-4" />
-          Anfrage senden
+        {/* Honeypot field - hidden from users, bots will fill it */}
+        <div className="absolute -left-[9999px]" aria-hidden="true">
+          <Label htmlFor="website">Website (leave empty)</Label>
+          <Input
+            id="website"
+            name="website"
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            value={formData.website}
+            onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
+          />
+        </div>
+        
+        <Button type="submit" variant="orange" className="w-full" disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Wird gesendet...
+            </>
+          ) : (
+            <>
+              <Send className="w-4 h-4" />
+              Anfrage senden
+            </>
+          )}
         </Button>
       </form>
       

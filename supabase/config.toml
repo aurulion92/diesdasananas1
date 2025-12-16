@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.generate-k7-xml]
 verify_jwt = false
+
+[functions.send-contact-form]
+verify_jwt = false
