@@ -1374,11 +1374,42 @@ async function processOrderEmail(requestData: OrderEmailRequest): Promise<{ succ
   };
 }
 
+// Helper to log audit events
+async function logAuditEvent(
+  supabase: any,
+  actionType: string,
+  details: Record<string, any>,
+  resourceType: string,
+  resourceId: string,
+  ipAddress?: string,
+  userAgent?: string
+) {
+  try {
+    await supabase.from('audit_logs').insert({
+      action_type: actionType,
+      action_details: details,
+      resource_type: resourceType,
+      resource_id: resourceId,
+      ip_address: ipAddress || null,
+      user_agent: userAgent || null,
+    });
+    console.log(`Audit logged: ${actionType} for ${resourceType}/${resourceId}`);
+  } catch (error) {
+    console.error('Failed to log audit event:', error);
+  }
+}
+
 // HTTP Handler - responds immediately and processes email in background
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Get client info for audit logging
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  const realIp = req.headers.get('x-real-ip');
+  const ipAddress = forwardedFor?.split(',')[0]?.trim() || realIp || 'unknown';
+  const userAgent = req.headers.get('user-agent') || 'unknown';
 
   try {
     const requestData: OrderEmailRequest = await req.json();
@@ -1391,6 +1422,28 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     console.log(`Email request for order ${requestData.orderId}, starting background processing...`);
+
+    // Create Supabase client for audit logging
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseForAudit = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Log order creation audit event
+    await logAuditEvent(
+      supabaseForAudit,
+      'order_created',
+      {
+        customer_email: requestData.customerEmail,
+        customer_name: requestData.customerName,
+        product: requestData.vzfData?.tariffName,
+        monthly_total: requestData.vzfData?.monthlyTotal,
+        order_number: requestData.vzfData?.orderNumber,
+      },
+      'order',
+      requestData.orderId,
+      ipAddress,
+      userAgent
+    );
 
     // Start background processing with retry logic
     // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions

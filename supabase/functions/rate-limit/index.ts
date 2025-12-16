@@ -118,6 +118,26 @@ serve(async (req) => {
 
     console.log(`Rate limit result for ${ip}:`, data);
 
+    // Log audit event when user gets blocked
+    if (data && !data.allowed) {
+      try {
+        await supabase.from('audit_logs').insert({
+          action_type: 'rate_limit_blocked',
+          action_details: {
+            action_attempted: action_type,
+            reason: data.reason,
+            blocked_until: data.blocked_until,
+          },
+          resource_type: 'security',
+          resource_id: ip,
+          ip_address: ip,
+          user_agent: req.headers.get('user-agent') || 'unknown',
+        });
+      } catch (auditError) {
+        console.error('Failed to log rate limit audit:', auditError);
+      }
+    }
+
     return new Response(
       JSON.stringify(data),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

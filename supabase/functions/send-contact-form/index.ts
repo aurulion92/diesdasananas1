@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,11 +27,45 @@ const topicLabels: Record<string, string> = {
   'other': 'Sonstiges'
 };
 
+// Helper to log audit events
+async function logAuditEvent(
+  actionType: string,
+  details: Record<string, any>,
+  resourceType: string,
+  resourceId: string,
+  ipAddress?: string,
+  userAgent?: string
+) {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    await supabase.from('audit_logs').insert({
+      action_type: actionType,
+      action_details: details,
+      resource_type: resourceType,
+      resource_id: resourceId,
+      ip_address: ipAddress || null,
+      user_agent: userAgent || null,
+    });
+    console.log(`Audit logged: ${actionType}`);
+  } catch (error) {
+    console.error('Failed to log audit event:', error);
+  }
+}
+
 serve(async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Get client info for audit logging
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  const realIp = req.headers.get('x-real-ip');
+  const ipAddress = forwardedFor?.split(',')[0]?.trim() || realIp || 'unknown';
+  const userAgent = req.headers.get('user-agent') || 'unknown';
 
   try {
     const data: ContactFormRequest = await req.json();
@@ -38,6 +73,15 @@ serve(async (req: Request): Promise<Response> => {
     // Honeypot check - if website field is filled, it's likely a bot
     if (data.website && data.website.trim() !== '') {
       console.log("Bot detected via honeypot field");
+      // Log bot attempt
+      await logAuditEvent(
+        'bot_detected',
+        { method: 'honeypot', form: 'contact_form' },
+        'security',
+        'contact_form',
+        ipAddress,
+        userAgent
+      );
       // Return success to not alert the bot, but don't send email
       return new Response(JSON.stringify({ success: true }), {
         status: 200,
@@ -138,6 +182,20 @@ serve(async (req: Request): Promise<Response> => {
 
     const result = await emailResponse.json();
     console.log("Contact form email sent successfully:", result.id);
+
+    // Log successful contact form submission
+    await logAuditEvent(
+      'contact_form_submitted',
+      {
+        topic: topicLabel,
+        address: addressInfo,
+        email_id: result.id,
+      },
+      'contact',
+      result.id,
+      ipAddress,
+      userAgent
+    );
 
     return new Response(JSON.stringify({ success: true, id: result.id }), {
       status: 200,
