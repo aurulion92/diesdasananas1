@@ -1334,7 +1334,10 @@ async function processOrderEmail(requestData: OrderEmailRequest): Promise<{ succ
   if (emailSettings.fallback_order_email && orderData) {
     try {
       console.log("Checking for missing K7 IDs...");
-      const selectedOptionsWithIds = vzfData?.selectedOptions || [];
+      // Use selected_options from order data (has optionId), not vzfData.selectedOptions
+      const selectedOptionsWithIds = orderData.selected_options || [];
+      console.log(`Checking ${selectedOptionsWithIds.length} options for K7 IDs:`, 
+        selectedOptionsWithIds.map((o: any) => ({ name: o.name, optionId: o.optionId })));
       
       const missingK7Ids = await checkMissingK7Ids(
         supabase,
