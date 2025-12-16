@@ -531,8 +531,10 @@ export const OrderProvider = ({ children, initialCustomerType = 'pk' }: OrderPro
   };
 
   const isMFH = (): boolean => {
-    // MFH detection based on address data - can be extended later
-    return false; // Will be updated when we have building type info
+    // MFH/WoWi detection based on building type from address
+    // EFH (1 unit) = false, MFH (2 units) or WoWi (3+ units) = true
+    const buildingType = state.address?.buildingType;
+    return buildingType === 'mfh' || buildingType === 'wowi';
   };
 
   const setConsentData = (consentData: ConsentData) =>
