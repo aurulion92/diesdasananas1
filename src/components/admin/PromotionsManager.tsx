@@ -259,10 +259,11 @@ export const PromotionsManager = () => {
       
       setDiscountEntries(entries);
       
-      // Extract product IDs for product-scoped promotions
-      const productIds = entries
-        .filter(e => e.target_product_id)
-        .map(e => e.target_product_id as string);
+      // Extract product IDs from RAW data (not grouped entries) for product-scoped promotions
+      // This ensures all assigned products are shown as selected
+      const productIds = (data || [])
+        .filter(d => d.target_product_id)
+        .map(d => d.target_product_id as string);
       setSelectedProducts([...new Set(productIds)]);
     } catch (error) {
       console.error('Error fetching promotion discounts:', error);
