@@ -1093,6 +1093,115 @@ export const SettingsManager = () => {
                 )}
               </div>
 
+              {/* Saved Presets Section */}
+              <div className="border-t pt-6 mt-6">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  📁 Vorlagen
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Speichern Sie aktuelle Branding- (und Design-) Einstellungen als Vorlage, um sie später wieder zu laden.
+                </p>
+
+                {showSavePresetDialog ? (
+                  <div className="flex gap-2 mb-4 p-3 border rounded-lg bg-muted/30">
+                    <Input
+                      value={newPresetName}
+                      onChange={(e) => setNewPresetName(e.target.value)}
+                      placeholder="Name der Vorlage..."
+                      className="flex-1"
+                      onKeyDown={(e) => e.key === 'Enter' && saveCurrentAsPreset()}
+                    />
+                    <Button onClick={saveCurrentAsPreset} size="sm">
+                      <Save className="w-4 h-4 mr-1" />
+                      Speichern
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowSavePresetDialog(false);
+                        setNewPresetName('');
+                      }}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowSavePresetDialog(true)}
+                    className="mb-4"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Aktuelle Einstellungen als Vorlage speichern
+                  </Button>
+                )}
+
+                {savedPresets.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {savedPresets.map((preset) => (
+                      <div key={preset.id} className="border rounded-lg p-3 bg-card hover:bg-muted/50 transition-colors">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h4 className="font-medium text-sm">{preset.name}</h4>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(preset.createdAt).toLocaleDateString('de-DE')}
+                            </p>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => loadPreset(preset)}
+                              title="Vorlage laden"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              onClick={() => deletePreset(preset.id)}
+                              title="Vorlage löschen"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex gap-1 items-center">
+                          <div
+                            className="w-6 h-6 rounded border"
+                            style={{
+                              backgroundColor: `hsl(${preset.design.primary_hue}, ${preset.design.primary_saturation}%, ${preset.design.primary_lightness}%)`,
+                            }}
+                            title="Primärfarbe"
+                          />
+                          <div
+                            className="w-6 h-6 rounded border"
+                            style={{
+                              backgroundColor: `hsl(${preset.design.accent_hue}, ${preset.design.accent_saturation}%, ${preset.design.accent_lightness}%)`,
+                            }}
+                            title="Akzentfarbe"
+                          />
+                          {preset.branding.logo_url && (
+                            <img
+                              src={preset.branding.logo_url}
+                              alt="Logo"
+                              className="h-6 max-w-[60px] object-contain ml-2"
+                              loading="lazy"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">Keine gespeicherten Vorlagen vorhanden.</p>
+                )}
+              </div>
+
               <div className="pt-4 flex justify-between">
                 <Button variant="outline" onClick={resetBranding}>
                   <RotateCcw className="w-4 h-4 mr-2" />
