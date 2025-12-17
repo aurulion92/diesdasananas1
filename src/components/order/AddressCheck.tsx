@@ -148,21 +148,37 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
     // Don't reset result here - live check will trigger
   };
 
+  // Track last checked address to prevent re-checking the same address
+  const lastCheckedRef = useRef<string>('');
+
   // Live address check with debouncing
   useEffect(() => {
     // Only check if all fields are filled AND house number is in the database
-    const shouldCheck = city && street && houseNumber && 
-                        houseNumberSuggestions.length > 0 && 
-                        houseNumberSuggestions.includes(houseNumber);
+    const isValidAddress = city && street && houseNumber && 
+                          houseNumberSuggestions.length > 0 && 
+                          houseNumberSuggestions.includes(houseNumber);
     
-    if (!shouldCheck) {
+    if (!isValidAddress) {
+      return;
+    }
+
+    // Create a unique key for this address combination
+    const addressKey = `${city}-${street}-${houseNumber}-${customerType}`;
+    
+    // Don't re-check if we already checked this exact address
+    if (lastCheckedRef.current === addressKey) {
       return;
     }
 
     // Debounce the check
     const debounceTimer = setTimeout(async () => {
+      // Double-check the address key hasn't been checked yet
+      if (lastCheckedRef.current === addressKey) {
+        return;
+      }
+      
+      lastCheckedRef.current = addressKey;
       setIsChecking(true);
-      setResult(null);
       
       try {
         const found = await checkAddress(street, houseNumber, city, customerType);
@@ -183,7 +199,6 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
           if (customerType === 'pk') {
             const availability = await checkBuildingAvailability(street, houseNumber, city);
             if (availability.exists && !availability.pkAvailable && availability.kmuAvailable) {
-              // Building exists but only KMU is available
               setResult('kmu-only');
               setFoundAddress({ street, houseNumber, city });
               return;
@@ -198,10 +213,18 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
       } finally {
         setIsChecking(false);
       }
-    }, 400); // 400ms debounce
+    }, 400);
 
     return () => clearTimeout(debounceTimer);
   }, [city, street, houseNumber, houseNumberSuggestions, customerType, setAddress]);
+
+  // Reset last checked ref when address fields change
+  useEffect(() => {
+    const addressKey = `${city}-${street}-${houseNumber}-${customerType}`;
+    if (lastCheckedRef.current !== addressKey) {
+      setResult(null);
+    }
+  }, [city, street, houseNumber, customerType]);
 
   // Keyboard navigation for city dropdown
   const handleCityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
