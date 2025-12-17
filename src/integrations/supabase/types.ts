@@ -934,6 +934,7 @@ export type Database = {
           applies_to: string
           created_at: string
           discount_amount: number | null
+          discount_duration_months: number | null
           discount_type: string
           id: string
           k7_product_id: string | null
@@ -948,6 +949,7 @@ export type Database = {
           applies_to: string
           created_at?: string
           discount_amount?: number | null
+          discount_duration_months?: number | null
           discount_type: string
           id?: string
           k7_product_id?: string | null
@@ -962,6 +964,7 @@ export type Database = {
           applies_to?: string
           created_at?: string
           discount_amount?: number | null
+          discount_duration_months?: number | null
           discount_type?: string
           id?: string
           k7_product_id?: string | null
