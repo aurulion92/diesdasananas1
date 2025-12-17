@@ -249,6 +249,18 @@ export function CustomerForm() {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
+  const isAtLeast18 = (birthDate: string) => {
+    if (!birthDate) return false;
+    const birth = new Date(birthDate);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age >= 18;
+  };
+
   const isValidPhone = (phone: string) => {
     const cleaned = phone.replace(/\s/g, '');
     // Must start with 0 and contain /
@@ -280,6 +292,7 @@ export function CustomerForm() {
                   formData.phone && 
                   isValidPhone(formData.phone) &&
                   formData.birthDate &&
+                  isAtLeast18(formData.birthDate) &&
                   bankData.accountHolder &&
                   bankData.iban.replace(/\s/g, '').length >= 22 &&
                   isDateValid &&
@@ -422,8 +435,14 @@ export function CustomerForm() {
               type="date"
               value={formData.birthDate}
               onChange={(e) => handleChange('birthDate', e.target.value)}
-              className="mt-1.5 h-12 rounded-xl"
+              className={cn(
+                "mt-1.5 h-12 rounded-xl",
+                formData.birthDate && !isAtLeast18(formData.birthDate) && "border-destructive"
+              )}
             />
+            {formData.birthDate && !isAtLeast18(formData.birthDate) && (
+              <p className="text-sm text-destructive mt-1">Sie müssen mindestens 18 Jahre alt sein</p>
+            )}
           </div>
 
           <div>
