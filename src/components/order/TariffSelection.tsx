@@ -1377,18 +1377,21 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
               <p className="text-sm text-muted-foreground mb-3">{branding.installation_info_intro}</p>
               
               <ul className="space-y-2 text-sm text-muted-foreground mb-4">
-                {branding.installation_info_efh && (
+                {/* Show EFH text only for EFH buildings */}
+                {branding.installation_info_efh && address?.buildingType === 'efh' && (
                   <li className="flex items-start gap-2">
                     <span className="text-primary mt-1">•</span>
                     <span><strong>Einfamilienhäuser:</strong> {branding.installation_info_efh.replace(/^Einfamilienhäuser:\s*/i, '')}</span>
                   </li>
                 )}
-                {branding.installation_info_mfh && (
+                {/* Show MFH text only for MFH and WoWi buildings */}
+                {branding.installation_info_mfh && (address?.buildingType === 'mfh' || address?.buildingType === 'wowi') && (
                   <li className="flex items-start gap-2">
                     <span className="text-primary mt-1">•</span>
                     <span><strong>Mehrfamilienhäuser:</strong> {branding.installation_info_mfh.replace(/^Mehrfamilienhäuser:\s*/i, '')}</span>
                   </li>
                 )}
+                {/* Additional text shown for all building types */}
                 {branding.installation_info_additional && (
                   <li className="flex items-start gap-2">
                     <span className="text-primary mt-1">•</span>
