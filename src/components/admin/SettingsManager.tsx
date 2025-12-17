@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff, Shield, Trash2, RefreshCw, Building2, Image, AlertTriangle, Globe, Plus, X } from 'lucide-react';
+import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff, Shield, Trash2, RefreshCw, Building2, Image, AlertTriangle, Globe, Plus, X, Upload } from 'lucide-react';
+import { ImageUpload } from './ImageUpload';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -258,7 +259,8 @@ export const SettingsManager = () => {
   const saveDesignSettings = async () => {
     setSaving(true);
     
-    const { error } = await supabase
+    // Save design settings (colors)
+    const { error: designError } = await supabase
       .from('app_settings')
       .upsert([{
         key: 'design_settings',
@@ -266,11 +268,20 @@ export const SettingsManager = () => {
         updated_at: new Date().toISOString()
       }] as any, { onConflict: 'key' });
 
-    if (error) {
-      toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
+    // Also save branding settings (includes logo)
+    const { error: brandingError } = await supabase
+      .from('app_settings')
+      .upsert([{
+        key: 'branding_settings',
+        value: brandingSettings as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString()
+      }] as any, { onConflict: 'key' });
+
+    if (designError || brandingError) {
+      toast({ title: 'Fehler', description: designError?.message || brandingError?.message, variant: 'destructive' });
     } else {
       applyDesignSettings(designSettings);
-      toast({ title: 'Gespeichert', description: 'Design-Einstellungen wurden gespeichert.' });
+      toast({ title: 'Gespeichert', description: 'Design-Einstellungen und Logo wurden gespeichert.' });
     }
     
     setSaving(false);
@@ -300,7 +311,12 @@ export const SettingsManager = () => {
     setDesignSettings(DEFAULT_DESIGN);
     applyDesignSettings(DEFAULT_DESIGN);
     
-    const { error } = await supabase
+    // Also reset the logo
+    const updatedBranding = { ...brandingSettings, logo_url: '' };
+    setBrandingSettings(updatedBranding);
+    
+    // Save design settings
+    const { error: designError } = await supabase
       .from('app_settings')
       .upsert([{
         key: 'design_settings',
@@ -308,10 +324,19 @@ export const SettingsManager = () => {
         updated_at: new Date().toISOString()
       }] as any, { onConflict: 'key' });
 
-    if (error) {
-      toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
+    // Save branding settings with reset logo
+    const { error: brandingError } = await supabase
+      .from('app_settings')
+      .upsert([{
+        key: 'branding_settings',
+        value: updatedBranding as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString()
+      }] as any, { onConflict: 'key' });
+
+    if (designError || brandingError) {
+      toast({ title: 'Fehler', description: designError?.message || brandingError?.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Zurückgesetzt', description: 'Design wurde auf Standardwerte zurückgesetzt.' });
+      toast({ title: 'Zurückgesetzt', description: 'Design und Logo wurden auf Standardwerte zurückgesetzt.' });
     }
   };
 
@@ -1127,6 +1152,40 @@ export const SettingsManager = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Logo Upload Section */}
+              <div className="border rounded-lg p-4 bg-muted/30">
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <Upload className="w-4 h-4" />
+                  Header Logo
+                </h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Laden Sie ein eigenes Logo hoch, das im Header der Bestellstrecke angezeigt wird.
+                </p>
+                <div className="max-w-md">
+                  <ImageUpload
+                    value={brandingSettings.logo_url}
+                    onChange={(url) => setBrandingSettings({ ...brandingSettings, logo_url: url })}
+                    bucket="admin-uploads"
+                    folder="logos"
+                  />
+                </div>
+                {brandingSettings.logo_url && (
+                  <div className="mt-3 p-3 bg-primary rounded-lg flex items-center gap-4">
+                    <span className="text-xs text-primary-foreground/70">Vorschau im Header:</span>
+                    <img 
+                      src={brandingSettings.logo_url} 
+                      alt="Logo Vorschau" 
+                      className="h-10 max-w-[200px] object-contain"
+                    />
+                  </div>
+                )}
+                {!brandingSettings.logo_url && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Ohne Logo wird der Firmenname "{brandingSettings.company_name}" als Text angezeigt.
+                  </p>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label>Design-Vorlage</Label>
                 <Select value={designSettings.preset} onValueChange={applyPreset}>
