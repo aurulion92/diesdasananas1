@@ -79,10 +79,10 @@ const OrderFlowInner = ({ onBackToStart, customerType, onSwitchToKmu }: OrderFlo
   const { step, connectionType } = useOrder();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Header onLogoClick={onBackToStart} />
       
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 overflow-x-hidden">
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             <ProgressSteps currentStep={step} steps={steps} />

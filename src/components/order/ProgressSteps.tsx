@@ -66,7 +66,7 @@ export function ProgressSteps({ currentStep, steps }: ProgressStepsProps) {
               {index < steps.length - 1 && (
                 <div
                   className={cn(
-                    "w-20 md:w-32 h-0.5 mx-2 rounded-full transition-all duration-300",
+                    "w-8 sm:w-16 md:w-32 h-0.5 mx-1 sm:mx-2 rounded-full transition-all duration-300 flex-shrink-0",
                     stepNumber < currentStep ? "bg-success" : "bg-border"
                   )}
                 />
