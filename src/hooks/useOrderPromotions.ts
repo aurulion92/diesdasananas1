@@ -29,14 +29,19 @@ export function useOrderPromotions() {
   const routerOptionId = selectedRouter?.databaseId || null;
 
   // Get MONTHLY router discount from database promotions (e.g., FTTH-Aktion)
-  const promotionRouterMonthlyDiscount = selectedTariff 
+  const monthlyDiscountResult = selectedTariff 
     ? getOptionDiscountForTariff(selectedTariff.id, buildingId, routerOptionId, 'monthly')
-    : 0;
+    : { amount: 0, durationMonths: null };
+  
+  const promotionRouterMonthlyDiscount = monthlyDiscountResult.amount;
+  const routerDiscountDurationMonths = monthlyDiscountResult.durationMonths;
 
   // Get ONE-TIME router discount from database promotions
-  const promotionRouterOneTimeDiscount = selectedTariff 
+  const oneTimeDiscountResult = selectedTariff 
     ? getOptionDiscountForTariff(selectedTariff.id, buildingId, routerOptionId, 'one_time')
-    : 0;
+    : { amount: 0, durationMonths: null };
+  
+  const promotionRouterOneTimeDiscount = oneTimeDiscountResult.amount;
 
   // Get router discount from manual promo code (legacy - treated as monthly)
   const promoCodeRouterDiscount = appliedPromoCode?.routerDiscount || 0;
@@ -126,6 +131,7 @@ export function useOrderPromotions() {
     getPromotedRouterPrice,
     hasRouterDiscount,
     getEffectiveRouterMonthlyDiscount,
+    routerDiscountDurationMonths,
     
     // One-time discounts
     promotionRouterOneTimeDiscount,

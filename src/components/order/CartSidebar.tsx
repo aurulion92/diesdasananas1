@@ -36,6 +36,7 @@ export function CartSidebar({ customerType = 'pk' }: CartSidebarProps) {
     getApplicablePromotionNames,
     getEffectiveRouterMonthlyDiscount,
     getEffectiveRouterOneTimeDiscount,
+    routerDiscountDurationMonths,
   } = useOrderPromotions();
 
   // Use effective discounts (capped to not exceed base price)
@@ -252,7 +253,10 @@ export function CartSidebar({ customerType = 'pk' }: CartSidebarProps) {
                 </div>
               </div>
               {routerDiscount > 0 && (
-                <p className="text-xs text-success">-{routerDiscount.toFixed(2).replace('.', ',')} € mtl. Rabatt</p>
+                <p className="text-xs text-success">
+                  -{routerDiscount.toFixed(2).replace('.', ',')} € mtl. Rabatt
+                  {routerDiscountDurationMonths && ` für ${routerDiscountDurationMonths} Monate`}
+                </p>
               )}
               {routerOneTimeDiscount > 0 && (
                 <p className="text-xs text-success">-{routerOneTimeDiscount.toFixed(2).replace('.', ',')} € einm. Rabatt</p>

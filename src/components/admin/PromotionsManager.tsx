@@ -76,6 +76,7 @@ interface DiscountEntry {
   discount_type: 'fixed' | 'percentage' | 'waive';
   discount_amount: number | null;
   price_type: 'monthly' | 'one_time';
+  discount_duration_months: number | null;
   // K7 Options-IDs pro Produkt (bei Produkt-basierten Aktionen)
   k7_option_mappings: { [productId: string]: string };
   // Legacy single fields (für globale/building-only Aktionen)
@@ -249,6 +250,7 @@ export const PromotionsManager = () => {
         discount_type: d.discount_type as 'fixed' | 'percentage' | 'waive',
         discount_amount: d.discount_amount,
         price_type: (d.price_type as 'monthly' | 'one_time') || 'monthly',
+        discount_duration_months: d.discount_duration_months || null,
         k7_option_mappings: productMappings,
         k7_product_id: d.k7_product_id || '',
         k7_template_id: d.k7_template_id || '',
@@ -358,6 +360,7 @@ export const PromotionsManager = () => {
                 discount_type: entry.discount_type,
                 discount_amount: entry.discount_amount,
                 price_type: entry.price_type,
+                discount_duration_months: entry.discount_duration_months || null,
                 k7_product_id: null,
                 k7_template_id: k7OptionId || null, // Store product-specific K7 option ID
                 k7_template_type: null,
@@ -375,6 +378,7 @@ export const PromotionsManager = () => {
               discount_type: entry.discount_type,
               discount_amount: entry.discount_amount,
               price_type: entry.price_type,
+              discount_duration_months: entry.discount_duration_months || null,
               k7_product_id: entry.k7_product_id || null,
               k7_template_id: entry.k7_template_id || null,
               k7_template_type: entry.k7_template_type || null,
@@ -517,6 +521,7 @@ export const PromotionsManager = () => {
       discount_type: 'fixed',
       discount_amount: 0,
       price_type: 'monthly',
+      discount_duration_months: null,
       k7_option_mappings: {},
       k7_product_id: '',
       k7_template_id: '',
@@ -876,7 +881,7 @@ export const PromotionsManager = () => {
 
                             {entry.discount_type !== 'waive' && (
                               <div className="space-y-4">
-                                <div className="grid grid-cols-1 gap-4">
+                                <div className="grid grid-cols-2 gap-4">
                                   <div className="space-y-2">
                                     <Label>Rabatt {entry.discount_type === 'fixed' ? '(€)' : '(%)'}</Label>
                                     <Input
@@ -887,6 +892,18 @@ export const PromotionsManager = () => {
                                       value={entry.discount_amount || ''}
                                       onChange={(e) => updateDiscountEntry(index, 'discount_amount', parseFloat(e.target.value) || 0)}
                                     />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>Laufzeit (Monate)</Label>
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      className="w-32"
+                                      placeholder="z.B. 24"
+                                      value={entry.discount_duration_months || ''}
+                                      onChange={(e) => updateDiscountEntry(index, 'discount_duration_months', e.target.value ? parseInt(e.target.value) : null)}
+                                    />
+                                    <p className="text-xs text-muted-foreground">Optional: Wird im Rabatt-Text angezeigt</p>
                                   </div>
                                 </div>
 

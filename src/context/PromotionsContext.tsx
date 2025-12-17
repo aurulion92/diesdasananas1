@@ -7,6 +7,7 @@ export interface PromotionDiscount {
   discount_type: string;
   discount_amount: number | null;
   price_type: 'monthly' | 'one_time';
+  discount_duration_months: number | null;
   target_product_id: string | null;
   target_option_id: string | null;
 }
@@ -32,7 +33,7 @@ export interface ActivePromotion {
 interface PromotionsContextType {
   promotions: ActivePromotion[];
   loading: boolean;
-  getOptionDiscountForTariff: (tariffId: string | null, buildingId: string | null, optionId: string | null, priceType: 'monthly' | 'one_time') => number;
+  getOptionDiscountForTariff: (tariffId: string | null, buildingId: string | null, optionId: string | null, priceType: 'monthly' | 'one_time') => { amount: number; durationMonths: number | null };
   isSetupFeeWaived: (tariffId: string | null, buildingId: string | null) => boolean;
   refetch: () => void;
 }
@@ -101,6 +102,7 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
             discount_type: d.discount_type,
             discount_amount: d.discount_amount,
             price_type: (d.price_type as 'monthly' | 'one_time') || 'monthly',
+            discount_duration_months: d.discount_duration_months || null,
             target_product_id: d.target_product_id,
             target_option_id: d.target_option_id,
           })),
@@ -161,16 +163,18 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
   // Get option discount for a specific option from applicable promotions
   // Takes the MAXIMUM discount from any single promotion (no stacking)
   // priceType: 'monthly' for recurring costs, 'one_time' for one-time costs
+  // Returns both amount and duration
   const getOptionDiscountForTariff = (
     tariffId: string | null,
     buildingId: string | null,
     optionId: string | null,
     priceType: 'monthly' | 'one_time'
-  ): number => {
-    if (!optionId) return 0;
+  ): { amount: number; durationMonths: number | null } => {
+    if (!optionId) return { amount: 0, durationMonths: null };
     
     const applicable = getApplicablePromotions(tariffId, buildingId);
     let maxDiscount = 0;
+    let durationMonths: number | null = null;
 
     for (const promo of applicable) {
       for (const discount of promo.discounts) {
@@ -180,14 +184,17 @@ export const PromotionsProvider = ({ children }: { children: ReactNode }) => {
             discount.price_type === priceType) {
           if (discount.discount_type === 'fixed' && discount.discount_amount) {
             // Take maximum, don't stack
-            maxDiscount = Math.max(maxDiscount, discount.discount_amount);
+            if (discount.discount_amount > maxDiscount) {
+              maxDiscount = discount.discount_amount;
+              durationMonths = discount.discount_duration_months;
+            }
           }
         }
       }
     }
 
-    console.log(`Option discount (${priceType}) for tariff ${tariffId}, option ${optionId}:`, maxDiscount, 'from promotions:', applicable.map(p => p.name));
-    return maxDiscount;
+    console.log(`Option discount (${priceType}) for tariff ${tariffId}, option ${optionId}:`, maxDiscount, 'duration:', durationMonths, 'from promotions:', applicable.map(p => p.name));
+    return { amount: maxDiscount, durationMonths };
   };
 
   // Check if setup fee is waived by any applicable promotion
