@@ -400,7 +400,7 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
           Jetzt Verfügbarkeit prüfen
         </h1>
         <p className="text-accent font-medium text-lg">
-          ...und gigaschnell lossurfen mit unseren neuen <span className="font-bold">{customerType === 'kmu' ? 'Easy Business' : 'einfach Internet'}</span> Produkten!
+          ...und gigaschnell lossurfen mit unseren neuen <span className="font-bold">{customerType === 'kmu' ? 'easy business' : 'einfach Internet'}</span> Produkten!
         </p>
       </div>
 
@@ -645,7 +645,7 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
               <div className="flex-1">
                 <h4 className="font-bold text-success text-lg">Glasfaser verfügbar!</h4>
                 <p className="text-muted-foreground mt-1">
-                  An Ihrer Adresse sind alle unsere {customerType === 'kmu' ? 'Easy Business' : 'einfach Internet'} Produkte verfügbar. Wählen Sie jetzt Ihren Wunschtarif.
+                  An Ihrer Adresse sind alle unsere {customerType === 'kmu' ? 'easy business' : 'einfach Internet'} Produkte verfügbar. Wählen Sie jetzt Ihren Wunschtarif.
                 </p>
                 <Button onClick={handleContinue} variant="success" className="mt-4">
                   Weiter zur Produktauswahl
