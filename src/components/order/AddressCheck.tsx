@@ -145,8 +145,63 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
     setHouseNumber(selectedNumber);
     setShowHouseNumberDropdown(false);
     setHouseNumberHighlightIndex(-1);
-    setResult(null);
+    // Don't reset result here - live check will trigger
   };
+
+  // Live address check with debouncing
+  useEffect(() => {
+    // Only check if all fields are filled AND house number is in the database
+    const shouldCheck = city && street && houseNumber && 
+                        houseNumberSuggestions.length > 0 && 
+                        houseNumberSuggestions.includes(houseNumber);
+    
+    if (!shouldCheck) {
+      return;
+    }
+
+    // Debounce the check
+    const debounceTimer = setTimeout(async () => {
+      setIsChecking(true);
+      setResult(null);
+      
+      try {
+        const found = await checkAddress(street, houseNumber, city, customerType);
+        
+        if (found) {
+          setAddress(found);
+          setFoundAddress({ street: found.street, houseNumber: found.houseNumber, city: found.city });
+          
+          if (found.connectionType === 'ftth') {
+            setResult('ftth');
+          } else if (found.connectionType === 'limited') {
+            setResult('limited');
+          } else {
+            setResult('not-connected');
+          }
+        } else {
+          // If not found for this customer type, check if building exists with different availability
+          if (customerType === 'pk') {
+            const availability = await checkBuildingAvailability(street, houseNumber, city);
+            if (availability.exists && !availability.pkAvailable && availability.kmuAvailable) {
+              // Building exists but only KMU is available
+              setResult('kmu-only');
+              setFoundAddress({ street, houseNumber, city });
+              return;
+            }
+          }
+          setResult('not-found');
+          setFoundAddress({ street, houseNumber, city });
+        }
+      } catch (error) {
+        console.error('Error checking address:', error);
+        setResult('not-found');
+      } finally {
+        setIsChecking(false);
+      }
+    }, 400); // 400ms debounce
+
+    return () => clearTimeout(debounceTimer);
+  }, [city, street, houseNumber, houseNumberSuggestions, customerType, setAddress]);
 
   // Keyboard navigation for city dropdown
   const handleCityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -262,7 +317,8 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
     }
   };
 
-  const handleCheck = async () => {
+  // Manual check as fallback (for house numbers not in database)
+  const handleManualCheck = async () => {
     setIsChecking(true);
     setResult(null);
     
@@ -285,7 +341,6 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
         if (customerType === 'pk') {
           const availability = await checkBuildingAvailability(street, houseNumber, city);
           if (availability.exists && !availability.pkAvailable && availability.kmuAvailable) {
-            // Building exists but only KMU is available
             setResult('kmu-only');
             setFoundAddress({ street, houseNumber, city });
             return;
@@ -516,24 +571,29 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
           Tippen Sie mindestens drei Buchstaben, um Straßenvorschläge zu erhalten.
         </p>
 
-        <div className="flex justify-end">
-          <Button 
-            onClick={handleCheck} 
-            variant="orange"
-            size="lg"
-            disabled={!street || !houseNumber || !city || isChecking}
-            className="px-10"
-          >
-            {isChecking ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Prüfe...
-              </>
-            ) : (
-              'Weiter'
-            )}
-          </Button>
-        </div>
+        {/* Loading indicator during live check */}
+        {isChecking && (
+          <div className="flex justify-center py-4">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              <span>Prüfe Verfügbarkeit...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Manual check button - only show if house number is NOT in database but fields are filled */}
+        {!isChecking && street && houseNumber && city && !isHouseNumberInDatabase && houseNumberSuggestions.length > 0 && (
+          <div className="flex justify-end">
+            <Button 
+              onClick={handleManualCheck} 
+              variant="orange"
+              size="lg"
+              className="px-10"
+            >
+              Trotzdem prüfen
+            </Button>
+          </div>
+        )}
 
         {/* Hinweis wenn Hausnummer nicht in der Liste - zeigt Kontaktformular nur wenn kein anderes result aktiv */}
         {houseNumber && !isHouseNumberInDatabase && houseNumberSuggestions.length > 0 && !result && (
