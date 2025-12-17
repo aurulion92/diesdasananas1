@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { User, ArrowRight, ArrowLeft, CalendarIcon, CreditCard, Clock, Building, Phone, Zap, AlertCircle, Loader2 } from 'lucide-react';
-import { format, addDays } from 'date-fns';
+import { format, addDays, startOfDay } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -218,6 +218,9 @@ export function CustomerForm() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [cancellationDate, setCancellationDate] = useState<Date | undefined>(undefined);
 
+  // Wunschtermin: mind. 14 Tage Vorlauf
+  const minDate = addDays(startOfDay(new Date()), 14);
+
   const isMFHBuilding = isMFH();
   // Express only available for PK customers with ftth or limited connection
   const canHaveExpress = customerType === 'pk' && (connectionType === 'ftth' || connectionType === 'limited');
@@ -282,7 +285,7 @@ export function CustomerForm() {
   // Bei nahtlosem Übergang ist kein separater Termin nötig
   const isDateValid = cancelPreviousProvider && cancellationData.portToNewConnection 
     ? true  // Portierung bestimmt den Termin
-    : (dateType === 'asap' || (dateType === 'specific' && selectedDate));
+    : (dateType === 'asap' || (dateType === 'specific' && selectedDate && selectedDate >= minDate));
 
   const isValid = formData.salutation && 
                   formData.firstName && 
@@ -327,8 +330,7 @@ export function CustomerForm() {
     }
   };
 
-  // Minimum date is 2 weeks from now (14 days lead time)
-  const minDate = addDays(new Date(), 14);
+  // minDate ist oben definiert (14 Tage Vorlauf)
 
   // Floor options (EG, 1-10)
   const floorOptions = ['EG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
@@ -891,6 +893,7 @@ export function CustomerForm() {
                           <Calendar
                             mode="single"
                             selected={selectedDate}
+                            defaultMonth={selectedDate ?? minDate}
                             onSelect={(date) => {
                               setSelectedDate(date);
                               // Synchronisiere mit Wechselservice
@@ -910,7 +913,7 @@ export function CustomerForm() {
                       <div className="mt-2 p-3 bg-muted/50 rounded-lg flex items-start gap-2">
                         <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                         <p className="text-xs text-muted-foreground">
-                          Bitte beachten Sie: Es handelt sich um einen unverbindlichen Wunschtermin. 
+                          Frühester Wunschtermin: <span className="font-medium">{format(minDate, "PPP", { locale: de })}</span>. 
                           Unsere Anschaltzeiten betragen aktuell ca. 2-3 Wochen.
                         </p>
                       </div>
@@ -1156,6 +1159,7 @@ export function CustomerForm() {
                                 <Calendar
                                   mode="single"
                                   selected={cancellationDate}
+                                  defaultMonth={cancellationDate ?? minDate}
                                   onSelect={(date) => {
                                     setCancellationDate(date);
                                     if (date) {
