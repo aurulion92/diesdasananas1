@@ -593,17 +593,17 @@ export const SettingsManager = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="logo_url">Logo URL (leer = Text-Logo)</Label>
-                  <Input
-                    id="logo_url"
+                  <Label>Logo (leer = Text-Logo)</Label>
+                  <ImageUpload
                     value={brandingSettings.logo_url}
-                    onChange={(e) => setBrandingSettings({ ...brandingSettings, logo_url: e.target.value })}
-                    placeholder="https://example.com/logo.png"
+                    onChange={(url) => setBrandingSettings({ ...brandingSettings, logo_url: url })}
+                    bucket="admin-uploads"
+                    folder="logos"
                   />
-                  {brandingSettings.logo_url && (
-                    <div className="mt-2 p-2 bg-muted rounded flex items-center justify-center">
-                      <img src={brandingSettings.logo_url} alt="Logo Vorschau" className="max-h-12" />
-                    </div>
+                  {!brandingSettings.logo_url && (
+                    <p className="text-xs text-muted-foreground">
+                      Ohne Logo wird der Firmenname als Text angezeigt.
+                    </p>
                   )}
                 </div>
               </div>
