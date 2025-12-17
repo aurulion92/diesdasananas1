@@ -70,6 +70,14 @@ interface RateLimitEntry {
   last_attempt_at: string;
 }
 
+interface SavedPreset {
+  id: string;
+  name: string;
+  createdAt: string;
+  design: DesignSettings;
+  branding: BrandingSettings;
+}
+
 const DEFAULT_DESIGN: DesignSettings = {
   primary_hue: '230',
   primary_saturation: '60',
@@ -156,10 +164,16 @@ export const SettingsManager = () => {
   const [brandingSettings, setBrandingSettings] = useState<BrandingSettings>(DEFAULT_BRANDING);
   const [rateLimitEntries, setRateLimitEntries] = useState<RateLimitEntry[]>([]);
   const [loadingRateLimits, setLoadingRateLimits] = useState(false);
+  
+  // Saved presets state
+  const [savedPresets, setSavedPresets] = useState<SavedPreset[]>([]);
+  const [newPresetName, setNewPresetName] = useState('');
+  const [showSavePresetDialog, setShowSavePresetDialog] = useState(false);
 
   useEffect(() => {
     fetchSettings();
     fetchRateLimits();
+    fetchSavedPresets();
   }, []);
 
   const fetchSettings = async () => {
@@ -226,6 +240,78 @@ export const SettingsManager = () => {
       setRateLimitEntries(data);
     }
     setLoadingRateLimits(false);
+  };
+
+  const fetchSavedPresets = async () => {
+    const { data } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'saved_presets')
+      .maybeSingle();
+    
+    if (data?.value && Array.isArray(data.value)) {
+      setSavedPresets(data.value as unknown as SavedPreset[]);
+    }
+  };
+
+  const saveCurrentAsPreset = async () => {
+    if (!newPresetName.trim()) {
+      toast({ title: 'Fehler', description: 'Bitte geben Sie einen Namen für die Vorlage ein.', variant: 'destructive' });
+      return;
+    }
+
+    const newPreset: SavedPreset = {
+      id: Date.now().toString(),
+      name: newPresetName.trim(),
+      createdAt: new Date().toISOString(),
+      design: { ...designSettings },
+      branding: { ...brandingSettings }
+    };
+
+    const updatedPresets = [...savedPresets, newPreset];
+
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert([{
+        key: 'saved_presets',
+        value: updatedPresets as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString()
+      }] as any, { onConflict: 'key' });
+
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
+    } else {
+      setSavedPresets(updatedPresets);
+      setNewPresetName('');
+      setShowSavePresetDialog(false);
+      toast({ title: 'Gespeichert', description: `Vorlage "${newPreset.name}" wurde gespeichert.` });
+    }
+  };
+
+  const loadPreset = async (preset: SavedPreset) => {
+    setDesignSettings(preset.design);
+    setBrandingSettings(preset.branding);
+    applyDesignSettings(preset.design);
+    toast({ title: 'Geladen', description: `Vorlage "${preset.name}" wurde geladen. Klicken Sie auf "Speichern" um die Änderungen zu übernehmen.` });
+  };
+
+  const deletePreset = async (presetId: string) => {
+    const updatedPresets = savedPresets.filter(p => p.id !== presetId);
+
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert([{
+        key: 'saved_presets',
+        value: updatedPresets as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString()
+      }] as any, { onConflict: 'key' });
+
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
+    } else {
+      setSavedPresets(updatedPresets);
+      toast({ title: 'Gelöscht', description: 'Vorlage wurde gelöscht.' });
+    }
   };
 
   const applyDesignSettings = (settings: DesignSettings) => {
@@ -1455,6 +1541,101 @@ export const SettingsManager = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Saved Presets Section */}
+              <div className="border-t pt-6 mt-6">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  📁 Gespeicherte Vorlagen
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Speichern Sie aktuelle Design- und Branding-Einstellungen als Vorlage, um sie später wiederverwenden zu können.
+                </p>
+                
+                {/* Save new preset */}
+                {showSavePresetDialog ? (
+                  <div className="flex gap-2 mb-4 p-3 border rounded-lg bg-muted/30">
+                    <Input
+                      value={newPresetName}
+                      onChange={(e) => setNewPresetName(e.target.value)}
+                      placeholder="Name der Vorlage..."
+                      className="flex-1"
+                      onKeyDown={(e) => e.key === 'Enter' && saveCurrentAsPreset()}
+                    />
+                    <Button onClick={saveCurrentAsPreset} size="sm">
+                      <Save className="w-4 h-4 mr-1" />
+                      Speichern
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setShowSavePresetDialog(false); setNewPresetName(''); }}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => setShowSavePresetDialog(true)} className="mb-4">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Aktuelle Einstellungen als Vorlage speichern
+                  </Button>
+                )}
+
+                {/* List saved presets */}
+                {savedPresets.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {savedPresets.map((preset) => (
+                      <div key={preset.id} className="border rounded-lg p-3 bg-card hover:bg-muted/50 transition-colors">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h4 className="font-medium text-sm">{preset.name}</h4>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(preset.createdAt).toLocaleDateString('de-DE')}
+                            </p>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-7 w-7"
+                              onClick={() => loadPreset(preset)}
+                              title="Vorlage laden"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              onClick={() => deletePreset(preset.id)}
+                              title="Vorlage löschen"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        {/* Preview colors */}
+                        <div className="flex gap-1">
+                          <div 
+                            className="w-6 h-6 rounded border"
+                            style={{ backgroundColor: `hsl(${preset.design.primary_hue}, ${preset.design.primary_saturation}%, ${preset.design.primary_lightness}%)` }}
+                            title="Primärfarbe"
+                          />
+                          <div 
+                            className="w-6 h-6 rounded border"
+                            style={{ backgroundColor: `hsl(${preset.design.accent_hue}, ${preset.design.accent_saturation}%, ${preset.design.accent_lightness}%)` }}
+                            title="Akzentfarbe"
+                          />
+                          {preset.branding.logo_url && (
+                            <img 
+                              src={preset.branding.logo_url} 
+                              alt="Logo" 
+                              className="h-6 max-w-[60px] object-contain ml-2"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">Keine gespeicherten Vorlagen vorhanden.</p>
+                )}
               </div>
 
               <div className="pt-4 flex justify-between">
