@@ -327,8 +327,8 @@ export function CustomerForm() {
     }
   };
 
-  // Minimum date is tomorrow (not in the past)
-  const minDate = addDays(new Date(), 1);
+  // Minimum date is 2 weeks from now (14 days lead time)
+  const minDate = addDays(new Date(), 14);
 
   // Floor options (EG, 1-10)
   const floorOptions = ['EG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
