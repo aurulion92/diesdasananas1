@@ -14,13 +14,13 @@ export const CookieConsent = () => {
     }
   }, []);
 
-  const handleAccept = () => {
-    localStorage.setItem(COOKIE_CONSENT_KEY, 'accepted');
+  const handleAcceptAll = () => {
+    localStorage.setItem(COOKIE_CONSENT_KEY, 'all');
     setShowBanner(false);
   };
 
-  const handleDecline = () => {
-    localStorage.setItem(COOKIE_CONSENT_KEY, 'declined');
+  const handleAcceptNecessary = () => {
+    localStorage.setItem(COOKIE_CONSENT_KEY, 'necessary');
     setShowBanner(false);
   };
 
@@ -49,17 +49,17 @@ export const CookieConsent = () => {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={handleDecline}
+              onClick={handleAcceptNecessary}
               className="flex-1 sm:flex-none"
             >
-              Ablehnen
+              Nur notwendige
             </Button>
             <Button 
               size="sm" 
-              onClick={handleAccept}
+              onClick={handleAcceptAll}
               className="flex-1 sm:flex-none"
             >
-              Akzeptieren
+              Alle akzeptieren
             </Button>
           </div>
         </div>
