@@ -28,6 +28,16 @@ interface EmailSettings {
   fallback_order_email: string;
 }
 
+interface ContactFormSettings {
+  enabled: boolean;
+  recipient_email: string;
+}
+
+const DEFAULT_CONTACT_FORM: ContactFormSettings = {
+  enabled: false,
+  recipient_email: 'kontakt@comin-glasfaser.de',
+};
+
 interface DesignSettings {
   primary_hue: string;
   primary_saturation: string;
@@ -162,6 +172,7 @@ export const SettingsManager = () => {
   const [designSettings, setDesignSettings] = useState<DesignSettings>(DEFAULT_DESIGN);
   const [rateLimitSettings, setRateLimitSettings] = useState<RateLimitSettings>(DEFAULT_RATE_LIMIT);
   const [brandingSettings, setBrandingSettings] = useState<BrandingSettings>(DEFAULT_BRANDING);
+  const [contactFormSettings, setContactFormSettings] = useState<ContactFormSettings>(DEFAULT_CONTACT_FORM);
   const [rateLimitEntries, setRateLimitEntries] = useState<RateLimitEntry[]>([]);
   const [loadingRateLimits, setLoadingRateLimits] = useState(false);
   
@@ -223,6 +234,17 @@ export const SettingsManager = () => {
     
     if (brandingData?.value) {
       setBrandingSettings({ ...DEFAULT_BRANDING, ...(brandingData.value as object) });
+    }
+
+    // Fetch contact form settings
+    const { data: contactFormData } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'contact_form_settings')
+      .maybeSingle();
+    
+    if (contactFormData?.value) {
+      setContactFormSettings({ ...DEFAULT_CONTACT_FORM, ...(contactFormData.value as object) });
     }
 
     setLoading(false);
@@ -337,6 +359,26 @@ export const SettingsManager = () => {
       toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Gespeichert', description: 'E-Mail-Einstellungen wurden gespeichert.' });
+    }
+    
+    setSaving(false);
+  };
+
+  const saveContactFormSettings = async () => {
+    setSaving(true);
+    
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert([{
+        key: 'contact_form_settings',
+        value: contactFormSettings as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString()
+      }] as any, { onConflict: 'key' });
+
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Gespeichert', description: 'Kontaktformular-Einstellungen wurden gespeichert.' });
     }
     
     setSaving(false);
@@ -1217,122 +1259,175 @@ export const SettingsManager = () => {
         </TabsContent>
 
         <TabsContent value="email">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="w-5 h-5" />
-                E-Mail Server Konfiguration
-              </CardTitle>
-              <CardDescription>
-                Konfigurieren Sie den SMTP-Server für den E-Mail-Versand (z.B. Bestellbestätigungen)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sender_name">Absender Name</Label>
-                  <Input
-                    id="sender_name"
-                    value={emailSettings.sender_name}
-                    onChange={(e) => setEmailSettings({ ...emailSettings, sender_name: e.target.value })}
-                    placeholder="COM-IN Glasfaser"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sender_email">Absender E-Mail</Label>
-                  <Input
-                    id="sender_email"
-                    type="email"
-                    value={emailSettings.sender_email}
-                    onChange={(e) => setEmailSettings({ ...emailSettings, sender_email: e.target.value })}
-                    placeholder="info@example.de"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="smtp_host">SMTP Server</Label>
-                  <Input
-                    id="smtp_host"
-                    value={emailSettings.smtp_host}
-                    onChange={(e) => setEmailSettings({ ...emailSettings, smtp_host: e.target.value })}
-                    placeholder="smtp.ionos.de"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="smtp_port">SMTP Port (SSL)</Label>
-                  <Input
-                    id="smtp_port"
-                    value={emailSettings.smtp_port}
-                    onChange={(e) => setEmailSettings({ ...emailSettings, smtp_port: e.target.value })}
-                    placeholder="587"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="smtp_user">Benutzername</Label>
-                  <Input
-                    id="smtp_user"
-                    value={emailSettings.smtp_user}
-                    onChange={(e) => setEmailSettings({ ...emailSettings, smtp_user: e.target.value })}
-                    placeholder="info@example.de"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="smtp_password">Passwort</Label>
-                  <div className="relative">
-                    <Input
-                      id="smtp_password"
-                      type={showPassword ? 'text' : 'password'}
-                      value={emailSettings.smtp_password}
-                      onChange={(e) => setEmailSettings({ ...emailSettings, smtp_password: e.target.value })}
-                      placeholder="••••••••"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
+          <div className="space-y-6">
+            {/* Contact Form Settings Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="w-5 h-5" />
+                  Kontaktformular
+                </CardTitle>
+                <CardDescription>
+                  Konfigurieren Sie den E-Mail-Versand für Kontaktformulare auf der Website
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                  <div>
+                    <Label className="text-base font-medium">E-Mail-Versand aktiviert</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {contactFormSettings.enabled 
+                        ? 'Kontaktformular-Anfragen werden per E-Mail versendet' 
+                        : 'E-Mail-Versand ist deaktiviert - Anfragen werden nur protokolliert'}
+                    </p>
                   </div>
+                  <Switch
+                    checked={contactFormSettings.enabled}
+                    onCheckedChange={(checked) => setContactFormSettings({ ...contactFormSettings, enabled: checked })}
+                  />
                 </div>
-              </div>
 
-              <div className="border-t pt-4 mt-4">
-                <h4 className="font-medium mb-4 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-warning" />
-                  Fallback bei fehlenden K7-Daten
-                </h4>
                 <div className="space-y-2">
-                  <Label htmlFor="fallback_order_email">Fallback E-Mail-Adresse</Label>
+                  <Label htmlFor="contact_recipient_email">Empfänger E-Mail-Adresse</Label>
                   <Input
-                    id="fallback_order_email"
+                    id="contact_recipient_email"
                     type="email"
-                    value={emailSettings.fallback_order_email}
-                    onChange={(e) => setEmailSettings({ ...emailSettings, fallback_order_email: e.target.value })}
-                    placeholder="samuel.wunderle@comin-glasfaser.de"
+                    value={contactFormSettings.recipient_email}
+                    onChange={(e) => setContactFormSettings({ ...contactFormSettings, recipient_email: e.target.value })}
+                    placeholder="kontakt@comin-glasfaser.de"
                   />
                   <p className="text-xs text-muted-foreground">
-                    An diese Adresse werden Bestellungen gesendet, wenn K7-IDs für die XML-Generierung fehlen.
-                    Der Kunde erhält weiterhin seine normale Bestätigung.
+                    An diese Adresse werden Kontaktformular-Anfragen gesendet (wenn aktiviert).
                   </p>
                 </div>
-              </div>
 
-              <div className="pt-4 flex justify-end">
-                <Button onClick={saveEmailSettings} disabled={saving}>
-                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                  Speichern
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="pt-4 flex justify-end">
+                  <Button onClick={saveContactFormSettings} disabled={saving}>
+                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Speichern
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* SMTP Settings Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="w-5 h-5" />
+                  E-Mail Server Konfiguration
+                </CardTitle>
+                <CardDescription>
+                  Konfigurieren Sie den SMTP-Server für den E-Mail-Versand (z.B. Bestellbestätigungen)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="sender_name">Absender Name</Label>
+                    <Input
+                      id="sender_name"
+                      value={emailSettings.sender_name}
+                      onChange={(e) => setEmailSettings({ ...emailSettings, sender_name: e.target.value })}
+                      placeholder="COM-IN Glasfaser"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sender_email">Absender E-Mail</Label>
+                    <Input
+                      id="sender_email"
+                      type="email"
+                      value={emailSettings.sender_email}
+                      onChange={(e) => setEmailSettings({ ...emailSettings, sender_email: e.target.value })}
+                      placeholder="info@example.de"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="smtp_host">SMTP Server</Label>
+                    <Input
+                      id="smtp_host"
+                      value={emailSettings.smtp_host}
+                      onChange={(e) => setEmailSettings({ ...emailSettings, smtp_host: e.target.value })}
+                      placeholder="smtp.ionos.de"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="smtp_port">SMTP Port (SSL)</Label>
+                    <Input
+                      id="smtp_port"
+                      value={emailSettings.smtp_port}
+                      onChange={(e) => setEmailSettings({ ...emailSettings, smtp_port: e.target.value })}
+                      placeholder="587"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="smtp_user">Benutzername</Label>
+                    <Input
+                      id="smtp_user"
+                      value={emailSettings.smtp_user}
+                      onChange={(e) => setEmailSettings({ ...emailSettings, smtp_user: e.target.value })}
+                      placeholder="info@example.de"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="smtp_password">Passwort</Label>
+                    <div className="relative">
+                      <Input
+                        id="smtp_password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={emailSettings.smtp_password}
+                        onChange={(e) => setEmailSettings({ ...emailSettings, smtp_password: e.target.value })}
+                        placeholder="••••••••"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="font-medium mb-4 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-warning" />
+                    Fallback bei fehlenden K7-Daten
+                  </h4>
+                  <div className="space-y-2">
+                    <Label htmlFor="fallback_order_email">Fallback E-Mail-Adresse</Label>
+                    <Input
+                      id="fallback_order_email"
+                      type="email"
+                      value={emailSettings.fallback_order_email}
+                      onChange={(e) => setEmailSettings({ ...emailSettings, fallback_order_email: e.target.value })}
+                      placeholder="samuel.wunderle@comin-glasfaser.de"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      An diese Adresse werden Bestellungen gesendet, wenn K7-IDs für die XML-Generierung fehlen.
+                      Der Kunde erhält weiterhin seine normale Bestätigung.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex justify-end">
+                  <Button onClick={saveEmailSettings} disabled={saving}>
+                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Speichern
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="design">

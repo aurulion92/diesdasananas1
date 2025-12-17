@@ -20,6 +20,11 @@ interface ContactFormRequest {
   website?: string;
 }
 
+interface ContactFormSettings {
+  enabled: boolean;
+  recipient_email: string;
+}
+
 const topicLabels: Record<string, string> = {
   'tariff-request': 'Anderer Tarif gewünscht',
   'availability': 'Verfügbarkeitsanfrage',
@@ -52,6 +57,40 @@ async function logAuditEvent(
     console.log(`Audit logged: ${actionType}`);
   } catch (error) {
     console.error('Failed to log audit event:', error);
+  }
+}
+
+// Helper to fetch contact form settings
+async function getContactFormSettings(): Promise<ContactFormSettings> {
+  const defaultSettings: ContactFormSettings = {
+    enabled: false,
+    recipient_email: 'kontakt@comin-glasfaser.de'
+  };
+  
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'contact_form_settings')
+      .maybeSingle();
+    
+    if (error) {
+      console.error('Error fetching contact form settings:', error);
+      return defaultSettings;
+    }
+    
+    if (data?.value) {
+      return { ...defaultSettings, ...(data.value as object) };
+    }
+    
+    return defaultSettings;
+  } catch (error) {
+    console.error('Failed to fetch contact form settings:', error);
+    return defaultSettings;
   }
 }
 
@@ -106,16 +145,51 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
+    // Fetch contact form settings
+    const contactSettings = await getContactFormSettings();
+    console.log('Contact form settings:', JSON.stringify(contactSettings));
+
+    const topicLabel = topicLabels[data.topic] || data.topic;
+    const addressInfo = data.street && data.houseNumber 
+      ? `${data.street} ${data.houseNumber}, ${data.city || 'N/A'}`
+      : 'Nicht angegeben';
+
+    // Check if email sending is enabled
+    if (!contactSettings.enabled) {
+      console.log('Email sending is disabled - logging request only');
+      
+      // Log the contact form submission without sending email
+      await logAuditEvent(
+        'contact_form_logged',
+        {
+          topic: topicLabel,
+          address: addressInfo,
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          message: data.message || '',
+          email_disabled: true,
+        },
+        'contact',
+        'disabled',
+        ipAddress,
+        userAgent
+      );
+
+      return new Response(JSON.stringify({ success: true, email_sent: false }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     if (!RESEND_API_KEY) {
       console.error("RESEND_API_KEY not configured");
       throw new Error("Email service not configured");
     }
 
-    const topicLabel = topicLabels[data.topic] || data.topic;
-    const addressInfo = data.street && data.houseNumber 
-      ? `${data.street} ${data.houseNumber}, ${data.city || 'N/A'}`
-      : 'Nicht angegeben';
+    const recipientEmail = contactSettings.recipient_email || 'kontakt@comin-glasfaser.de';
+    console.log('Sending email to:', recipientEmail);
 
     // Send notification email to COM-IN via Resend API
     const emailResponse = await fetch("https://api.resend.com/emails", {
@@ -126,7 +200,7 @@ serve(async (req: Request): Promise<Response> => {
       },
       body: JSON.stringify({
         from: "COM-IN Kontaktformular <onboarding@resend.dev>",
-        to: ["kontakt@comin-glasfaser.de"],
+        to: [recipientEmail],
         reply_to: data.email,
         subject: `Kontaktanfrage: ${topicLabel}`,
         html: `
@@ -190,6 +264,7 @@ serve(async (req: Request): Promise<Response> => {
         topic: topicLabel,
         address: addressInfo,
         email_id: result.id,
+        recipient: recipientEmail,
       },
       'contact',
       result.id,
@@ -197,7 +272,7 @@ serve(async (req: Request): Promise<Response> => {
       userAgent
     );
 
-    return new Response(JSON.stringify({ success: true, id: result.id }), {
+    return new Response(JSON.stringify({ success: true, id: result.id, email_sent: true }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
