@@ -370,8 +370,8 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
     <div className="max-w-3xl mx-auto animate-slide-up">
       {/* Hero Section */}
       <div className="text-center mb-10">
-        <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center">
-          <Rocket className="w-16 h-16 text-primary" strokeWidth={1.5} />
+        <div className="w-24 h-24 md:w-28 md:h-28 mx-auto mb-6 flex items-center justify-center">
+          <Rocket className="w-16 h-16 md:w-20 md:h-20 text-primary" strokeWidth={1.5} />
         </div>
         <h1 className="text-3xl md:text-4xl font-bold text-primary mb-3">
           Jetzt Verfügbarkeit prüfen

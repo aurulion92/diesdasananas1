@@ -26,8 +26,8 @@ const LandingChoice = ({ onNewCustomer, onExistingCustomer, onLogoClick }: { onN
       <Header onLogoClick={onLogoClick} />
       <main className="container mx-auto px-4 py-6 pb-28">
         <div className="max-w-2xl mx-auto text-center">
-          <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 flex items-center justify-center">
-            <Rocket className="w-12 h-12 md:w-16 md:h-16 text-primary" strokeWidth={1.5} />
+          <div className="w-20 h-20 md:w-28 md:h-28 mx-auto mb-4 md:mb-6 flex items-center justify-center">
+            <Rocket className="w-16 h-16 md:w-20 md:h-20 text-primary" strokeWidth={1.5} />
           </div>
           <h1 className="text-2xl md:text-4xl font-bold text-primary mb-2 md:mb-3">
             {branding.welcome_title}
