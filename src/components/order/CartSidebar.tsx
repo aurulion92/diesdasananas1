@@ -434,10 +434,13 @@ export function CartSidebar({ customerType = 'pk' }: CartSidebarProps) {
                 </div>
               )}
               
-              {/* Router Monthly Discount - show as separate line */}
+              {/* Router Monthly Discount - show as separate line with duration */}
               {routerDiscount > 0 && selectedRouter && selectedRouter.id !== 'router-none' && (
                 <div className="flex justify-between text-success">
-                  <span>Router-Rabatt (mtl.)</span>
+                  <span>
+                    Router-Rabatt (mtl.)
+                    {routerDiscountDurationMonths && <span className="text-xs ml-1">für {routerDiscountDurationMonths} Mon.</span>}
+                  </span>
                   <span>-{routerDiscount.toFixed(2).replace('.', ',')} €</span>
                 </div>
               )}
