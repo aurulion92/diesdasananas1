@@ -1,6 +1,6 @@
 import { useOrder } from '@/context/OrderContext';
 import { useOrderPromotions } from '@/hooks/useOrderPromotions';
-import { ShoppingCart, MapPin, Wifi, Package, Check, Globe, Router, Tv, Phone, Tag, Gift, X, Zap, Home, Building2, Building } from 'lucide-react';
+import { ShoppingCart, MapPin, Wifi, Package, Check, Globe, Router, Tv, Phone, Tag, Gift, X, Zap, Home, Building2, Building, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBranding } from '@/hooks/useBranding';
 
@@ -24,6 +24,8 @@ export function CartSidebar({ customerType = 'pk' }: CartSidebarProps) {
     expressOption,
     getTotalOneTime,
     isMFH,
+    gnvData,
+    getGnvFee,
   } = useOrder();
   
   const isKMU = customerType === 'kmu';
@@ -123,6 +125,9 @@ export function CartSidebar({ customerType = 'pk' }: CartSidebarProps) {
     if (referralData.type === 'referral' && referralData.referralValidated) {
       total -= 50;
     }
+
+    // GNV fee (490€ for property connection)
+    total += getGnvFee();
     
     return Math.max(0, total);
   };
@@ -372,6 +377,22 @@ export function CartSidebar({ customerType = 'pk' }: CartSidebarProps) {
               <p className="text-sm font-medium">{expressOption?.name || 'Express-Anschaltung'}</p>
               <p className="text-sm font-medium text-muted-foreground">
                 {(expressOption?.oneTimePrice || 200).toFixed(2).replace('.', ',')} € einm.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* GNV Fee */}
+        {gnvData?.required && gnvData?.isOwner && (
+          <div className="flex items-center gap-3 p-3 bg-accent/10 rounded-lg border border-accent/20">
+            <FileText className="w-4 h-4 text-accent" />
+            <div className="flex-1 flex justify-between items-center">
+              <div>
+                <p className="text-sm font-medium">Hausanschluss-Fertigstellung</p>
+                <p className="text-xs text-muted-foreground">GNV erforderlich</p>
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">
+                490,00 € einm.
               </p>
             </div>
           </div>

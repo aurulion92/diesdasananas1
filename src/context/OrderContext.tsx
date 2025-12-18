@@ -113,6 +113,26 @@ interface ConsentData {
   sepaMandat: boolean;
 }
 
+// GNV (Grundstücksnutzungsvereinbarung) data
+interface GNVOwnerData {
+  salutation: string;
+  firstName: string;
+  lastName: string;
+  street: string;
+  houseNumber: string;
+  postalCode: string;
+  city: string;
+  email: string;
+  phone: string;
+}
+
+export interface GNVData {
+  required: boolean;
+  isOwner: boolean;
+  ownerData?: GNVOwnerData;
+  residentialUnits: number;
+}
+
 interface ExpressOption {
   id: string;
   slug: string;
@@ -154,6 +174,8 @@ interface OrderState {
   // Abweichende Rechnungsadresse & Beitragszahler
   alternateBillingAddress: AlternateBillingAddress;
   alternatePaymentPerson: AlternatePaymentPerson;
+  // GNV Data
+  gnvData: GNVData | null;
   // Bemerkung zur Bestellung
   orderNotes: string;
 }
@@ -187,6 +209,9 @@ interface OrderContextType extends OrderState {
   setAlternateBillingAddress: (data: AlternateBillingAddress) => void;
   setAlternatePaymentPerson: (data: AlternatePaymentPerson) => void;
   setOrderNotes: (notes: string) => void;
+  setGnvData: (data: GNVData | null) => void;
+  gnvRequired: () => boolean;
+  getGnvFee: () => number;
   generateOrderNumber: () => string;
   getOrderNumber: () => string | null;
   getTotalMonthly: () => number;
@@ -291,6 +316,7 @@ const initialState: OrderState = {
   generatedOrderNumber: null,
   alternateBillingAddress: initialAlternateBillingAddress,
   alternatePaymentPerson: initialAlternatePaymentPerson,
+  gnvData: null,
   orderNotes: '',
 };
 
@@ -453,6 +479,25 @@ export const OrderProvider = ({ children, initialCustomerType = 'pk' }: OrderPro
 
   const setOrderNotes = (orderNotes: string) =>
     setState(prev => ({ ...prev, orderNotes }));
+
+  const setGnvData = (gnvData: GNVData | null) =>
+    setState(prev => ({ ...prev, gnvData }));
+
+  // Check if GNV is required (FTTH building without existing GNV)
+  const gnvRequired = useCallback((): boolean => {
+    if (!state.address) return false;
+    // GNV is required for FTTH buildings without an existing GNV
+    return state.address.connectionType === 'ftth' && state.address.gnvVorhanden === false;
+  }, [state.address]);
+
+  // GNV fee (490€ for property connection completion)
+  const getGnvFee = useCallback((): number => {
+    if (!gnvRequired()) return 0;
+    if (!state.gnvData?.required) return 0;
+    // Only charge fee if customer is the owner
+    if (state.gnvData?.isOwner) return 490;
+    return 0;
+  }, [state.gnvData, gnvRequired]);
 
   const validateReferralCustomerId = (customerId: string): boolean => {
     const normalizedId = customerId.toUpperCase().trim();
@@ -736,6 +781,9 @@ export const OrderProvider = ({ children, initialCustomerType = 'pk' }: OrderPro
       setAlternateBillingAddress,
       setAlternatePaymentPerson,
       setOrderNotes,
+      setGnvData,
+      gnvRequired,
+      getGnvFee,
       hasPhoneBooked,
     }}>
       {children}

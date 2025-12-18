@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Rocket, Loader2, AlertCircle, CheckCircle2, AlertTriangle, ChevronDown, Building2 } from 'lucide-react';
 import { ContactForm } from './ContactForm';
+import { GNVCheck } from './GNVCheck';
 import { cn } from '@/lib/utils';
 
 interface AddressCheckProps {
@@ -13,7 +14,7 @@ interface AddressCheckProps {
 }
 
 export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressCheckProps) {
-  const { setAddress, setStep, setConnectionType } = useOrder();
+  const { setAddress, setStep, setConnectionType, address, gnvRequired, gnvData } = useOrder();
   const [city, setCity] = useState('Ingolstadt');
   const [street, setStreet] = useState('');
   const [houseNumber, setHouseNumber] = useState('');
@@ -21,6 +22,7 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
   const [result, setResult] = useState<'ftth' | 'limited' | 'not-connected' | 'not-found' | 'kmu-only' | null>(null);
   const [foundAddress, setFoundAddress] = useState<{ street: string; houseNumber: string; city: string } | null>(null);
   const [showLimitedContactForm, setShowLimitedContactForm] = useState(false);
+  const [showGnvForm, setShowGnvForm] = useState(false);
 
   // Autocomplete states
   const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
@@ -638,7 +640,7 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
         )}
 
         {/* FTTH - Alle Tarife verfügbar */}
-        {result === 'ftth' && (
+        {result === 'ftth' && !showGnvForm && (
           <div className="animate-scale-in mt-6 p-5 bg-success/10 border border-success/20 rounded-xl">
             <div className="flex items-start gap-4">
               <CheckCircle2 className="w-6 h-6 text-success flex-shrink-0 mt-0.5" />
@@ -647,11 +649,29 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
                 <p className="text-muted-foreground mt-1">
                   An Ihrer Adresse sind alle unsere {customerType === 'kmu' ? 'easy business' : 'einfach Internet'} Produkte verfügbar. Wählen Sie jetzt Ihren Wunschtarif.
                 </p>
-                <Button onClick={handleContinue} variant="success" className="mt-4">
+                <Button 
+                  onClick={() => {
+                    // Check if GNV is required for this address
+                    if (gnvRequired() && !gnvData?.required) {
+                      setShowGnvForm(true);
+                    } else {
+                      handleContinue();
+                    }
+                  }} 
+                  variant="success" 
+                  className="mt-4"
+                >
                   Weiter zur Produktauswahl
                 </Button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* GNV Form - shown when FTTH but no GNV exists */}
+        {result === 'ftth' && showGnvForm && (
+          <div className="animate-scale-in mt-6">
+            <GNVCheck />
           </div>
         )}
 

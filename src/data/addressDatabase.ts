@@ -22,6 +22,7 @@ export interface AddressData {
   residentialUnits?: number; // WE - Wohneinheiten
   buildingType?: BuildingType; // Derived from residentialUnits: efh=1, mfh=2, wowi=3+
   kmuOnly?: boolean; // True if building only has KMU tariffs (no PK)
+  gnvVorhanden?: boolean; // True if GNV (Grundstücksnutzungsvereinbarung) exists for this building
 }
 
 // Determine connection type based on ausbau_art from database
@@ -90,6 +91,7 @@ export async function checkBuildingAvailability(
       kabel_tv_available: boolean | null;
       residential_units: number | null;
       building_id: string | null;
+      gnv_vorhanden: boolean | null;
     };
 
     const addressData: AddressData = {
@@ -103,6 +105,7 @@ export async function checkBuildingAvailability(
       buildingId: result.building_id || undefined,
       residentialUnits: result.residential_units || 1,
       buildingType: getBuildingType(result.residential_units),
+      gnvVorhanden: result.gnv_vorhanden || false,
     };
 
     // If we for some reason don't have a building_id, we can't determine PK/KMU products

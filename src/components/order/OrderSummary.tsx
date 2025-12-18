@@ -1157,6 +1157,13 @@ export function OrderSummary() {
           </div>
         </div>
 
+        {/* Legal Notice */}
+        <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-border">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Der Vertrag kommt zustande und wird rechtsverbindlich, sofern die technische Bereitstellung bzw. technische Voraussetzungen vor Ort erfüllt sind.
+          </p>
+        </div>
+
         {/* Buttons */}
         <div className="flex gap-4 pt-4">
           <Button 
