@@ -691,6 +691,18 @@ export const SettingsManager = () => {
                     </p>
                   )}
                 </div>
+                <div className="space-y-2">
+                  <Label>Favicon (Browser-Tab Icon)</Label>
+                  <ImageUpload
+                    value={brandingSettings.favicon_url || ''}
+                    onChange={(url) => setBrandingSettings({ ...brandingSettings, favicon_url: url })}
+                    bucket="admin-uploads"
+                    folder="favicons"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Das Icon das im Browser-Tab angezeigt wird. Optimal: 32x32 oder 64x64 Pixel.
+                  </p>
+                </div>
               </div>
 
               <div className="border-t pt-4">
