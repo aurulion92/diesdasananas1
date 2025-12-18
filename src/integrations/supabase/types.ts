@@ -1113,6 +1113,7 @@ export type Database = {
           ausbau_status: Database["public"]["Enums"]["ausbau_status"]
           building_id: string
           city: string
+          gnv_vorhanden: boolean
           house_number: string
           kabel_tv_available: boolean
           postal_code: string
