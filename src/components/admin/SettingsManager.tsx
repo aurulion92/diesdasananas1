@@ -703,6 +703,18 @@ export const SettingsManager = () => {
                     Das Icon das im Browser-Tab angezeigt wird. Optimal: 32x32 oder 64x64 Pixel.
                   </p>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="site_title">Browser-Tab Titel</Label>
+                  <Input
+                    id="site_title"
+                    value={brandingSettings.site_title || ''}
+                    onChange={(e) => setBrandingSettings({ ...brandingSettings, site_title: e.target.value })}
+                    placeholder="COM-IN | einfach Internet - Glasfaser bestellen"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Der Text der im Browser-Tab angezeigt wird.
+                  </p>
+                </div>
               </div>
 
               <div className="border-t pt-4">
