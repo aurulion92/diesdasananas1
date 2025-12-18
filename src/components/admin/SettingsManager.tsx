@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff, Shield, Trash2, RefreshCw, Building2, Image, AlertTriangle, Globe, Plus, X, Upload } from 'lucide-react';
+import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff, Shield, Trash2, RefreshCw, Building2, Image, AlertTriangle, Globe, Plus, X, Upload, Lock } from 'lucide-react';
 import { ImageUpload } from './ImageUpload';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -69,6 +69,16 @@ interface RateLimitSettings {
   login_block_minutes: number;
   ip_whitelist: string[];
 }
+
+interface SitePasswordSettings {
+  enabled: boolean;
+  password: string;
+}
+
+const DEFAULT_SITE_PASSWORD: SitePasswordSettings = {
+  enabled: false,
+  password: '',
+};
 
 interface RateLimitEntry {
   id: string;
@@ -173,8 +183,10 @@ export const SettingsManager = () => {
   const [rateLimitSettings, setRateLimitSettings] = useState<RateLimitSettings>(DEFAULT_RATE_LIMIT);
   const [brandingSettings, setBrandingSettings] = useState<BrandingSettings>(DEFAULT_BRANDING);
   const [contactFormSettings, setContactFormSettings] = useState<ContactFormSettings>(DEFAULT_CONTACT_FORM);
+  const [sitePasswordSettings, setSitePasswordSettings] = useState<SitePasswordSettings>(DEFAULT_SITE_PASSWORD);
   const [rateLimitEntries, setRateLimitEntries] = useState<RateLimitEntry[]>([]);
   const [loadingRateLimits, setLoadingRateLimits] = useState(false);
+  const [showSitePassword, setShowSitePassword] = useState(false);
   
   // Saved presets state
   const [savedPresets, setSavedPresets] = useState<SavedPreset[]>([]);
@@ -245,6 +257,17 @@ export const SettingsManager = () => {
     
     if (contactFormData?.value) {
       setContactFormSettings({ ...DEFAULT_CONTACT_FORM, ...(contactFormData.value as object) });
+    }
+
+    // Fetch site password settings
+    const { data: sitePasswordData } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'site_password_settings')
+      .maybeSingle();
+    
+    if (sitePasswordData?.value) {
+      setSitePasswordSettings({ ...DEFAULT_SITE_PASSWORD, ...(sitePasswordData.value as object) });
     }
 
     setLoading(false);
@@ -430,6 +453,26 @@ export const SettingsManager = () => {
       toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Gespeichert', description: 'Rate-Limit-Einstellungen wurden gespeichert.' });
+    }
+    
+    setSaving(false);
+  };
+
+  const saveSitePasswordSettings = async () => {
+    setSaving(true);
+    
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert([{
+        key: 'site_password_settings',
+        value: sitePasswordSettings as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString()
+      }] as any, { onConflict: 'key' });
+
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Gespeichert', description: 'Passwortschutz-Einstellungen wurden gespeichert.' });
     }
     
     setSaving(false);
@@ -1858,6 +1901,65 @@ export const SettingsManager = () => {
 
         <TabsContent value="security">
           <div className="space-y-6">
+            {/* Site Password Protection */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Lock className="w-5 h-5" />
+                  Seitenschutz (Beta-Passwort)
+                </CardTitle>
+                <CardDescription>
+                  Schützen Sie die Bestellstrecke mit einem einfachen Zugangspasswort (z.B. für Beta-Tests)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                  <div>
+                    <Label className="text-base font-medium">Passwortschutz aktiviert</Label>
+                    <p className="text-sm text-muted-foreground">Besucher müssen ein Passwort eingeben</p>
+                  </div>
+                  <Switch
+                    checked={sitePasswordSettings.enabled}
+                    onCheckedChange={(checked) => setSitePasswordSettings({ ...sitePasswordSettings, enabled: checked })}
+                  />
+                </div>
+
+                {sitePasswordSettings.enabled && (
+                  <div className="space-y-2">
+                    <Label htmlFor="site_password">Zugangspasswort</Label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          id="site_password"
+                          type={showSitePassword ? 'text' : 'password'}
+                          value={sitePasswordSettings.password}
+                          onChange={(e) => setSitePasswordSettings({ ...sitePasswordSettings, password: e.target.value })}
+                          placeholder="Passwort eingeben"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          onClick={() => setShowSitePassword(!showSitePassword)}
+                        >
+                          {showSitePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Besucher, die das Passwort eingegeben haben, bleiben angemeldet (localStorage).
+                    </p>
+                  </div>
+                )}
+
+                <div className="pt-4 flex justify-end">
+                  <Button onClick={saveSitePasswordSettings} disabled={saving}>
+                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Speichern
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

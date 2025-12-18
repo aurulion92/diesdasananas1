@@ -11,6 +11,7 @@ import { ExistingCustomerPortal } from '@/components/order/ExistingCustomerPorta
 import { GustavChatbot } from '@/components/chat/GustavChatbot';
 import { CustomerTypeSelection } from '@/components/order/CustomerTypeSelection';
 import { BusinessTypeSelection } from '@/components/order/BusinessTypeSelection';
+import { PasswordGate } from '@/components/PasswordGate';
 import { User, Rocket } from 'lucide-react';
 import { useBranding } from '@/hooks/useBranding';
 
@@ -154,7 +155,7 @@ const Index = () => {
   };
 
   return (
-    <>
+    <PasswordGate>
       {viewState === 'landing' && (
         <LandingChoice 
           onNewCustomer={handleNewCustomer} 
@@ -206,7 +207,7 @@ const Index = () => {
       )}
       
       <GustavChatbot />
-    </>
+    </PasswordGate>
   );
 };
 
