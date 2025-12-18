@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface BrandingSettings {
   logo_url: string;
   favicon_url: string;
+  site_title: string;
   company_name: string;
   welcome_title: string;
   welcome_subtitle: string;
@@ -56,9 +57,10 @@ export interface BrandingSettings {
   installation_info_services_title: string;
 }
 
-const DEFAULT_BRANDING: BrandingSettings = {
+export const DEFAULT_BRANDING: BrandingSettings = {
   logo_url: '',
   favicon_url: '',
+  site_title: 'COM-IN | einfach Internet - Glasfaser bestellen',
   company_name: 'COM-IN',
   welcome_title: 'Willkommen bei COM-IN',
   welcome_subtitle: 'Glasfaser-Internet für Ingolstadt',
@@ -134,5 +136,3 @@ export const useBranding = () => {
 
   return { branding, loading };
 };
-
-export { DEFAULT_BRANDING };

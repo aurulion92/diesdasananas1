@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 const DEFAULT_FAVICON = '/favicon.png';
+const DEFAULT_TITLE = 'COM-IN | einfach Internet - Glasfaser bestellen';
 
 export const useFavicon = (forceClear: boolean = false) => {
   useEffect(() => {
@@ -11,7 +12,6 @@ export const useFavicon = (forceClear: boolean = false) => {
         if (url) {
           link.href = url;
         } else {
-          // Set to transparent/empty favicon
           link.href = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>';
         }
       }
@@ -52,6 +52,10 @@ export const clearFavicon = () => {
   }
 };
 
+export const clearTitle = () => {
+  document.title = '';
+};
+
 export const restoreFavicon = async () => {
   const { data } = await supabase
     .from('app_settings')
@@ -71,5 +75,20 @@ export const restoreFavicon = async () => {
     } else {
       link.href = DEFAULT_FAVICON;
     }
+  }
+};
+
+export const restoreTitle = async () => {
+  const { data } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'branding_settings')
+    .maybeSingle();
+
+  if (data?.value) {
+    const settings = data.value as { site_title?: string };
+    document.title = settings.site_title?.trim() || DEFAULT_TITLE;
+  } else {
+    document.title = DEFAULT_TITLE;
   }
 };
