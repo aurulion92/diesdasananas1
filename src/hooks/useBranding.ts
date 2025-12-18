@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface BrandingSettings {
   logo_url: string;
+  favicon_url: string;
   company_name: string;
   welcome_title: string;
   welcome_subtitle: string;
@@ -57,6 +58,7 @@ export interface BrandingSettings {
 
 const DEFAULT_BRANDING: BrandingSettings = {
   logo_url: '',
+  favicon_url: '',
   company_name: 'COM-IN',
   welcome_title: 'Willkommen bei COM-IN',
   welcome_subtitle: 'Glasfaser-Internet für Ingolstadt',

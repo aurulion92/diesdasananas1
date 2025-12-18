@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Lock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { clearFavicon, restoreFavicon } from '@/hooks/useFavicon';
 
 interface PasswordGateProps {
   children: React.ReactNode;
@@ -38,6 +39,10 @@ export const PasswordGate = ({ children }: PasswordGateProps) => {
             const storedAuth = localStorage.getItem(STORAGE_KEY);
             if (storedAuth === 'true') {
               setIsAuthenticated(true);
+              restoreFavicon();
+            } else {
+              // Clear favicon when password protection is active and not authenticated
+              clearFavicon();
             }
           }
         }
@@ -52,6 +57,17 @@ export const PasswordGate = ({ children }: PasswordGateProps) => {
     loadSettings();
   }, []);
 
+  // Clear or restore favicon based on authentication state
+  useEffect(() => {
+    if (!isLoading) {
+      if (isEnabled && !isAuthenticated) {
+        clearFavicon();
+      } else {
+        restoreFavicon();
+      }
+    }
+  }, [isEnabled, isAuthenticated, isLoading]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -59,6 +75,7 @@ export const PasswordGate = ({ children }: PasswordGateProps) => {
     if (password === correctPassword) {
       localStorage.setItem(STORAGE_KEY, 'true');
       setIsAuthenticated(true);
+      restoreFavicon();
     } else {
       setError('Falsches Passwort');
     }
