@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Upload, 
@@ -96,6 +97,23 @@ const KNOWN_MAPPINGS: Record<string, string> = {
   'datum gee': 'gnv_vorhanden',
   'gnv': 'gnv_vorhanden',
   'gnv_vorhanden': 'gnv_vorhanden',
+  // Cluster
+  'cluster': 'cluster',
+  // DSLAM fields
+  'dslam': 'dslam_name',
+  'dslam_name': 'dslam_name',
+  'dslam_port': 'dslam_port_number',
+  'dslam_port_number': 'dslam_port_number',
+  'port_number': 'dslam_port_number',
+  'portnummer': 'dslam_port_number',
+  'ports_belegt': 'dslam_ports_occupied',
+  'dslam_ports_occupied': 'dslam_ports_occupied',
+  'ports_occupied': 'dslam_ports_occupied',
+  'belegte_ports': 'dslam_ports_occupied',
+  'ports_verfuegbar': 'dslam_ports_available',
+  'dslam_ports_available': 'dslam_ports_available',
+  'ports_available': 'dslam_ports_available',
+  'verfuegbare_ports': 'dslam_ports_available',
 };
 
 const DB_FIELDS = [
@@ -104,6 +122,7 @@ const DB_FIELDS = [
   { key: 'city', label: 'Stadt', required: false },
   { key: 'postal_code', label: 'PLZ', required: false },
   { key: 'residential_units', label: 'Wohneinheiten', required: false },
+  { key: 'cluster', label: 'Cluster', required: false },
   { key: 'ausbau_art', label: 'Ausbauart', required: false },
   { key: 'ausbau_status', label: 'Ausbaustatus', required: false },
   { key: 'tiefbau_done', label: 'Tiefbau erledigt', required: false },
@@ -112,6 +131,10 @@ const DB_FIELDS = [
   { key: 'gnv_vorhanden', label: 'GNV vorhanden', required: false },
   { key: 'gebaeude_id_v2', label: 'Gebäude ID V2', required: false },
   { key: 'gebaeude_id_k7', label: 'Gebäude ID K7', required: false },
+  { key: 'dslam_name', label: 'DSLAM Name', required: false },
+  { key: 'dslam_port_number', label: 'DSLAM Port-Nr.', required: false },
+  { key: 'dslam_ports_occupied', label: 'DSLAM Ports belegt', required: false },
+  { key: 'dslam_ports_available', label: 'DSLAM Ports verfügbar', required: false },
 ];
 
 type ImportStep = 'upload' | 'settings' | 'mapping' | 'preview' | 'sync-check' | 'importing' | 'complete';
@@ -123,9 +146,14 @@ interface SyncConflict {
   changes: { field: string; oldValue: any; newValue: any }[];
 }
 
+type UpdateMode = 'only_empty' | 'overwrite';
+
 interface CSVImportSettings {
   ignore_patterns: string[];
   default_mode: ImportMode;
+  update_mode: UpdateMode;
+  overwrite_fields: string[];
+  overwrite_manual_changes: boolean;
 }
 
 interface PreviewRow {
@@ -155,7 +183,10 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
   const [settings, setSettings] = useState<CSVImportSettings>({
     ignore_patterns: ['flurstück'],
-    default_mode: 'manual'
+    default_mode: 'manual',
+    update_mode: 'overwrite',
+    overwrite_fields: DB_FIELDS.filter(f => !f.required).map(f => f.key),
+    overwrite_manual_changes: false
   });
   const [importMode, setImportMode] = useState<ImportMode>('manual');
   const [newIgnorePattern, setNewIgnorePattern] = useState('');
@@ -178,11 +209,17 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
         .maybeSingle();
       
       if (data?.value && typeof data.value === 'object' && !Array.isArray(data.value)) {
-        const loadedSettings = data.value as unknown as CSVImportSettings;
-        if (loadedSettings.ignore_patterns && loadedSettings.default_mode) {
-          setSettings(loadedSettings);
-          setImportMode(loadedSettings.default_mode || 'manual');
-        }
+        const loadedSettings = data.value as unknown as Partial<CSVImportSettings>;
+        // Merge with defaults to ensure all new fields are present
+        const mergedSettings: CSVImportSettings = {
+          ignore_patterns: loadedSettings.ignore_patterns || ['flurstück'],
+          default_mode: loadedSettings.default_mode || 'manual',
+          update_mode: loadedSettings.update_mode || 'overwrite',
+          overwrite_fields: loadedSettings.overwrite_fields || DB_FIELDS.filter(f => !f.required).map(f => f.key),
+          overwrite_manual_changes: loadedSettings.overwrite_manual_changes || false
+        };
+        setSettings(mergedSettings);
+        setImportMode(mergedSettings.default_mode || 'manual');
       }
     };
     if (open) loadSettings();
@@ -451,10 +488,15 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
         case 'postal_code':
         case 'gebaeude_id_v2':
         case 'gebaeude_id_k7':
+        case 'cluster':
+        case 'dslam_name':
           result[dbField] = value;
           break;
         case 'residential_units':
-          result[dbField] = parseInt(value) || 1;
+        case 'dslam_port_number':
+        case 'dslam_ports_occupied':
+        case 'dslam_ports_available':
+          result[dbField] = parseInt(value) || (dbField === 'residential_units' ? 1 : null);
           break;
         case 'ausbau_art':
           ausbauArtRawValue = value;
@@ -728,7 +770,12 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
       const { data, error } = await supabase.functions.invoke('csv-import', {
         body: { 
           buildings,
-          fileName: 'manual_upload'
+          fileName: 'manual_upload',
+          settings: {
+            update_mode: settings.update_mode,
+            overwrite_fields: settings.overwrite_fields,
+            overwrite_manual_changes: settings.overwrite_manual_changes
+          }
         }
       });
 
@@ -981,6 +1028,92 @@ export const CSVImportDialog = ({ open, onOpenChange, onImportComplete }: CSVImp
                     <Button type="button" variant="outline" size="sm" onClick={addIgnorePattern}>
                       <Plus className="w-4 h-4" />
                     </Button>
+                  </div>
+                </div>
+
+                {/* Update Mode */}
+                <div className="border-t pt-4">
+                  <Label className="text-sm font-medium">Aktualisierungsmodus</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Wie sollen bestehende Gebäudedaten behandelt werden?
+                  </p>
+                  <div className="flex gap-4">
+                    <Button
+                      type="button"
+                      variant={settings.update_mode === 'only_empty' ? 'default' : 'outline'}
+                      onClick={() => saveSettings({ ...settings, update_mode: 'only_empty' })}
+                      className="flex-1"
+                    >
+                      Nur leere Felder ergänzen
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={settings.update_mode === 'overwrite' ? 'default' : 'outline'}
+                      onClick={() => saveSettings({ ...settings, update_mode: 'overwrite' })}
+                      className="flex-1"
+                    >
+                      Felder überschreiben
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Overwrite Fields Selection */}
+                {settings.update_mode === 'overwrite' && (
+                  <div className="border-t pt-4">
+                    <Label className="text-sm font-medium">Zu überschreibende Felder</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Wählen Sie aus, welche Felder beim Import überschrieben werden sollen.
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-2 border rounded">
+                      {DB_FIELDS.filter(f => !f.required).map((field) => (
+                        <label key={field.key} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded">
+                          <Checkbox
+                            checked={settings.overwrite_fields.includes(field.key)}
+                            onCheckedChange={(checked) => {
+                              const newFields = checked
+                                ? [...settings.overwrite_fields, field.key]
+                                : settings.overwrite_fields.filter(f => f !== field.key);
+                              saveSettings({ ...settings, overwrite_fields: newFields });
+                            }}
+                          />
+                          {field.label}
+                        </label>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => saveSettings({ ...settings, overwrite_fields: DB_FIELDS.filter(f => !f.required).map(f => f.key) })}
+                      >
+                        Alle auswählen
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => saveSettings({ ...settings, overwrite_fields: [] })}
+                      >
+                        Keine auswählen
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Overwrite Manual Changes */}
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-medium">Manuelle Änderungen überschreiben</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Gebäude mit manuellen Änderungen werden normalerweise übersprungen.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings.overwrite_manual_changes}
+                      onCheckedChange={(checked) => saveSettings({ ...settings, overwrite_manual_changes: checked })}
+                    />
                   </div>
                 </div>
               </div>
