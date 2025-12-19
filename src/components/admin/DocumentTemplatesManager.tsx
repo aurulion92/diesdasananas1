@@ -41,10 +41,14 @@ import {
   FileUp,
   X,
   Loader2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Send,
+  Mail,
+  Paperclip
 } from 'lucide-react';
 
 import { TEMPLATE_USE_CASES } from '@/services/templateService';
+import { TemplateVariableMapper, VariableMapping } from './TemplateVariableMapper';
 
 interface Placeholder {
   key: string;
@@ -66,6 +70,13 @@ interface DocumentTemplate {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  // New fields
+  variable_mappings: VariableMapping[];
+  trigger_event: string | null;
+  auto_send: boolean;
+  send_as_attachment: boolean;
+  recipient_type: string;
+  email_subject_template: string | null;
 }
 
 const TEMPLATE_TYPES = [
@@ -75,6 +86,20 @@ const TEMPLATE_TYPES = [
   { value: 'welcome', label: 'Willkommens-E-Mail' },
   { value: 'general', label: 'Allgemein' },
   { value: 'pdf', label: 'PDF-Vorlage' },
+];
+
+const TRIGGER_EVENTS = [
+  { value: 'manual', label: 'Manuell', description: 'Nur bei manueller Auslösung' },
+  { value: 'order_created', label: 'Bestellung erstellt', description: 'Direkt nach Bestelleingang' },
+  { value: 'order_confirmed', label: 'Bestellung bestätigt', description: 'Nach Admin-Bestätigung' },
+  { value: 'order_completed', label: 'Bestellung abgeschlossen', description: 'Nach Abschluss der Bestellung' },
+  { value: 'order_cancelled', label: 'Bestellung storniert', description: 'Bei Stornierung' },
+];
+
+const RECIPIENT_TYPES = [
+  { value: 'customer', label: 'Kunde' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'both', label: 'Beide' },
 ];
 
 const DEFAULT_PLACEHOLDERS: Placeholder[] = [
@@ -134,6 +159,13 @@ export function DocumentTemplatesManager() {
     pdf_url: '',
     image_url: '',
     is_active: true,
+    // New fields
+    variable_mappings: [] as VariableMapping[],
+    trigger_event: 'manual',
+    auto_send: false,
+    send_as_attachment: false,
+    recipient_type: 'customer',
+    email_subject_template: '',
   });
 
   useEffect(() => {
@@ -156,6 +188,12 @@ export function DocumentTemplatesManager() {
         use_cases: Array.isArray(t.use_cases) ? t.use_cases : (t.use_case ? [t.use_case] : []),
         pdf_url: t.pdf_url || null,
         image_url: t.image_url || null,
+        variable_mappings: Array.isArray(t.variable_mappings) ? t.variable_mappings : [],
+        trigger_event: t.trigger_event || 'manual',
+        auto_send: t.auto_send || false,
+        send_as_attachment: t.send_as_attachment || false,
+        recipient_type: t.recipient_type || 'customer',
+        email_subject_template: t.email_subject_template || null,
       })) as DocumentTemplate[];
       setTemplates(parsed);
     }
@@ -173,6 +211,12 @@ export function DocumentTemplatesManager() {
       pdf_url: '',
       image_url: '',
       is_active: true,
+      variable_mappings: [],
+      trigger_event: 'manual',
+      auto_send: false,
+      send_as_attachment: false,
+      recipient_type: 'customer',
+      email_subject_template: '',
     });
     setIsDialogOpen(true);
   };
@@ -188,6 +232,12 @@ export function DocumentTemplatesManager() {
       pdf_url: template.pdf_url || '',
       image_url: template.image_url || '',
       is_active: template.is_active,
+      variable_mappings: template.variable_mappings || [],
+      trigger_event: template.trigger_event || 'manual',
+      auto_send: template.auto_send || false,
+      send_as_attachment: template.send_as_attachment || false,
+      recipient_type: template.recipient_type || 'customer',
+      email_subject_template: template.email_subject_template || '',
     });
     setIsDialogOpen(true);
   };
@@ -336,6 +386,13 @@ export function DocumentTemplatesManager() {
       image_url: formData.image_url || null,
       placeholders: JSON.parse(JSON.stringify(DEFAULT_PLACEHOLDERS)),
       is_active: formData.is_active,
+      // New fields
+      variable_mappings: formData.variable_mappings,
+      trigger_event: formData.trigger_event || null,
+      auto_send: formData.auto_send,
+      send_as_attachment: formData.send_as_attachment,
+      recipient_type: formData.recipient_type,
+      email_subject_template: formData.email_subject_template || null,
     };
 
     if (editingTemplate) {
@@ -646,6 +703,100 @@ export function DocumentTemplatesManager() {
                   Definiert wann diese Vorlage automatisch verwendet wird
                 </p>
               </div>
+
+              {/* Trigger & Send Settings */}
+              <div className="border rounded-lg p-4 space-y-4 bg-muted/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Send className="w-4 h-4" />
+                  <Label className="font-medium">Versand-Einstellungen</Label>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm">Auslöser</Label>
+                    <Select
+                      value={formData.trigger_event}
+                      onValueChange={v => setFormData(prev => ({ ...prev, trigger_event: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TRIGGER_EVENTS.map(t => (
+                          <SelectItem key={t.value} value={t.value}>
+                            <div>
+                              <span>{t.label}</span>
+                              <span className="text-xs text-muted-foreground ml-2">({t.description})</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm">Empfänger</Label>
+                    <Select
+                      value={formData.recipient_type}
+                      onValueChange={v => setFormData(prev => ({ ...prev, recipient_type: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RECIPIENT_TYPES.map(t => (
+                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-sm">E-Mail Betreff</Label>
+                  <Input
+                    value={formData.email_subject_template}
+                    onChange={e => setFormData(prev => ({ ...prev, email_subject_template: e.target.value }))}
+                    placeholder="z.B. Ihre Bestellung {{bestellnummer}} bei {{company_name}}"
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-6">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={formData.auto_send}
+                      onCheckedChange={v => setFormData(prev => ({ ...prev, auto_send: v }))}
+                    />
+                    <div>
+                      <Label className="text-sm flex items-center gap-1">
+                        <Mail className="w-3 h-3" />
+                        Automatisch senden
+                      </Label>
+                      <p className="text-xs text-muted-foreground">Bei Auslöser automatisch versenden</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={formData.send_as_attachment}
+                      onCheckedChange={v => setFormData(prev => ({ ...prev, send_as_attachment: v }))}
+                    />
+                    <div>
+                      <Label className="text-sm flex items-center gap-1">
+                        <Paperclip className="w-3 h-3" />
+                        Als Anhang senden
+                      </Label>
+                      <p className="text-xs text-muted-foreground">PDF als E-Mail-Anhang beifügen</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Variable Mapping */}
+              <TemplateVariableMapper
+                mappings={formData.variable_mappings}
+                onChange={(mappings) => setFormData(prev => ({ ...prev, variable_mappings: mappings }))}
+              />
 
               {/* File Upload Sections - PDF and Image */}
               <div className="grid grid-cols-2 gap-4">

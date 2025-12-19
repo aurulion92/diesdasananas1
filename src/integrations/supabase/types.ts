@@ -591,49 +591,67 @@ export type Database = {
       }
       document_templates: {
         Row: {
+          auto_send: boolean | null
           content: string
           created_at: string
           description: string | null
+          email_subject_template: string | null
           id: string
           image_url: string | null
           is_active: boolean | null
           name: string
           pdf_url: string | null
           placeholders: Json | null
+          recipient_type: string | null
+          send_as_attachment: boolean | null
           template_type: string
+          trigger_event: string | null
           updated_at: string
           use_case: string | null
           use_cases: string[] | null
+          variable_mappings: Json | null
         }
         Insert: {
+          auto_send?: boolean | null
           content: string
           created_at?: string
           description?: string | null
+          email_subject_template?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
           name: string
           pdf_url?: string | null
           placeholders?: Json | null
+          recipient_type?: string | null
+          send_as_attachment?: boolean | null
           template_type?: string
+          trigger_event?: string | null
           updated_at?: string
           use_case?: string | null
           use_cases?: string[] | null
+          variable_mappings?: Json | null
         }
         Update: {
+          auto_send?: boolean | null
           content?: string
           created_at?: string
           description?: string | null
+          email_subject_template?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
           name?: string
           pdf_url?: string | null
           placeholders?: Json | null
+          recipient_type?: string | null
+          send_as_attachment?: boolean | null
           template_type?: string
+          trigger_event?: string | null
           updated_at?: string
           use_case?: string | null
           use_cases?: string[] | null
+          variable_mappings?: Json | null
         }
         Relationships: []
       }
