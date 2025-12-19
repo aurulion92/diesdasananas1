@@ -16,7 +16,7 @@ interface AddressCheckProps {
 
 export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressCheckProps) {
   const { setAddress, setStep, setConnectionType, address, gnvRequired, gnvData } = useOrder();
-  const { branding } = useBranding();
+  const { branding, loading: brandingLoading } = useBranding();
   const [city, setCity] = useState('Ingolstadt');
   const [street, setStreet] = useState('');
   const [houseNumber, setHouseNumber] = useState('');
@@ -397,35 +397,49 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
     <div className="max-w-3xl mx-auto animate-slide-up">
       {/* Hero Section */}
       <div className="text-center mb-10">
-        <div className="w-24 h-24 md:w-28 md:h-28 mx-auto mb-6 flex items-center justify-center">
-          {branding.address_check_image_url ? (
-            <img 
-              src={branding.address_check_image_url} 
-              alt="Hero" 
-              className="max-w-full max-h-full object-contain"
+        {brandingLoading ? (
+          <div className="animate-pulse">
+            <div className="w-24 h-24 md:w-28 md:h-28 mx-auto mb-6 bg-muted rounded-full" />
+            <div className="h-10 md:h-12 bg-muted rounded-lg w-3/4 mx-auto mb-3" />
+            <div className="h-6 bg-muted rounded-lg w-2/3 mx-auto" />
+          </div>
+        ) : (
+          <>
+            <div className="w-24 h-24 md:w-28 md:h-28 mx-auto mb-6 flex items-center justify-center">
+              {branding.address_check_image_url ? (
+                <img 
+                  src={branding.address_check_image_url} 
+                  alt="Hero" 
+                  className="max-w-full max-h-full object-contain"
+                />
+              ) : (
+                <Rocket className="w-16 h-16 md:w-20 md:h-20 text-primary" strokeWidth={1.5} />
+              )}
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold text-primary mb-3">
+              {branding.address_check_title}
+            </h1>
+            <p 
+              className="text-accent font-medium text-lg"
+              dangerouslySetInnerHTML={{ 
+                __html: customerType === 'kmu' 
+                  ? branding.address_check_subtitle_kmu 
+                  : branding.address_check_subtitle_pk 
+              }}
             />
-          ) : (
-            <Rocket className="w-16 h-16 md:w-20 md:h-20 text-primary" strokeWidth={1.5} />
-          )}
-        </div>
-        <h1 className="text-3xl md:text-4xl font-bold text-primary mb-3">
-          {branding.address_check_title}
-        </h1>
-        <p 
-          className="text-accent font-medium text-lg"
-          dangerouslySetInnerHTML={{ 
-            __html: customerType === 'kmu' 
-              ? branding.address_check_subtitle_kmu 
-              : branding.address_check_subtitle_pk 
-          }}
-        />
+          </>
+        )}
       </div>
 
       {/* Formular */}
       <div className="bg-card rounded-2xl shadow-card p-6 md:p-8">
-        <p className="text-center text-foreground mb-6 font-medium">
-          {branding.address_check_form_text}
-        </p>
+        {brandingLoading ? (
+          <div className="h-5 bg-muted rounded w-3/4 mx-auto mb-6 animate-pulse" />
+        ) : (
+          <p className="text-center text-foreground mb-6 font-medium">
+            {branding.address_check_form_text}
+          </p>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           {/* Stadt mit Autocomplete */}

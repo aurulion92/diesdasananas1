@@ -12,7 +12,28 @@ export const CustomerTypeSelection = ({
   onSelectBusiness, 
   onBack 
 }: CustomerTypeSelectionProps) => {
-  const { branding } = useBranding();
+  const { branding, loading } = useBranding();
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto text-center animate-pulse">
+        <div className="h-8 md:h-10 bg-muted rounded-lg w-3/4 mx-auto mb-2" />
+        <div className="h-5 md:h-6 bg-muted rounded-lg w-1/2 mx-auto mb-8" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <div className="bg-card rounded-2xl shadow-card p-6 md:p-8">
+            <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-muted mb-3 md:mb-4" />
+            <div className="h-6 bg-muted rounded w-1/2 mb-2" />
+            <div className="h-4 bg-muted rounded w-3/4" />
+          </div>
+          <div className="bg-card rounded-2xl shadow-card p-6 md:p-8">
+            <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-muted mb-3 md:mb-4" />
+            <div className="h-6 bg-muted rounded w-1/2 mb-2" />
+            <div className="h-4 bg-muted rounded w-3/4" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto text-center">

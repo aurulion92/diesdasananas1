@@ -7,7 +7,7 @@ interface HeaderProps {
 }
 
 export function Header({ onLogoClick }: HeaderProps) {
-  const { branding } = useBranding();
+  const { branding, loading } = useBranding();
   const [imageError, setImageError] = useState(false);
   
   const handleLogoClick = () => {
@@ -32,7 +32,9 @@ export function Header({ onLogoClick }: HeaderProps) {
           className="flex items-center gap-3 hover:opacity-90 transition-opacity"
           title="Zurück zur Startseite"
         >
-          {showTextLogo ? (
+          {loading ? (
+            <div className="h-8 w-32 bg-primary-foreground/20 rounded animate-pulse" />
+          ) : showTextLogo ? (
             <div className="flex items-center cursor-pointer">
               <span className="text-primary-foreground font-bold text-2xl tracking-tight">{firstPart}</span>
               {lastPart && (
@@ -50,12 +52,19 @@ export function Header({ onLogoClick }: HeaderProps) {
         </button>
 
         <div className="flex items-center gap-4">
-          <div className="hidden md:flex items-center gap-6 text-sm text-primary-foreground/90">
-            <a href={`tel:${branding.hotline_number.replace(/\s/g, '')}`} className="hover:text-primary-foreground transition-colors">
-              Hotline: {branding.hotline_number}
-            </a>
-            <span>{branding.hotline_hours}</span>
-          </div>
+          {loading ? (
+            <div className="hidden md:flex items-center gap-6">
+              <div className="h-4 w-32 bg-primary-foreground/20 rounded animate-pulse" />
+              <div className="h-4 w-24 bg-primary-foreground/20 rounded animate-pulse" />
+            </div>
+          ) : (
+            <div className="hidden md:flex items-center gap-6 text-sm text-primary-foreground/90">
+              <a href={`tel:${branding.hotline_number.replace(/\s/g, '')}`} className="hover:text-primary-foreground transition-colors">
+                Hotline: {branding.hotline_number}
+              </a>
+              <span>{branding.hotline_hours}</span>
+            </div>
+          )}
           <ThemeToggle />
         </div>
       </div>
