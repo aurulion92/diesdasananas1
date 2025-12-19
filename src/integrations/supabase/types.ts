@@ -146,6 +146,7 @@ export type Database = {
           original_csv_data: Json | null
           pk_tariffs_available: boolean | null
           postal_code: string | null
+          protected_fields: string[] | null
           residential_units: number | null
           street: string
           tiefbau_done: boolean | null
@@ -175,6 +176,7 @@ export type Database = {
           original_csv_data?: Json | null
           pk_tariffs_available?: boolean | null
           postal_code?: string | null
+          protected_fields?: string[] | null
           residential_units?: number | null
           street: string
           tiefbau_done?: boolean | null
@@ -204,6 +206,7 @@ export type Database = {
           original_csv_data?: Json | null
           pk_tariffs_available?: boolean | null
           postal_code?: string | null
+          protected_fields?: string[] | null
           residential_units?: number | null
           street?: string
           tiefbau_done?: boolean | null
@@ -302,6 +305,202 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      decision_tree_actions: {
+        Row: {
+          action_type: Database["public"]["Enums"]["decision_action_type"]
+          config: Json
+          created_at: string
+          id: string
+          node_id: string
+        }
+        Insert: {
+          action_type: Database["public"]["Enums"]["decision_action_type"]
+          config?: Json
+          created_at?: string
+          id?: string
+          node_id: string
+        }
+        Update: {
+          action_type?: Database["public"]["Enums"]["decision_action_type"]
+          config?: Json
+          created_at?: string
+          id?: string
+          node_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_tree_actions_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "decision_tree_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_tree_conditions: {
+        Row: {
+          compare_value: string | null
+          created_at: string
+          field_name: string
+          id: string
+          node_id: string
+          operator: Database["public"]["Enums"]["decision_operator"]
+          sort_order: number
+        }
+        Insert: {
+          compare_value?: string | null
+          created_at?: string
+          field_name: string
+          id?: string
+          node_id: string
+          operator?: Database["public"]["Enums"]["decision_operator"]
+          sort_order?: number
+        }
+        Update: {
+          compare_value?: string | null
+          created_at?: string
+          field_name?: string
+          id?: string
+          node_id?: string
+          operator?: Database["public"]["Enums"]["decision_operator"]
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_tree_conditions_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "decision_tree_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_tree_edges: {
+        Row: {
+          created_at: string
+          id: string
+          label: string | null
+          sort_order: number
+          source_node_id: string
+          target_node_id: string
+          tree_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          sort_order?: number
+          source_node_id: string
+          target_node_id: string
+          tree_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          sort_order?: number
+          source_node_id?: string
+          target_node_id?: string
+          tree_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_tree_edges_source_node_id_fkey"
+            columns: ["source_node_id"]
+            isOneToOne: false
+            referencedRelation: "decision_tree_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_tree_edges_target_node_id_fkey"
+            columns: ["target_node_id"]
+            isOneToOne: false
+            referencedRelation: "decision_tree_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_tree_edges_tree_id_fkey"
+            columns: ["tree_id"]
+            isOneToOne: false
+            referencedRelation: "decision_trees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_tree_nodes: {
+        Row: {
+          created_at: string
+          id: string
+          is_root: boolean
+          name: string
+          node_type: Database["public"]["Enums"]["decision_node_type"]
+          position_x: number
+          position_y: number
+          tree_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_root?: boolean
+          name: string
+          node_type: Database["public"]["Enums"]["decision_node_type"]
+          position_x?: number
+          position_y?: number
+          tree_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_root?: boolean
+          name?: string
+          node_type?: Database["public"]["Enums"]["decision_node_type"]
+          position_x?: number
+          position_y?: number
+          tree_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_tree_nodes_tree_id_fkey"
+            columns: ["tree_id"]
+            isOneToOne: false
+            referencedRelation: "decision_trees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_trees: {
+        Row: {
+          created_at: string
+          customer_type: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_type?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_type?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
           updated_at?: string
         }
         Relationships: []
@@ -1163,6 +1362,22 @@ export type Database = {
       ausbau_art: "ftth" | "fttb" | "ftth_limited"
       ausbau_status: "abgeschlossen" | "im_ausbau" | "geplant"
       building_type: "efh" | "mfh" | "wowi"
+      decision_action_type:
+        | "show_products"
+        | "show_contact_form"
+        | "show_message"
+        | "redirect"
+        | "show_gnv_form"
+      decision_node_type: "condition" | "action"
+      decision_operator:
+        | "equals"
+        | "not_equals"
+        | "is_null"
+        | "is_not_null"
+        | "in_list"
+        | "not_in_list"
+        | "greater_than"
+        | "less_than"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1294,6 +1509,24 @@ export const Constants = {
       ausbau_art: ["ftth", "fttb", "ftth_limited"],
       ausbau_status: ["abgeschlossen", "im_ausbau", "geplant"],
       building_type: ["efh", "mfh", "wowi"],
+      decision_action_type: [
+        "show_products",
+        "show_contact_form",
+        "show_message",
+        "redirect",
+        "show_gnv_form",
+      ],
+      decision_node_type: ["condition", "action"],
+      decision_operator: [
+        "equals",
+        "not_equals",
+        "is_null",
+        "is_not_null",
+        "in_list",
+        "not_in_list",
+        "greater_than",
+        "less_than",
+      ],
     },
   },
 } as const
