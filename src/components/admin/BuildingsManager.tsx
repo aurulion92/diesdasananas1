@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useFieldLabels } from '@/hooks/useFieldLabels';
 import { 
   Plus, 
   Search, 
@@ -68,16 +69,35 @@ interface Building {
   updated_at: string;
 }
 
-const getBuildingTypeLabel = (type: 'efh' | 'mfh' | 'wowi' | null) => {
-  switch (type) {
-    case 'efh': return 'EFH';
-    case 'mfh': return 'MFH';
-    case 'wowi': return 'WoWi';
-    default: return '-';
-  }
-};
-
 export const BuildingsManager = () => {
+  const { labels } = useFieldLabels();
+  
+  const getBuildingTypeLabel = (type: 'efh' | 'mfh' | 'wowi' | null) => {
+    switch (type) {
+      case 'efh': return labels.building_type_efh_label;
+      case 'mfh': return labels.building_type_mfh_label;
+      case 'wowi': return labels.building_type_wowi_label;
+      default: return '-';
+    }
+  };
+  
+  const getAusbauStatusLabel = (status: string) => {
+    switch (status) {
+      case 'abgeschlossen': return labels.build_status_completed_label;
+      case 'im_ausbau': return labels.build_status_in_progress_label;
+      case 'geplant': return labels.build_status_planned_label;
+      default: return status;
+    }
+  };
+  
+  const getInfrastructureLabel = (type: string | null) => {
+    switch (type) {
+      case 'ftth': return labels.infrastructure_type_1_label;
+      case 'fttb': return labels.infrastructure_type_2_label;
+      case 'ftth_limited': return labels.infrastructure_type_3_label;
+      default: return type?.toUpperCase() || '';
+    }
+  };
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -530,9 +550,9 @@ export const BuildingsManager = () => {
                           <SelectValue placeholder="Auswählen..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="ftth">FTTH</SelectItem>
-                          <SelectItem value="ftth_limited">FTTH Limited (bis 500 Mbit/s)</SelectItem>
-                          <SelectItem value="fttb">FTTB</SelectItem>
+                          <SelectItem value="ftth">{labels.infrastructure_type_1_label}</SelectItem>
+                          <SelectItem value="ftth_limited">{labels.infrastructure_type_3_label}</SelectItem>
+                          <SelectItem value="fttb">{labels.infrastructure_type_2_label}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -549,9 +569,9 @@ export const BuildingsManager = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="abgeschlossen">Abgeschlossen</SelectItem>
-                          <SelectItem value="im_ausbau">Im Ausbau</SelectItem>
-                          <SelectItem value="geplant">Geplant</SelectItem>
+                          <SelectItem value="abgeschlossen">{labels.build_status_completed_label}</SelectItem>
+                          <SelectItem value="im_ausbau">{labels.build_status_in_progress_label}</SelectItem>
+                          <SelectItem value="geplant">{labels.build_status_planned_label}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -559,7 +579,7 @@ export const BuildingsManager = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="gebaeude_id_v2">Gebäude ID V2</Label>
+                      <Label htmlFor="gebaeude_id_v2">{labels.building_id_1_label}</Label>
                       <Input
                         id="gebaeude_id_v2"
                         value={formData.gebaeude_id_v2}
@@ -567,7 +587,7 @@ export const BuildingsManager = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="gebaeude_id_k7">Gebäude ID K7</Label>
+                      <Label htmlFor="gebaeude_id_k7">{labels.building_id_2_label}</Label>
                       <Input
                         id="gebaeude_id_k7"
                         value={formData.gebaeude_id_k7}
@@ -580,7 +600,7 @@ export const BuildingsManager = () => {
                     <h4 className="font-medium">Status</h4>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="tiefbau_done">Tiefbau erledigt</Label>
+                        <Label htmlFor="tiefbau_done">{labels.construction_done_label}</Label>
                         <Switch
                           id="tiefbau_done"
                           checked={formData.tiefbau_done}
@@ -588,7 +608,7 @@ export const BuildingsManager = () => {
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="apl_set">APL gesetzt</Label>
+                        <Label htmlFor="apl_set">{labels.connection_point_set_label}</Label>
                         <Switch
                           id="apl_set"
                           checked={formData.apl_set}
@@ -596,7 +616,7 @@ export const BuildingsManager = () => {
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="kabel_tv_available">Kabel TV verfügbar</Label>
+                        <Label htmlFor="kabel_tv_available">{labels.cable_tv_available_label}</Label>
                         <Switch
                           id="kabel_tv_available"
                           checked={formData.kabel_tv_available}
@@ -604,7 +624,7 @@ export const BuildingsManager = () => {
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="gnv_vorhanden">GNV vorhanden</Label>
+                        <Label htmlFor="gnv_vorhanden">{labels.gnv_available_label}</Label>
                         <Switch
                           id="gnv_vorhanden"
                           checked={formData.gnv_vorhanden}
@@ -618,7 +638,7 @@ export const BuildingsManager = () => {
                     <h4 className="font-medium">Tarif-Verfügbarkeit</h4>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="pk_tariffs_available">PK-Tarife verfügbar</Label>
+                        <Label htmlFor="pk_tariffs_available">{labels.private_tariffs_label} verfügbar</Label>
                         <Switch
                           id="pk_tariffs_available"
                           checked={formData.pk_tariffs_available}
@@ -626,7 +646,7 @@ export const BuildingsManager = () => {
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="kmu_tariffs_available">KMU-Tarife verfügbar</Label>
+                        <Label htmlFor="kmu_tariffs_available">{labels.business_tariffs_label} verfügbar</Label>
                         <Switch
                           id="kmu_tariffs_available"
                           checked={formData.kmu_tariffs_available}
@@ -728,40 +748,40 @@ export const BuildingsManager = () => {
                         <div className="space-y-1">
                           {building.ausbau_art && (
                             <Badge variant={building.ausbau_art === 'ftth' ? 'default' : building.ausbau_art === 'ftth_limited' ? 'outline' : 'secondary'}>
-                              {building.ausbau_art === 'ftth_limited' ? 'FTTH ≤500' : building.ausbau_art.toUpperCase()}
+                              {getInfrastructureLabel(building.ausbau_art)}
                             </Badge>
                           )}
-                          <div className="text-xs text-muted-foreground capitalize">
-                            {building.ausbau_status.replace('_', ' ')}
+                          <div className="text-xs text-muted-foreground">
+                            {getAusbauStatusLabel(building.ausbau_status)}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          <StatusIndicator active={building.tiefbau_done} label="Tiefbau" />
-                          <StatusIndicator active={building.apl_set} label="APL" />
-                          <StatusIndicator active={building.kabel_tv_available} label="Kabel TV" />
-                          <StatusIndicator active={building.gnv_vorhanden} label="GNV" />
-                          <StatusIndicator active={building.pk_tariffs_available} label="PK" />
-                          <StatusIndicator active={building.kmu_tariffs_available} label="KMU" />
+                          <StatusIndicator active={building.tiefbau_done} label={labels.construction_done_label.split(' ')[0]} />
+                          <StatusIndicator active={building.apl_set} label={labels.connection_point_set_label.split(' ')[0]} />
+                          <StatusIndicator active={building.kabel_tv_available} label={labels.cable_tv_available_label.split(' ')[0]} />
+                          <StatusIndicator active={building.gnv_vorhanden} label={labels.gnv_available_label.split('-')[0]} />
+                          <StatusIndicator active={building.pk_tariffs_available} label={labels.private_customer_short} />
+                          <StatusIndicator active={building.kmu_tariffs_available} label={labels.business_customer_short} />
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-xs space-y-1">
                           {building.gebaeude_id_v2 ? (
-                            <div>V2: {building.gebaeude_id_v2}</div>
+                            <div>{labels.building_id_1_label}: {building.gebaeude_id_v2}</div>
                           ) : (
                             <div className="flex items-center gap-1 text-warning">
                               <AlertTriangle className="w-3 h-3" />
-                              V2 fehlt
+                              {labels.building_id_1_label} fehlt
                             </div>
                           )}
                           {building.gebaeude_id_k7 ? (
-                            <div>K7: {building.gebaeude_id_k7}</div>
+                            <div>{labels.building_id_2_label}: {building.gebaeude_id_k7}</div>
                           ) : (
                             <div className="flex items-center gap-1 text-warning">
                               <AlertTriangle className="w-3 h-3" />
-                              K7 fehlt
+                              {labels.building_id_2_label} fehlt
                             </div>
                           )}
                         </div>
