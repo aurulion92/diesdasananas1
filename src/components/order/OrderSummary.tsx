@@ -3,6 +3,7 @@ import { useOrder } from '@/context/OrderContext';
 import { useOrderPromotions } from '@/hooks/useOrderPromotions';
 import { usePromotionsContext } from '@/context/PromotionsContext';
 import { useRateLimit } from '@/hooks/useRateLimit';
+import { useBranding } from '@/hooks/useBranding';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -90,6 +91,7 @@ export function OrderSummary() {
   
   const { promotions } = usePromotionsContext();
   const { checkRateLimit, isBlocked } = useRateLimit();
+  const { branding } = useBranding();
 
   const [orderComplete, setOrderComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -669,10 +671,9 @@ export function OrderSummary() {
           <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-success/10 flex items-center justify-center">
             <PartyPopper className="w-12 h-12 text-success" />
           </div>
-          <h2 className="text-2xl font-bold text-primary mb-2">Bestellung abgeschlossen!</h2>
+          <h2 className="text-2xl font-bold text-primary mb-2">{branding.order_complete_title}</h2>
           <p className="text-muted-foreground">
-            Vielen Dank für Ihre Bestellung, {customerData?.firstName}! 
-            Sie erhalten in Kürze eine Bestätigungs-E-Mail an {customerData?.email}.
+            {branding.order_complete_message.replace('{name}', customerData?.firstName || '')} {branding.order_complete_email_hint.replace('{email}', customerData?.email || '')}
           </p>
         </div>
         

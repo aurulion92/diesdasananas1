@@ -921,6 +921,113 @@ export const SettingsManager = () => {
               </div>
 
               <div className="border-t pt-4">
+                <h4 className="font-medium mb-4">📦 Tarifauswahl</h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Texte auf der Tarifauswahl-Seite (Schritt 2).
+                </p>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="tariff_selection_title">Titel (Standard)</Label>
+                      <Input
+                        id="tariff_selection_title"
+                        value={brandingSettings.tariff_selection_title || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, tariff_selection_title: e.target.value })}
+                        placeholder="einfach Internet - unsere neuen Internet Produkte"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="tariff_selection_subtitle">Untertitel (Standard)</Label>
+                      <Input
+                        id="tariff_selection_subtitle"
+                        value={brandingSettings.tariff_selection_subtitle || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, tariff_selection_subtitle: e.target.value })}
+                        placeholder="Wählen Sie das passende Produkt für Ihre Bedürfnisse"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="tariff_selection_title_limited">Titel (Eingeschränkt)</Label>
+                      <Input
+                        id="tariff_selection_title_limited"
+                        value={brandingSettings.tariff_selection_title_limited || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, tariff_selection_title_limited: e.target.value })}
+                        placeholder="Verfügbarer Tarif"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="tariff_selection_subtitle_limited">Untertitel (Eingeschränkt)</Label>
+                      <Input
+                        id="tariff_selection_subtitle_limited"
+                        value={brandingSettings.tariff_selection_subtitle_limited || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, tariff_selection_subtitle_limited: e.target.value })}
+                        placeholder="An Ihrer Adresse ist folgender Tarif verfügbar"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="tariff_selection_title_manual">Titel (Gebäude-spezifisch)</Label>
+                      <Input
+                        id="tariff_selection_title_manual"
+                        value={brandingSettings.tariff_selection_title_manual || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, tariff_selection_title_manual: e.target.value })}
+                        placeholder="Verfügbare Produkte an Ihrer Adresse"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="tariff_selection_subtitle_manual">Untertitel (Gebäude-spezifisch)</Label>
+                      <Input
+                        id="tariff_selection_subtitle_manual"
+                        value={brandingSettings.tariff_selection_subtitle_manual || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, tariff_selection_subtitle_manual: e.target.value })}
+                        placeholder="Folgende Produkte sind speziell für Ihre Adresse verfügbar"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-4">🎉 Bestellabschluss</h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Texte auf der Erfolgsmeldung nach Bestellabschluss. Platzhalter: {'{name}'} für Vorname, {'{email}'} für E-Mail.
+                </p>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="order_complete_title">Titel</Label>
+                    <Input
+                      id="order_complete_title"
+                      value={brandingSettings.order_complete_title || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, order_complete_title: e.target.value })}
+                      placeholder="Bestellung abgeschlossen!"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="order_complete_message">Danke-Nachricht</Label>
+                      <Input
+                        id="order_complete_message"
+                        value={brandingSettings.order_complete_message || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, order_complete_message: e.target.value })}
+                        placeholder="Vielen Dank für Ihre Bestellung, {name}!"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="order_complete_email_hint">E-Mail-Hinweis</Label>
+                      <Input
+                        id="order_complete_email_hint"
+                        value={brandingSettings.order_complete_email_hint || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, order_complete_email_hint: e.target.value })}
+                        placeholder="Sie erhalten in Kürze eine Bestätigungs-E-Mail an {email}."
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
                 <h4 className="font-medium mb-4">Kundentyp-Auswahl (PK/KMU)</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">

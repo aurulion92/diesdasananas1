@@ -61,6 +61,17 @@ export interface BrandingSettings {
   address_check_subtitle_kmu: string;
   address_check_image_url: string;
   address_check_form_text: string;
+  // Tariff Selection
+  tariff_selection_title: string;
+  tariff_selection_subtitle: string;
+  tariff_selection_title_limited: string;
+  tariff_selection_subtitle_limited: string;
+  tariff_selection_title_manual: string;
+  tariff_selection_subtitle_manual: string;
+  // Order Complete
+  order_complete_title: string;
+  order_complete_message: string;
+  order_complete_email_hint: string;
 }
 
 export const DEFAULT_BRANDING: BrandingSettings = {
@@ -123,6 +134,17 @@ export const DEFAULT_BRANDING: BrandingSettings = {
   address_check_subtitle_kmu: '...und gigaschnell lossurfen mit unseren neuen <strong>easy business</strong> Produkten!',
   address_check_image_url: '',
   address_check_form_text: 'Geben Sie Ihre Straße und Ihre Hausnummer an, damit wir prüfen können, welche Produkte an Ihrem Standort verfügbar sind.',
+  // Tariff Selection
+  tariff_selection_title: 'einfach Internet - unsere neuen Internet Produkte',
+  tariff_selection_subtitle: 'Wählen Sie das passende Produkt für Ihre Bedürfnisse',
+  tariff_selection_title_limited: 'Verfügbarer Tarif',
+  tariff_selection_subtitle_limited: 'An Ihrer Adresse ist folgender Tarif verfügbar',
+  tariff_selection_title_manual: 'Verfügbare Produkte an Ihrer Adresse',
+  tariff_selection_subtitle_manual: 'Folgende Produkte sind speziell für Ihre Adresse verfügbar',
+  // Order Complete
+  order_complete_title: 'Bestellung abgeschlossen!',
+  order_complete_message: 'Vielen Dank für Ihre Bestellung, {name}!',
+  order_complete_email_hint: 'Sie erhalten in Kürze eine Bestätigungs-E-Mail an {email}.',
 };
 
 export const useBranding = () => {
