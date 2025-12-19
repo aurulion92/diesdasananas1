@@ -32,6 +32,7 @@ import { SettingsManager } from './SettingsManager';
 import { PortingProvidersManager } from './PortingProvidersManager';
 import AuditLogsManager from './AuditLogsManager';
 import { DecisionTreeManager } from './DecisionTreeManager';
+import { AdminUsersManager } from './AdminUsersManager';
 
 interface AdminDashboardProps {
   user: User;
@@ -202,8 +203,13 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
                 <ScrollText className="w-4 h-4" />
                 Audit-Logs
               </TabsTrigger>
+              <TabsTrigger value="users" className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Benutzer
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="logs"><AuditLogsManager /></TabsContent>
+            <TabsContent value="users"><AdminUsersManager /></TabsContent>
           </Tabs>
         )}
       </main>
