@@ -157,6 +157,10 @@ export type Database = {
           city: string
           cluster: string | null
           created_at: string
+          dslam_id: string | null
+          dslam_port_number: number | null
+          dslam_ports_available: number | null
+          dslam_ports_occupied: number | null
           gebaeude_id_k7: string | null
           gebaeude_id_v2: string | null
           gnv_vorhanden: boolean | null
@@ -188,6 +192,10 @@ export type Database = {
           city?: string
           cluster?: string | null
           created_at?: string
+          dslam_id?: string | null
+          dslam_port_number?: number | null
+          dslam_ports_available?: number | null
+          dslam_ports_occupied?: number | null
           gebaeude_id_k7?: string | null
           gebaeude_id_v2?: string | null
           gnv_vorhanden?: boolean | null
@@ -219,6 +227,10 @@ export type Database = {
           city?: string
           cluster?: string | null
           created_at?: string
+          dslam_id?: string | null
+          dslam_port_number?: number | null
+          dslam_ports_available?: number | null
+          dslam_ports_occupied?: number | null
           gebaeude_id_k7?: string | null
           gebaeude_id_v2?: string | null
           gnv_vorhanden?: boolean | null
@@ -240,6 +252,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "buildings_dslam_id_fkey"
+            columns: ["dslam_id"]
+            isOneToOne: false
+            referencedRelation: "dslams"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "buildings_last_import_batch_id_fkey"
             columns: ["last_import_batch_id"]
@@ -577,6 +596,33 @@ export type Database = {
           updated_at?: string
           use_case?: string | null
           use_cases?: string[] | null
+        }
+        Relationships: []
+      }
+      dslams: {
+        Row: {
+          created_at: string
+          id: string
+          location_description: string | null
+          name: string
+          total_ports: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location_description?: string | null
+          name: string
+          total_ports?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location_description?: string | null
+          name?: string
+          total_ports?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1347,6 +1393,16 @@ export type Database = {
           street: string
         }[]
       }
+      check_building_dslam_availability: {
+        Args: { p_building_id: string }
+        Returns: {
+          available_ports: number
+          can_connect: boolean
+          max_ports: number
+          occupied_ports: number
+          reason: string
+        }[]
+      }
       check_rate_limit: {
         Args: {
           p_action_type: string
@@ -1358,6 +1414,18 @@ export type Database = {
         Returns: Json
       }
       cleanup_rate_limits: { Args: never; Returns: number }
+      get_dslam_availability: {
+        Args: { p_dslam_id: string }
+        Returns: {
+          available_ports: number
+          buildings_count: number
+          dslam_id: string
+          dslam_name: string
+          max_usable_ports: number
+          occupied_ports: number
+          total_ports: number
+        }[]
+      }
       get_house_numbers: {
         Args: { p_city?: string; p_street: string }
         Returns: {
