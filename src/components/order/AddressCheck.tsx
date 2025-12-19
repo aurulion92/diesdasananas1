@@ -7,6 +7,7 @@ import { Rocket, Loader2, AlertCircle, CheckCircle2, AlertTriangle, ChevronDown,
 import { ContactForm } from './ContactForm';
 import { GNVCheck } from './GNVCheck';
 import { cn } from '@/lib/utils';
+import { useBranding } from '@/hooks/useBranding';
 
 interface AddressCheckProps {
   customerType?: 'pk' | 'kmu';
@@ -15,6 +16,7 @@ interface AddressCheckProps {
 
 export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressCheckProps) {
   const { setAddress, setStep, setConnectionType, address, gnvRequired, gnvData } = useOrder();
+  const { branding } = useBranding();
   const [city, setCity] = useState('Ingolstadt');
   const [street, setStreet] = useState('');
   const [houseNumber, setHouseNumber] = useState('');
@@ -396,20 +398,33 @@ export function AddressCheck({ customerType = 'pk', onSwitchToKmu }: AddressChec
       {/* Hero Section */}
       <div className="text-center mb-10">
         <div className="w-24 h-24 md:w-28 md:h-28 mx-auto mb-6 flex items-center justify-center">
-          <Rocket className="w-16 h-16 md:w-20 md:h-20 text-primary" strokeWidth={1.5} />
+          {branding.address_check_image_url ? (
+            <img 
+              src={branding.address_check_image_url} 
+              alt="Hero" 
+              className="max-w-full max-h-full object-contain"
+            />
+          ) : (
+            <Rocket className="w-16 h-16 md:w-20 md:h-20 text-primary" strokeWidth={1.5} />
+          )}
         </div>
         <h1 className="text-3xl md:text-4xl font-bold text-primary mb-3">
-          Jetzt Verfügbarkeit prüfen
+          {branding.address_check_title}
         </h1>
-        <p className="text-accent font-medium text-lg">
-          ...und gigaschnell lossurfen mit unseren neuen <span className="font-bold">{customerType === 'kmu' ? 'easy business' : 'einfach Internet'}</span> Produkten!
-        </p>
+        <p 
+          className="text-accent font-medium text-lg"
+          dangerouslySetInnerHTML={{ 
+            __html: customerType === 'kmu' 
+              ? branding.address_check_subtitle_kmu 
+              : branding.address_check_subtitle_pk 
+          }}
+        />
       </div>
 
       {/* Formular */}
       <div className="bg-card rounded-2xl shadow-card p-6 md:p-8">
         <p className="text-center text-foreground mb-6 font-medium">
-          Geben Sie Ihre Straße und Ihre Hausnummer an, damit wir prüfen können, welche Produkte an Ihrem Standort verfügbar sind.
+          {branding.address_check_form_text}
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

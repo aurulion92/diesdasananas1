@@ -55,6 +55,12 @@ export interface BrandingSettings {
   installation_info_mfh: string;
   installation_info_additional: string;
   installation_info_services_title: string;
+  // Address Check Hero Section
+  address_check_title: string;
+  address_check_subtitle_pk: string;
+  address_check_subtitle_kmu: string;
+  address_check_image_url: string;
+  address_check_form_text: string;
 }
 
 export const DEFAULT_BRANDING: BrandingSettings = {
@@ -111,6 +117,12 @@ export const DEFAULT_BRANDING: BrandingSettings = {
   installation_info_mfh: 'Mehrfamilienhäuser: Im 3m Radius um die Wohnungseinführung wird das ONT (Eine 230V Steckdose im Umkreis von 60cm muss vorhanden sein.) bzw. die GF-TA (passiv, ohne benötigte 230V) montiert.',
   installation_info_additional: 'Zusätzlich sind für Ein- und Mehrfamilienhäuser enthalten: die Provisionierung, ACS-Router, ein Speedtest, TV-Sendersuchlauf, Testung Telefonie Festnetz, Routerinbetriebnahme für Mietgeräte der COM-IN.',
   installation_info_services_title: 'Darüber hinaus bieten wir folgende Services:',
+  // Address Check Hero Section
+  address_check_title: 'Jetzt Verfügbarkeit prüfen',
+  address_check_subtitle_pk: '...und gigaschnell lossurfen mit unseren neuen <strong>einfach Internet</strong> Produkten!',
+  address_check_subtitle_kmu: '...und gigaschnell lossurfen mit unseren neuen <strong>easy business</strong> Produkten!',
+  address_check_image_url: '',
+  address_check_form_text: 'Geben Sie Ihre Straße und Ihre Hausnummer an, damit wir prüfen können, welche Produkte an Ihrem Standort verfügbar sind.',
 };
 
 export const useBranding = () => {

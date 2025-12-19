@@ -858,6 +858,69 @@ export const SettingsManager = () => {
               </div>
 
               <div className="border-t pt-4">
+                <h4 className="font-medium mb-4">🚀 Adressprüfung (Hero-Bereich)</h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Konfigurieren Sie den Text und das Bild im Hero-Bereich der Adressprüfung.
+                </p>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="address_check_title">Titel</Label>
+                    <Input
+                      id="address_check_title"
+                      value={brandingSettings.address_check_title || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, address_check_title: e.target.value })}
+                      placeholder="Jetzt Verfügbarkeit prüfen"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="address_check_subtitle_pk">Untertitel (Privatkunden)</Label>
+                      <Textarea
+                        id="address_check_subtitle_pk"
+                        value={brandingSettings.address_check_subtitle_pk || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, address_check_subtitle_pk: e.target.value })}
+                        placeholder="...und gigaschnell lossurfen mit unseren neuen <strong>einfach Internet</strong> Produkten!"
+                        rows={2}
+                      />
+                      <p className="text-xs text-muted-foreground">HTML erlaubt: &lt;strong&gt; für fett</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="address_check_subtitle_kmu">Untertitel (Geschäftskunden)</Label>
+                      <Textarea
+                        id="address_check_subtitle_kmu"
+                        value={brandingSettings.address_check_subtitle_kmu || ''}
+                        onChange={(e) => setBrandingSettings({ ...brandingSettings, address_check_subtitle_kmu: e.target.value })}
+                        placeholder="...und gigaschnell lossurfen mit unseren neuen <strong>easy business</strong> Produkten!"
+                        rows={2}
+                      />
+                      <p className="text-xs text-muted-foreground">HTML erlaubt: &lt;strong&gt; für fett</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="address_check_form_text">Formular-Text</Label>
+                    <Textarea
+                      id="address_check_form_text"
+                      value={brandingSettings.address_check_form_text || ''}
+                      onChange={(e) => setBrandingSettings({ ...brandingSettings, address_check_form_text: e.target.value })}
+                      placeholder="Geben Sie Ihre Straße und Ihre Hausnummer an..."
+                      rows={2}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Hero-Bild (optional)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Leer lassen für Standard-Rakete-Icon. Empfohlene Größe: 100x100 bis 200x200 Pixel.
+                    </p>
+                    <ImageUpload
+                      value={brandingSettings.address_check_image_url || ''}
+                      onChange={(url) => setBrandingSettings({ ...brandingSettings, address_check_image_url: url })}
+                      folder="branding"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
                 <h4 className="font-medium mb-4">Kundentyp-Auswahl (PK/KMU)</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
