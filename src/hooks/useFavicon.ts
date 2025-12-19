@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 const DEFAULT_FAVICON = '/favicon.png';
-const DEFAULT_TITLE = 'COM-IN | einfach Internet - Glasfaser bestellen';
+const DEFAULT_TITLE = 'Glasfaser bestellen';
 
 export const useFavicon = (forceClear: boolean = false) => {
   useEffect(() => {
@@ -17,12 +17,17 @@ export const useFavicon = (forceClear: boolean = false) => {
       }
     };
 
+    const updateTitle = (title: string | null) => {
+      document.title = title?.trim() || DEFAULT_TITLE;
+    };
+
     if (forceClear) {
       updateFavicon(null);
+      updateTitle(null);
       return;
     }
 
-    const fetchFavicon = async () => {
+    const fetchBranding = async () => {
       const { data } = await supabase
         .from('app_settings')
         .select('value')
@@ -30,18 +35,28 @@ export const useFavicon = (forceClear: boolean = false) => {
         .maybeSingle();
 
       if (data?.value) {
-        const settings = data.value as { favicon_url?: string };
+        const settings = data.value as { favicon_url?: string; site_title?: string };
+        
+        // Update favicon
         if (settings.favicon_url && settings.favicon_url.trim()) {
           updateFavicon(settings.favicon_url);
         } else {
           updateFavicon(DEFAULT_FAVICON);
         }
+        
+        // Update title
+        if (settings.site_title && settings.site_title.trim()) {
+          updateTitle(settings.site_title);
+        } else {
+          updateTitle(DEFAULT_TITLE);
+        }
       } else {
         updateFavicon(DEFAULT_FAVICON);
+        updateTitle(DEFAULT_TITLE);
       }
     };
 
-    fetchFavicon();
+    fetchBranding();
   }, [forceClear]);
 };
 
