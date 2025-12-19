@@ -478,17 +478,17 @@ export function TariffSelection({ customerType = 'pk' }: TariffSelectionProps) {
       <div className="text-center">
         <h2 className="text-2xl md:text-3xl font-bold text-primary mb-2">
           {hasManualAssignment 
-            ? 'Verfügbare Produkte an Ihrer Adresse'
+            ? branding.tariff_selection_title_manual
             : isLimited 
-              ? 'Verfügbarer Tarif' 
-              : 'einfach Internet - unsere neuen Internet Produkte'}
+              ? branding.tariff_selection_title_limited
+              : branding.tariff_selection_title}
         </h2>
         <p className="text-muted-foreground">
           {hasManualAssignment
-            ? 'Folgende Produkte sind speziell für Ihre Adresse verfügbar'
+            ? branding.tariff_selection_subtitle_manual
             : isLimited 
-              ? 'An Ihrer Adresse ist folgender Tarif verfügbar' 
-              : 'Wählen Sie das passende Produkt für Ihre Bedürfnisse'}
+              ? branding.tariff_selection_subtitle_limited
+              : branding.tariff_selection_subtitle}
         </p>
       </div>
 
