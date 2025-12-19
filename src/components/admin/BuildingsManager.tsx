@@ -25,7 +25,8 @@ import {
   Package,
   Trash2,
   Tag,
-  Database
+  Database,
+  Home
 } from 'lucide-react';
 import {
   Table,
@@ -42,6 +43,7 @@ import { PromotionBuildingAssignment } from './PromotionBuildingAssignment';
 import { BuildingK7ServicesManager } from './BuildingK7ServicesManager';
 import { K7DataImportDialog } from './K7DataImportDialog';
 import { K7ImportUndoButton } from './K7ImportUndoButton';
+import { BuildingHomeIdsManager } from './BuildingHomeIdsManager';
 
 interface Building {
   id: string;
@@ -733,6 +735,13 @@ export const BuildingsManager = () => {
                           <span className="text-sm text-muted-foreground">
                             {building.postal_code && `${building.postal_code} `}{building.city}
                           </span>
+                          <div className="mt-2">
+                            <BuildingHomeIdsManager
+                              buildingId={building.id}
+                              buildingAddress={`${building.street} ${building.house_number}, ${building.city}`}
+                              residentialUnits={building.residential_units}
+                            />
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>{building.residential_units}</TableCell>

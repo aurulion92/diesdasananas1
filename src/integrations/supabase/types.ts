@@ -101,6 +101,44 @@ export type Database = {
         }
         Relationships: []
       }
+      building_home_ids: {
+        Row: {
+          building_id: string
+          created_at: string
+          home_id_type: string
+          home_id_value: string
+          id: string
+          unit_number: number
+          updated_at: string
+        }
+        Insert: {
+          building_id: string
+          created_at?: string
+          home_id_type?: string
+          home_id_value?: string
+          id?: string
+          unit_number?: number
+          updated_at?: string
+        }
+        Update: {
+          building_id?: string
+          created_at?: string
+          home_id_type?: string
+          home_id_value?: string
+          id?: string
+          unit_number?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_home_ids_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       building_k7_services: {
         Row: {
           bandbreite: string | null
