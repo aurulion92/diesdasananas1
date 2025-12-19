@@ -79,8 +79,8 @@ interface ProductMapping {
 const CATEGORIES = [
   { value: 'router', label: 'Router' },
   { value: 'phone', label: 'Telefon' },
-  { value: 'tv_comin', label: 'COM-IN TV' },
-  { value: 'tv_waipu', label: 'waipu.tv' },
+  { value: 'tv_comin', label: 'Kabel TV' },
+  { value: 'tv_waipu', label: 'IP TV' },
   { value: 'tv_hardware', label: 'TV Hardware' },
   { value: 'service', label: 'Service-Leistungen' },
   { value: 'installation', label: 'Installations-Service' },
