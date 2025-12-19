@@ -18,7 +18,8 @@ import {
   LayoutDashboard,
   Database,
   Megaphone,
-  Wrench
+  Wrench,
+  GitBranch
 } from 'lucide-react';
 import { BuildingsManager } from './BuildingsManager';
 import { ProductsManager } from './ProductsManager';
@@ -30,6 +31,7 @@ import { DocumentTemplatesManager } from './DocumentTemplatesManager';
 import { SettingsManager } from './SettingsManager';
 import { PortingProvidersManager } from './PortingProvidersManager';
 import AuditLogsManager from './AuditLogsManager';
+import { DecisionTreeManager } from './DecisionTreeManager';
 
 interface AdminDashboardProps {
   user: User;
@@ -49,7 +51,7 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
       operativ: 'orders',
       stammdaten: 'buildings',
       marketing: 'promotions',
-      konfiguration: 'templates',
+      konfiguration: 'decision-tree',
       system: 'logs'
     };
     setSubTab(defaults[category]);
@@ -174,6 +176,10 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
         {mainCategory === 'konfiguration' && (
           <Tabs value={subTab} onValueChange={setSubTab} className="space-y-4">
             <TabsList>
+              <TabsTrigger value="decision-tree" className="flex items-center gap-2">
+                <GitBranch className="w-4 h-4" />
+                Entscheidungsbaum
+              </TabsTrigger>
               <TabsTrigger value="templates" className="flex items-center gap-2">
                 <FileText className="w-4 h-4" />
                 Vorlagen
@@ -183,6 +189,7 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
                 Einstellungen
               </TabsTrigger>
             </TabsList>
+            <TabsContent value="decision-tree"><DecisionTreeManager /></TabsContent>
             <TabsContent value="templates"><DocumentTemplatesManager /></TabsContent>
             <TabsContent value="settings"><SettingsManager /></TabsContent>
           </Tabs>
