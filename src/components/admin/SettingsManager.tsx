@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff, Shield, Trash2, RefreshCw, Building2, Image, AlertTriangle, Globe, Plus, X, Upload, Lock } from 'lucide-react';
+import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff, Shield, Trash2, RefreshCw, Building2, Image, AlertTriangle, Globe, Plus, X, Upload, Lock, Tags } from 'lucide-react';
 import { ImageUpload } from './ImageUpload';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { BrandingSettings, DEFAULT_BRANDING } from '@/hooks/useBranding';
+import { FieldLabels, DEFAULT_FIELD_LABELS } from '@/hooks/useFieldLabels';
 
 interface EmailSettings {
   smtp_host: string;
@@ -184,6 +185,7 @@ export const SettingsManager = () => {
   const [brandingSettings, setBrandingSettings] = useState<BrandingSettings>(DEFAULT_BRANDING);
   const [contactFormSettings, setContactFormSettings] = useState<ContactFormSettings>(DEFAULT_CONTACT_FORM);
   const [sitePasswordSettings, setSitePasswordSettings] = useState<SitePasswordSettings>(DEFAULT_SITE_PASSWORD);
+  const [fieldLabels, setFieldLabels] = useState<FieldLabels>(DEFAULT_FIELD_LABELS);
   const [rateLimitEntries, setRateLimitEntries] = useState<RateLimitEntry[]>([]);
   const [loadingRateLimits, setLoadingRateLimits] = useState(false);
   const [showSitePassword, setShowSitePassword] = useState(false);
@@ -268,6 +270,17 @@ export const SettingsManager = () => {
     
     if (sitePasswordData?.value) {
       setSitePasswordSettings({ ...DEFAULT_SITE_PASSWORD, ...(sitePasswordData.value as object) });
+    }
+
+    // Fetch field labels
+    const { data: fieldLabelsData } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'field_labels')
+      .maybeSingle();
+    
+    if (fieldLabelsData?.value) {
+      setFieldLabels({ ...DEFAULT_FIELD_LABELS, ...(fieldLabelsData.value as object) });
     }
 
     setLoading(false);
@@ -478,6 +491,31 @@ export const SettingsManager = () => {
     setSaving(false);
   };
 
+  const saveFieldLabels = async () => {
+    setSaving(true);
+    
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert([{
+        key: 'field_labels',
+        value: fieldLabels as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString()
+      }] as any, { onConflict: 'key' });
+
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Gespeichert', description: 'Feldbezeichnungen wurden gespeichert.' });
+    }
+    
+    setSaving(false);
+  };
+
+  const resetFieldLabels = () => {
+    setFieldLabels(DEFAULT_FIELD_LABELS);
+    toast({ title: 'Zurückgesetzt', description: 'Feldbezeichnungen wurden auf Standard zurückgesetzt. Klicken Sie auf Speichern um die Änderungen zu übernehmen.' });
+  };
+
   const resetDesign = async () => {
     setDesignSettings(DEFAULT_DESIGN);
     applyDesignSettings(DEFAULT_DESIGN);
@@ -652,6 +690,10 @@ export const SettingsManager = () => {
           <TabsTrigger value="security" className="flex items-center gap-2">
             <Shield className="w-4 h-4" />
             Sicherheit
+          </TabsTrigger>
+          <TabsTrigger value="fieldlabels" className="flex items-center gap-2">
+            <Tags className="w-4 h-4" />
+            Feldbezeichnungen
           </TabsTrigger>
         </TabsList>
 
@@ -2260,6 +2302,300 @@ export const SettingsManager = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="fieldlabels">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Tags className="w-5 h-5" />
+                Feldbezeichnungen (White-Label)
+              </CardTitle>
+              <CardDescription>
+                Passen Sie die Bezeichnungen für Felder und Systeme an. Diese werden im Admin-Bereich und bei Exporten verwendet.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Building IDs */}
+              <div className="border-b pb-4">
+                <h4 className="font-medium mb-4">Gebäude-Identifikatoren</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="building_id_1_label">ID 1 Bezeichnung</Label>
+                    <Input
+                      id="building_id_1_label"
+                      value={fieldLabels.building_id_1_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, building_id_1_label: e.target.value })}
+                      placeholder="Gebäude-ID 1"
+                    />
+                    <p className="text-xs text-muted-foreground">{fieldLabels.building_id_1_description}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="building_id_2_label">ID 2 Bezeichnung</Label>
+                    <Input
+                      id="building_id_2_label"
+                      value={fieldLabels.building_id_2_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, building_id_2_label: e.target.value })}
+                      placeholder="Gebäude-ID 2"
+                    />
+                    <p className="text-xs text-muted-foreground">{fieldLabels.building_id_2_description}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* System Names */}
+              <div className="border-b pb-4">
+                <h4 className="font-medium mb-4">System-Bezeichnungen</h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Namen für externe Systeme (z.B. ERP, Provisionierung)
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="system_1_name">System 1 Name</Label>
+                    <Input
+                      id="system_1_name"
+                      value={fieldLabels.system_1_name}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, system_1_name: e.target.value })}
+                      placeholder="Bestandssystem"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="system_2_name">System 2 Name</Label>
+                    <Input
+                      id="system_2_name"
+                      value={fieldLabels.system_2_name}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, system_2_name: e.target.value })}
+                      placeholder="Provisionierungssystem"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Infrastructure Types */}
+              <div className="border-b pb-4">
+                <h4 className="font-medium mb-4">Infrastruktur-Typen</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="infrastructure_type_1_label">Typ 1 (Glasfaser voll)</Label>
+                    <Input
+                      id="infrastructure_type_1_label"
+                      value={fieldLabels.infrastructure_type_1_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, infrastructure_type_1_label: e.target.value })}
+                      placeholder="FTTH"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="infrastructure_type_2_label">Typ 2 (Glasfaser bis Gebäude)</Label>
+                    <Input
+                      id="infrastructure_type_2_label"
+                      value={fieldLabels.infrastructure_type_2_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, infrastructure_type_2_label: e.target.value })}
+                      placeholder="FTTB"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="infrastructure_type_3_label">Typ 3 (Eingeschränkt)</Label>
+                    <Input
+                      id="infrastructure_type_3_label"
+                      value={fieldLabels.infrastructure_type_3_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, infrastructure_type_3_label: e.target.value })}
+                      placeholder="FTTH Limited"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Fields */}
+              <div className="border-b pb-4">
+                <h4 className="font-medium mb-4">Status-Felder</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="construction_done_label">Bauarbeiten erledigt</Label>
+                    <Input
+                      id="construction_done_label"
+                      value={fieldLabels.construction_done_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, construction_done_label: e.target.value })}
+                      placeholder="Tiefbau erledigt"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="connection_point_set_label">Anschlusspunkt gesetzt</Label>
+                    <Input
+                      id="connection_point_set_label"
+                      value={fieldLabels.connection_point_set_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, connection_point_set_label: e.target.value })}
+                      placeholder="APL gesetzt"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cable_tv_available_label">Kabel-TV verfügbar</Label>
+                    <Input
+                      id="cable_tv_available_label"
+                      value={fieldLabels.cable_tv_available_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, cable_tv_available_label: e.target.value })}
+                      placeholder="Kabel-TV verfügbar"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="gnv_available_label">Netzverteiler vorhanden</Label>
+                    <Input
+                      id="gnv_available_label"
+                      value={fieldLabels.gnv_available_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, gnv_available_label: e.target.value })}
+                      placeholder="GNV vorhanden"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Types */}
+              <div className="border-b pb-4">
+                <h4 className="font-medium mb-4">Kundentypen</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="private_customer_short">Privatkunde Kürzel</Label>
+                    <Input
+                      id="private_customer_short"
+                      value={fieldLabels.private_customer_short}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, private_customer_short: e.target.value })}
+                      placeholder="PK"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="business_customer_short">Geschäftskunde Kürzel</Label>
+                    <Input
+                      id="business_customer_short"
+                      value={fieldLabels.business_customer_short}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, business_customer_short: e.target.value })}
+                      placeholder="GK"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="private_tariffs_label">Privatkunden-Tarife</Label>
+                    <Input
+                      id="private_tariffs_label"
+                      value={fieldLabels.private_tariffs_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, private_tariffs_label: e.target.value })}
+                      placeholder="PK-Tarife verfügbar"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="business_tariffs_label">Geschäftskunden-Tarife</Label>
+                    <Input
+                      id="business_tariffs_label"
+                      value={fieldLabels.business_tariffs_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, business_tariffs_label: e.target.value })}
+                      placeholder="GK-Tarife verfügbar"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Building Types */}
+              <div className="border-b pb-4">
+                <h4 className="font-medium mb-4">Gebäudetypen</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="building_type_efh_label">Einfamilienhaus</Label>
+                    <Input
+                      id="building_type_efh_label"
+                      value={fieldLabels.building_type_efh_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, building_type_efh_label: e.target.value })}
+                      placeholder="EFH"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="building_type_mfh_label">Mehrfamilienhaus</Label>
+                    <Input
+                      id="building_type_mfh_label"
+                      value={fieldLabels.building_type_mfh_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, building_type_mfh_label: e.target.value })}
+                      placeholder="MFH"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="building_type_wowi_label">Wohnungswirtschaft</Label>
+                    <Input
+                      id="building_type_wowi_label"
+                      value={fieldLabels.building_type_wowi_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, building_type_wowi_label: e.target.value })}
+                      placeholder="WoWi"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Build Status */}
+              <div className="border-b pb-4">
+                <h4 className="font-medium mb-4">Ausbaustatus</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="build_status_completed_label">Abgeschlossen</Label>
+                    <Input
+                      id="build_status_completed_label"
+                      value={fieldLabels.build_status_completed_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, build_status_completed_label: e.target.value })}
+                      placeholder="Abgeschlossen"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="build_status_in_progress_label">Im Ausbau</Label>
+                    <Input
+                      id="build_status_in_progress_label"
+                      value={fieldLabels.build_status_in_progress_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, build_status_in_progress_label: e.target.value })}
+                      placeholder="Im Ausbau"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="build_status_planned_label">Geplant</Label>
+                    <Input
+                      id="build_status_planned_label"
+                      value={fieldLabels.build_status_planned_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, build_status_planned_label: e.target.value })}
+                      placeholder="Geplant"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Import Labels */}
+              <div className="pb-4">
+                <h4 className="font-medium mb-4">Import-Bezeichnungen</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="import_buildings_label">Gebäude-Import</Label>
+                    <Input
+                      id="import_buildings_label"
+                      value={fieldLabels.import_buildings_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, import_buildings_label: e.target.value })}
+                      placeholder="Gebäude importieren"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="import_services_label">Dienste-Import</Label>
+                    <Input
+                      id="import_services_label"
+                      value={fieldLabels.import_services_label}
+                      onChange={(e) => setFieldLabels({ ...fieldLabels, import_services_label: e.target.value })}
+                      placeholder="Dienste importieren"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between pt-4 border-t">
+                <Button variant="outline" onClick={resetFieldLabels}>
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Auf Standard zurücksetzen
+                </Button>
+                <Button onClick={saveFieldLabels} disabled={saving}>
+                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  Speichern
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
