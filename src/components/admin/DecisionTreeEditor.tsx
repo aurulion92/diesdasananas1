@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +22,7 @@ import {
   OperatorType,
 } from '@/hooks/useDecisionTree';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DecisionTreeEditorProps {
   treeId: string;
@@ -677,85 +678,11 @@ function NodeEditor({
             </div>
 
             {/* Action-specific config */}
-            {actionType === 'show_products' && (
-              <div className="space-y-3">
-                <Label>Produktfilter (optional)</Label>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={actionConfig.filter_is_ftth || false}
-                      onCheckedChange={(v) => setActionConfig({ ...actionConfig, filter_is_ftth: v })}
-                    />
-                    <span className="text-sm">Nur FTTH Produkte</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={actionConfig.filter_is_fttb || false}
-                      onCheckedChange={(v) => setActionConfig({ ...actionConfig, filter_is_fttb: v })}
-                    />
-                    <span className="text-sm">Nur FTTB Produkte</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={actionConfig.filter_is_ftth_limited || false}
-                      onCheckedChange={(v) => setActionConfig({ ...actionConfig, filter_is_ftth_limited: v })}
-                    />
-                    <span className="text-sm">Nur FTTH Limited Produkte</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {actionType === 'show_message' && (
-              <div className="space-y-2">
-                <Label>Nachricht</Label>
-                <Textarea
-                  value={actionConfig.message || ''}
-                  onChange={(e) => setActionConfig({ ...actionConfig, message: e.target.value })}
-                  placeholder="Nachricht an den Benutzer..."
-                  rows={3}
-                />
-                <div className="space-y-2">
-                  <Label>Nachrichtentyp</Label>
-                  <Select
-                    value={actionConfig.message_type || 'info'}
-                    onValueChange={(v) => setActionConfig({ ...actionConfig, message_type: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="info">Info</SelectItem>
-                      <SelectItem value="warning">Warnung</SelectItem>
-                      <SelectItem value="error">Fehler</SelectItem>
-                      <SelectItem value="success">Erfolg</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-
-            {actionType === 'redirect' && (
-              <div className="space-y-2">
-                <Label>Weiterleitungs-URL</Label>
-                <Input
-                  value={actionConfig.url || ''}
-                  onChange={(e) => setActionConfig({ ...actionConfig, url: e.target.value })}
-                  placeholder="https://..."
-                />
-              </div>
-            )}
-
-            {actionType === 'show_contact_form' && (
-              <div className="space-y-2">
-                <Label>Betreff (optional)</Label>
-                <Input
-                  value={actionConfig.subject || ''}
-                  onChange={(e) => setActionConfig({ ...actionConfig, subject: e.target.value })}
-                  placeholder="Vorbelegter Betreff..."
-                />
-              </div>
-            )}
+            <ActionConfigEditor 
+              actionType={actionType}
+              config={actionConfig}
+              onChange={setActionConfig}
+            />
 
             <Button onClick={handleSaveAction} className="w-full">
               Aktion speichern
@@ -778,19 +705,24 @@ function ConditionRow({ condition, onUpdate, onDelete }: ConditionRowProps) {
   const field = CONDITION_FIELDS.find(f => f.value === condition.field_name);
 
   return (
-    <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+    <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md flex-wrap">
       <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
       
       <Select
         value={condition.field_name}
         onValueChange={(v) => onUpdate(condition.id, { field_name: v })}
       >
-        <SelectTrigger className="w-[140px] h-8">
+        <SelectTrigger className="w-[160px] h-8">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           {CONDITION_FIELDS.map(f => (
-            <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+            <SelectItem key={f.value} value={f.value}>
+              <div>
+                <div>{f.label}</div>
+                {f.description && <div className="text-xs text-muted-foreground">{f.description}</div>}
+              </div>
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -799,7 +731,7 @@ function ConditionRow({ condition, onUpdate, onDelete }: ConditionRowProps) {
         value={condition.operator}
         onValueChange={(v) => onUpdate(condition.id, { operator: v })}
       >
-        <SelectTrigger className="w-[120px] h-8">
+        <SelectTrigger className="w-[140px] h-8">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -838,12 +770,19 @@ function ConditionRow({ condition, onUpdate, onDelete }: ConditionRowProps) {
                 <SelectItem value="false">Nein</SelectItem>
               </SelectContent>
             </Select>
+          ) : field?.type === 'building_list' ? (
+            <Input
+              value={condition.compare_value || ''}
+              onChange={(e) => onUpdate(condition.id, { compare_value: e.target.value })}
+              placeholder="Gebäude-IDs (kommasepariert)"
+              className="w-[200px] h-8"
+            />
           ) : (
             <Input
               value={condition.compare_value || ''}
               onChange={(e) => onUpdate(condition.id, { compare_value: e.target.value })}
               placeholder="Wert..."
-              className="w-[100px] h-8"
+              className="w-[120px] h-8"
             />
           )}
         </>
@@ -859,4 +798,297 @@ function ConditionRow({ condition, onUpdate, onDelete }: ConditionRowProps) {
       </Button>
     </div>
   );
+}
+
+// Action Config Editor - handles all action type configurations
+interface ActionConfigEditorProps {
+  actionType: ActionType;
+  config: Record<string, any>;
+  onChange: (config: Record<string, any>) => void;
+}
+
+function ActionConfigEditor({ actionType, config, onChange }: ActionConfigEditorProps) {
+  const [products, setProducts] = useState<Array<{ id: string; name: string; slug: string }>>([]);
+  
+  useEffect(() => {
+    // Fetch products for selection
+    const fetchProducts = async () => {
+      const { data } = await supabase
+        .from('products')
+        .select('id, name, slug')
+        .eq('is_active', true)
+        .order('display_order');
+      if (data) setProducts(data);
+    };
+    if (actionType === 'show_products') {
+      fetchProducts();
+    }
+  }, [actionType]);
+
+  if (actionType === 'show_products') {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-3">
+          <Label className="font-semibold">Technologie-Filter</Label>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={config.filter_is_ftth || false}
+                onCheckedChange={(v) => onChange({ ...config, filter_is_ftth: v })}
+              />
+              <span className="text-sm">Nur FTTH Produkte</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={config.filter_is_fttb || false}
+                onCheckedChange={(v) => onChange({ ...config, filter_is_fttb: v })}
+              />
+              <span className="text-sm">Nur FTTB Produkte</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={config.filter_is_ftth_limited || false}
+                onCheckedChange={(v) => onChange({ ...config, filter_is_ftth_limited: v })}
+              />
+              <span className="text-sm">Nur FTTH Limited Produkte</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <Label className="font-semibold">Sondertarife</Label>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={config.show_sondertarife || false}
+                onCheckedChange={(v) => onChange({ ...config, show_sondertarife: v })}
+              />
+              <span className="text-sm">Sondertarife anzeigen</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={config.only_sondertarife || false}
+                onCheckedChange={(v) => onChange({ ...config, only_sondertarife: v })}
+              />
+              <span className="text-sm">NUR Sondertarife (keine Standardtarife)</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <Label className="font-semibold">Spezifische Produkte (optional)</Label>
+          <p className="text-xs text-muted-foreground">
+            Wenn aktiviert, werden nur die ausgewählten Produkte angezeigt
+          </p>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={config.use_specific_products || false}
+              onCheckedChange={(v) => onChange({ ...config, use_specific_products: v, specific_product_ids: v ? (config.specific_product_ids || []) : [] })}
+            />
+            <span className="text-sm">Nur bestimmte Produkte zeigen</span>
+          </div>
+          
+          {config.use_specific_products && (
+            <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
+              {products.map(product => (
+                <div key={product.id} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id={`product-${product.id}`}
+                    checked={(config.specific_product_ids || []).includes(product.id)}
+                    onChange={(e) => {
+                      const ids = config.specific_product_ids || [];
+                      if (e.target.checked) {
+                        onChange({ ...config, specific_product_ids: [...ids, product.id] });
+                      } else {
+                        onChange({ ...config, specific_product_ids: ids.filter((id: string) => id !== product.id) });
+                      }
+                    }}
+                    className="rounded border-gray-300"
+                  />
+                  <label htmlFor={`product-${product.id}`} className="text-sm">
+                    {product.name} <span className="text-muted-foreground">({product.slug})</span>
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label className="font-semibold">Gebäude-basierte Filterung</Label>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={config.filter_by_building || false}
+              onCheckedChange={(v) => onChange({ ...config, filter_by_building: v })}
+            />
+            <span className="text-sm">Produkte nach Gebäude-Zuweisung filtern</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Zeigt nur Produkte die dem aktuellen Gebäude zugewiesen sind
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (actionType === 'show_message') {
+    return (
+      <div className="space-y-3">
+        <div className="space-y-2">
+          <Label>Nachricht</Label>
+          <Textarea
+            value={config.message || ''}
+            onChange={(e) => onChange({ ...config, message: e.target.value })}
+            placeholder="Nachricht an den Benutzer..."
+            rows={3}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Nachrichtentyp</Label>
+          <Select
+            value={config.message_type || 'info'}
+            onValueChange={(v) => onChange({ ...config, message_type: v })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="info">Info</SelectItem>
+              <SelectItem value="warning">Warnung</SelectItem>
+              <SelectItem value="error">Fehler</SelectItem>
+              <SelectItem value="success">Erfolg</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={config.show_contact_button || false}
+            onCheckedChange={(v) => onChange({ ...config, show_contact_button: v })}
+          />
+          <span className="text-sm">Kontakt-Button anzeigen</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (actionType === 'redirect') {
+    return (
+      <div className="space-y-2">
+        <Label>Weiterleitungs-URL</Label>
+        <Input
+          value={config.url || ''}
+          onChange={(e) => onChange({ ...config, url: e.target.value })}
+          placeholder="https://..."
+        />
+        <div className="flex items-center gap-2 mt-2">
+          <Switch
+            checked={config.open_in_new_tab || false}
+            onCheckedChange={(v) => onChange({ ...config, open_in_new_tab: v })}
+          />
+          <span className="text-sm">In neuem Tab öffnen</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (actionType === 'show_contact_form') {
+    return (
+      <div className="space-y-3">
+        <div className="space-y-2">
+          <Label>Betreff (optional)</Label>
+          <Input
+            value={config.subject || ''}
+            onChange={(e) => onChange({ ...config, subject: e.target.value })}
+            placeholder="Vorbelegter Betreff..."
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Hinweistext (optional)</Label>
+          <Textarea
+            value={config.hint_text || ''}
+            onChange={(e) => onChange({ ...config, hint_text: e.target.value })}
+            placeholder="Zusätzlicher Hinweis für den Benutzer..."
+            rows={2}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (actionType === 'show_gnv_form') {
+    return (
+      <div className="space-y-2">
+        <Label>Hinweistext (optional)</Label>
+        <Textarea
+          value={config.hint_text || ''}
+          onChange={(e) => onChange({ ...config, hint_text: e.target.value })}
+          placeholder="Zusätzlicher Hinweis zur GNV..."
+          rows={2}
+        />
+      </div>
+    );
+  }
+
+  if (actionType === 'set_connection_type') {
+    return (
+      <div className="space-y-2">
+        <Label>Anschlusstyp</Label>
+        <Select
+          value={config.connection_type || 'ftth'}
+          onValueChange={(v) => onChange({ ...config, connection_type: v })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ftth">FTTH</SelectItem>
+            <SelectItem value="fttb">FTTB</SelectItem>
+            <SelectItem value="ftth_limited">FTTH Limited</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Setzt den connectionType für die Produktfilterung in der Bestellstrecke
+        </p>
+      </div>
+    );
+  }
+
+  if (actionType === 'filter_buildings_dropdown') {
+    return (
+      <div className="space-y-3">
+        <div className="space-y-2">
+          <Label>Filter-Kriterien für Gebäude-Dropdown</Label>
+          <p className="text-xs text-muted-foreground">
+            Bestimmt welche Gebäude in der Adresssuche angezeigt werden
+          </p>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={config.only_completed || false}
+              onCheckedChange={(v) => onChange({ ...config, only_completed: v })}
+            />
+            <span className="text-sm">Nur abgeschlossene Ausbauten</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={config.include_planned || false}
+              onCheckedChange={(v) => onChange({ ...config, include_planned: v })}
+            />
+            <span className="text-sm">Geplante Ausbauten einschließen</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={config.only_with_products || false}
+              onCheckedChange={(v) => onChange({ ...config, only_with_products: v })}
+            />
+            <span className="text-sm">Nur Gebäude mit zugewiesenen Produkten</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }

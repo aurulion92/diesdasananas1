@@ -1368,6 +1368,8 @@ export type Database = {
         | "show_message"
         | "redirect"
         | "show_gnv_form"
+        | "filter_buildings_dropdown"
+        | "set_connection_type"
       decision_node_type: "condition" | "action"
       decision_operator:
         | "equals"
@@ -1378,6 +1380,11 @@ export type Database = {
         | "not_in_list"
         | "greater_than"
         | "less_than"
+        | "contains"
+        | "not_contains"
+        | "starts_with"
+        | "greater_or_equal"
+        | "less_or_equal"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1515,6 +1522,8 @@ export const Constants = {
         "show_message",
         "redirect",
         "show_gnv_form",
+        "filter_buildings_dropdown",
+        "set_connection_type",
       ],
       decision_node_type: ["condition", "action"],
       decision_operator: [
@@ -1526,6 +1535,11 @@ export const Constants = {
         "not_in_list",
         "greater_than",
         "less_than",
+        "contains",
+        "not_contains",
+        "starts_with",
+        "greater_or_equal",
+        "less_or_equal",
       ],
     },
   },
