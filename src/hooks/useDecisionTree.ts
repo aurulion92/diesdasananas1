@@ -74,6 +74,7 @@ export const CONDITION_FIELDS = [
   { value: 'street', label: 'Straße', type: 'text', description: 'Straßenname enthält oder ist gleich' },
   { value: 'postal_code', label: 'PLZ', type: 'text', description: 'Postleitzahl' },
   { value: 'city', label: 'Stadt', type: 'text' },
+  { value: 'cluster', label: 'Cluster', type: 'text', description: 'Bau-Cluster (interne Gebietsunterteilung)' },
   
   // Gebäudeeigenschaften
   { value: 'building_type', label: 'Gebäudetyp', type: 'enum', options: ['efh', 'mfh', 'wowi'] },

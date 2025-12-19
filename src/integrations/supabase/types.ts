@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_permissions: {
+        Row: {
+          created_at: string
+          granted_by: string | null
+          id: string
+          permission: Database["public"]["Enums"]["admin_permission"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          permission: Database["public"]["Enums"]["admin_permission"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          permission?: Database["public"]["Enums"]["admin_permission"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           id: string
@@ -131,6 +155,7 @@ export type Database = {
             | Database["public"]["Enums"]["building_type"]
             | null
           city: string
+          cluster: string | null
           created_at: string
           gebaeude_id_k7: string | null
           gebaeude_id_v2: string | null
@@ -161,6 +186,7 @@ export type Database = {
             | Database["public"]["Enums"]["building_type"]
             | null
           city?: string
+          cluster?: string | null
           created_at?: string
           gebaeude_id_k7?: string | null
           gebaeude_id_v2?: string | null
@@ -191,6 +217,7 @@ export type Database = {
             | Database["public"]["Enums"]["building_type"]
             | null
           city?: string
+          cluster?: string | null
           created_at?: string
           gebaeude_id_k7?: string | null
           gebaeude_id_v2?: string | null
@@ -1337,6 +1364,13 @@ export type Database = {
           house_number: string
         }[]
       }
+      has_permission: {
+        Args: {
+          _permission: Database["public"]["Enums"]["admin_permission"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1358,6 +1392,28 @@ export type Database = {
       }
     }
     Enums: {
+      admin_permission:
+        | "buildings_read"
+        | "buildings_write"
+        | "products_read"
+        | "products_write"
+        | "options_read"
+        | "options_write"
+        | "promotions_read"
+        | "promotions_write"
+        | "orders_read"
+        | "orders_write"
+        | "customers_read"
+        | "customers_write"
+        | "settings_read"
+        | "settings_write"
+        | "users_read"
+        | "users_write"
+        | "logs_read"
+        | "decision_tree_read"
+        | "decision_tree_write"
+        | "documents_read"
+        | "documents_write"
       app_role: "admin" | "user"
       ausbau_art: "ftth" | "fttb" | "ftth_limited"
       ausbau_status: "abgeschlossen" | "im_ausbau" | "geplant"
@@ -1512,6 +1568,29 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      admin_permission: [
+        "buildings_read",
+        "buildings_write",
+        "products_read",
+        "products_write",
+        "options_read",
+        "options_write",
+        "promotions_read",
+        "promotions_write",
+        "orders_read",
+        "orders_write",
+        "customers_read",
+        "customers_write",
+        "settings_read",
+        "settings_write",
+        "users_read",
+        "users_write",
+        "logs_read",
+        "decision_tree_read",
+        "decision_tree_write",
+        "documents_read",
+        "documents_write",
+      ],
       app_role: ["admin", "user"],
       ausbau_art: ["ftth", "fttb", "ftth_limited"],
       ausbau_status: ["abgeschlossen", "im_ausbau", "geplant"],
