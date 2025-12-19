@@ -33,6 +33,7 @@ import { PortingProvidersManager } from './PortingProvidersManager';
 import AuditLogsManager from './AuditLogsManager';
 import { DecisionTreeManager } from './DecisionTreeManager';
 import { AdminUsersManager } from './AdminUsersManager';
+import { DSLAMManager } from './DSLAMManager';
 
 interface AdminDashboardProps {
   user: User;
@@ -137,10 +138,14 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
 
         {mainCategory === 'stammdaten' && (
           <Tabs value={subTab} onValueChange={setSubTab} className="space-y-4">
-            <TabsList>
+            <TabsList className="flex-wrap h-auto">
               <TabsTrigger value="buildings" className="flex items-center gap-2">
                 <Building2 className="w-4 h-4" />
                 Gebäude
+              </TabsTrigger>
+              <TabsTrigger value="dslam" className="flex items-center gap-2">
+                <Database className="w-4 h-4" />
+                DSLAM
               </TabsTrigger>
               <TabsTrigger value="products" className="flex items-center gap-2">
                 <Package className="w-4 h-4" />
@@ -156,6 +161,7 @@ export const AdminDashboard = ({ user, onLogout }: AdminDashboardProps) => {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="buildings"><BuildingsManager /></TabsContent>
+            <TabsContent value="dslam"><DSLAMManager /></TabsContent>
             <TabsContent value="products"><ProductsManager /></TabsContent>
             <TabsContent value="options"><OptionsManager /></TabsContent>
             <TabsContent value="porting"><PortingProvidersManager /></TabsContent>

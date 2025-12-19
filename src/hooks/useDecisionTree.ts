@@ -82,6 +82,12 @@ export const CONDITION_FIELDS = [
   { value: 'kabel_tv_available', label: 'Kabel-TV verfügbar', type: 'boolean' },
   { value: 'gnv_vorhanden', label: 'GNV vorhanden', type: 'boolean' },
   
+  // DSLAM (für FTTB)
+  { value: 'has_dslam', label: 'Hat DSLAM', type: 'boolean', description: 'Gebäude ist einem DSLAM zugeordnet' },
+  { value: 'dslam_ports_available', label: 'DSLAM Ports verfügbar', type: 'number', description: 'Anzahl freier Ports' },
+  { value: 'dslam_ports_occupied', label: 'DSLAM Ports belegt', type: 'number', description: 'Anzahl belegter Ports' },
+  { value: 'dslam_can_connect', label: 'DSLAM Anschluss möglich', type: 'boolean', description: 'Prüft ob noch Ports frei sind' },
+  
   // Tarifverfügbarkeit
   { value: 'pk_tariffs_available', label: 'PK Tarife verfügbar', type: 'boolean' },
   { value: 'kmu_tariffs_available', label: 'KMU Tarife verfügbar', type: 'boolean' },
