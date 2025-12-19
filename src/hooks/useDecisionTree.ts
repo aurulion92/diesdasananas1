@@ -3,8 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 
 export type NodeType = 'condition' | 'action';
-export type ActionType = 'show_products' | 'show_contact_form' | 'show_message' | 'redirect' | 'show_gnv_form';
-export type OperatorType = 'equals' | 'not_equals' | 'is_null' | 'is_not_null' | 'in_list' | 'not_in_list' | 'greater_than' | 'less_than';
+export type ActionType = 'show_products' | 'show_contact_form' | 'show_message' | 'redirect' | 'show_gnv_form' | 'filter_buildings_dropdown' | 'set_connection_type';
+export type OperatorType = 'equals' | 'not_equals' | 'is_null' | 'is_not_null' | 'in_list' | 'not_in_list' | 'greater_than' | 'less_than' | 'contains' | 'not_contains' | 'starts_with' | 'greater_or_equal' | 'less_or_equal';
 
 export interface DecisionTree {
   id: string;
@@ -61,15 +61,39 @@ export interface DecisionTreeAction {
 
 // Available fields for conditions
 export const CONDITION_FIELDS = [
+  // Adress-/Gebäude-Existenz
+  { value: 'address_found', label: 'Adresse gefunden', type: 'boolean', description: 'Ob die Adresse in der Datenbank existiert' },
+  { value: 'building_id', label: 'Gebäude-ID', type: 'text', description: 'Spezifische Gebäude-ID' },
+  { value: 'building_in_list', label: 'Gebäude in Liste', type: 'building_list', description: 'Gebäude ist in einer bestimmten Gruppe' },
+  
+  // Ausbau
   { value: 'ausbau_art', label: 'Ausbauart', type: 'enum', options: ['ftth', 'fttb', 'ftth_limited'] },
   { value: 'ausbau_status', label: 'Ausbau Status', type: 'enum', options: ['abgeschlossen', 'im_ausbau', 'geplant'] },
+  
+  // Standort
+  { value: 'street', label: 'Straße', type: 'text', description: 'Straßenname enthält oder ist gleich' },
+  { value: 'postal_code', label: 'PLZ', type: 'text', description: 'Postleitzahl' },
+  { value: 'city', label: 'Stadt', type: 'text' },
+  
+  // Gebäudeeigenschaften
+  { value: 'building_type', label: 'Gebäudetyp', type: 'enum', options: ['efh', 'mfh', 'wowi'] },
+  { value: 'residential_units', label: 'Wohneinheiten', type: 'number' },
   { value: 'kabel_tv_available', label: 'Kabel-TV verfügbar', type: 'boolean' },
   { value: 'gnv_vorhanden', label: 'GNV vorhanden', type: 'boolean' },
+  
+  // Tarifverfügbarkeit
   { value: 'pk_tariffs_available', label: 'PK Tarife verfügbar', type: 'boolean' },
   { value: 'kmu_tariffs_available', label: 'KMU Tarife verfügbar', type: 'boolean' },
-  { value: 'residential_units', label: 'Wohneinheiten', type: 'number' },
-  { value: 'building_type', label: 'Gebäudetyp', type: 'enum', options: ['efh', 'mfh', 'wowi'] },
+  { value: 'is_sondertarif_building', label: 'Sondertarif-Gebäude', type: 'boolean', description: 'Gebäude mit Sondertarifen' },
+  
+  // Manuelle Überschreibungen
   { value: 'has_manual_override', label: 'Manuelle Überschreibung', type: 'boolean' },
+  { value: 'manual_override_active', label: 'Überschreibung aktiv', type: 'boolean' },
+  { value: 'protected_fields', label: 'Geschützte Felder', type: 'text_list', description: 'Welche Felder sind geschützt' },
+  
+  // Kundentyp (aus Bestellstrecke)
+  { value: 'customer_type', label: 'Kundentyp', type: 'enum', options: ['pk', 'kmu'] },
+  { value: 'business_type', label: 'Geschäftstyp', type: 'enum', options: ['neukunde', 'bestandskunde', 'umzug'] },
 ];
 
 export const OPERATORS = [
@@ -79,16 +103,51 @@ export const OPERATORS = [
   { value: 'is_not_null', label: 'ist nicht leer' },
   { value: 'in_list', label: 'ist in Liste' },
   { value: 'not_in_list', label: 'ist nicht in Liste' },
+  { value: 'contains', label: 'enthält' },
+  { value: 'not_contains', label: 'enthält nicht' },
+  { value: 'starts_with', label: 'beginnt mit' },
   { value: 'greater_than', label: 'größer als' },
   { value: 'less_than', label: 'kleiner als' },
+  { value: 'greater_or_equal', label: 'größer oder gleich' },
+  { value: 'less_or_equal', label: 'kleiner oder gleich' },
 ];
 
 export const ACTION_TYPES = [
-  { value: 'show_products', label: 'Produkte anzeigen', description: 'Zeigt Produktauswahl mit optionalen Filtern' },
-  { value: 'show_contact_form', label: 'Kontaktformular', description: 'Zeigt das Kontaktformular' },
-  { value: 'show_message', label: 'Nachricht anzeigen', description: 'Zeigt eine benutzerdefinierte Nachricht' },
-  { value: 'redirect', label: 'Weiterleitung', description: 'Leitet zu einer URL weiter' },
-  { value: 'show_gnv_form', label: 'GNV Formular', description: 'Zeigt das GNV-Formular' },
+  { 
+    value: 'show_products', 
+    label: 'Produkte anzeigen', 
+    description: 'Zeigt Produktauswahl - mit Filtern und spezifischen Produkten'
+  },
+  { 
+    value: 'show_contact_form', 
+    label: 'Kontaktformular', 
+    description: 'Zeigt das Kontaktformular für manuelle Bearbeitung'
+  },
+  { 
+    value: 'show_message', 
+    label: 'Nachricht anzeigen', 
+    description: 'Zeigt eine benutzerdefinierte Nachricht (z.B. "Nicht verfügbar")'
+  },
+  { 
+    value: 'redirect', 
+    label: 'Weiterleitung', 
+    description: 'Leitet zu einer externen URL weiter'
+  },
+  { 
+    value: 'show_gnv_form', 
+    label: 'GNV Formular', 
+    description: 'Zeigt das GNV-Prüfungsformular'
+  },
+  {
+    value: 'filter_buildings_dropdown',
+    label: 'Gebäude-Dropdown filtern',
+    description: 'Bestimmt welche Gebäude im Dropdown angezeigt werden'
+  },
+  {
+    value: 'set_connection_type',
+    label: 'Anschlusstyp setzen',
+    description: 'Setzt den connectionType für die Bestellstrecke'
+  },
 ];
 
 export function useDecisionTrees() {
