@@ -20,7 +20,34 @@ const steps = ['Adresse', 'Tarif', 'Daten', 'Abschluss'];
 type ViewState = 'landing' | 'customer-type' | 'business-type' | 'order-flow' | 'existing-customer';
 
 const LandingChoice = ({ onNewCustomer, onExistingCustomer, onLogoClick }: { onNewCustomer: () => void; onExistingCustomer: () => void; onLogoClick: () => void }) => {
-  const { branding } = useBranding();
+  const { branding, loading } = useBranding();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header onLogoClick={onLogoClick} />
+        <main className="container mx-auto px-4 py-6 pb-28">
+          <div className="max-w-2xl mx-auto text-center animate-pulse">
+            <div className="w-20 h-20 md:w-28 md:h-28 mx-auto mb-4 md:mb-6 bg-muted rounded-full" />
+            <div className="h-8 md:h-10 bg-muted rounded-lg w-3/4 mx-auto mb-2 md:mb-3" />
+            <div className="h-5 md:h-6 bg-muted rounded-lg w-1/2 mx-auto mb-6 md:mb-10" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              <div className="bg-card rounded-2xl shadow-card p-6 md:p-8">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-muted mb-3 md:mb-4" />
+                <div className="h-6 bg-muted rounded w-1/2 mb-2" />
+                <div className="h-4 bg-muted rounded w-3/4" />
+              </div>
+              <div className="bg-card rounded-2xl shadow-card p-6 md:p-8">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-muted mb-3 md:mb-4" />
+                <div className="h-6 bg-muted rounded w-1/2 mb-2" />
+                <div className="h-4 bg-muted rounded w-3/4" />
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
