@@ -384,7 +384,7 @@ export function useDecisionTreeEditor(treeId: string | null) {
       .insert({
         node_id: condition.node_id!,
         field_name: condition.field_name || 'ausbau_art',
-        operator: condition.operator || 'equals',
+        operator: condition.operator as any || 'equals',
         compare_value: condition.compare_value,
         sort_order: condition.sort_order ?? 0,
       })
@@ -399,7 +399,10 @@ export function useDecisionTreeEditor(treeId: string | null) {
   const updateCondition = async (id: string, updates: Partial<DecisionTreeCondition>) => {
     const { error } = await supabase
       .from('decision_tree_conditions')
-      .update(updates)
+      .update({
+        ...updates,
+        operator: updates.operator as any,
+      })
       .eq('id', id);
 
     if (error) throw error;
@@ -425,7 +428,7 @@ export function useDecisionTreeEditor(treeId: string | null) {
       const { error } = await supabase
         .from('decision_tree_actions')
         .update({
-          action_type: action.action_type,
+          action_type: action.action_type as any,
           config: action.config as Json,
         })
         .eq('id', existing.id);
@@ -436,7 +439,7 @@ export function useDecisionTreeEditor(treeId: string | null) {
         .from('decision_tree_actions')
         .insert([{
           node_id: nodeId,
-          action_type: action.action_type || 'show_products',
+          action_type: (action.action_type || 'show_products') as any,
           config: (action.config || {}) as Json,
         }])
         .select()
