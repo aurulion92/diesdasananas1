@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/table';
 import { ProductBuildingAssignment } from './ProductBuildingAssignment';
 import { ProductOptionAssignment } from './ProductOptionAssignment';
+import { K7IdEditor } from './K7IdEditor';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1030,14 +1031,13 @@ export const ProductsManager = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {product.product_id_k7 ? (
-                            <span className="text-sm">{product.product_id_k7}</span>
-                          ) : (
-                            <div className="flex items-center gap-1 text-warning">
-                              <AlertTriangle className="w-3 h-3" />
-                              <span className="text-xs">Fehlt</span>
-                            </div>
-                          )}
+                          <K7IdEditor
+                            id={product.id}
+                            table="products"
+                            field="product_id_k7"
+                            currentValue={product.product_id_k7}
+                            onUpdate={fetchProducts}
+                          />
                         </TableCell>
                         <TableCell>
                           <Switch
