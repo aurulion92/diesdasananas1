@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff, Shield, Trash2, RefreshCw, Building2, Image, AlertTriangle, Globe, Plus, X, Upload, Lock, Tags } from 'lucide-react';
+import { Loader2, Palette, Mail, RotateCcw, Save, Eye, EyeOff, Shield, Trash2, RefreshCw, Building2, Image, AlertTriangle, Globe, Plus, X, Upload, Lock, Tags, FileOutput, FileText, FileCode } from 'lucide-react';
 import { ImageUpload } from './ImageUpload';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -79,6 +79,14 @@ interface SitePasswordSettings {
 const DEFAULT_SITE_PASSWORD: SitePasswordSettings = {
   enabled: false,
   password: '',
+};
+
+interface OutputFormatSettings {
+  format: 'pdf' | 'xml';
+}
+
+const DEFAULT_OUTPUT_FORMAT: OutputFormatSettings = {
+  format: 'pdf',
 };
 
 interface RateLimitEntry {
@@ -186,6 +194,7 @@ export const SettingsManager = () => {
   const [contactFormSettings, setContactFormSettings] = useState<ContactFormSettings>(DEFAULT_CONTACT_FORM);
   const [sitePasswordSettings, setSitePasswordSettings] = useState<SitePasswordSettings>(DEFAULT_SITE_PASSWORD);
   const [fieldLabels, setFieldLabels] = useState<FieldLabels>(DEFAULT_FIELD_LABELS);
+  const [outputFormatSettings, setOutputFormatSettings] = useState<OutputFormatSettings>(DEFAULT_OUTPUT_FORMAT);
   const [rateLimitEntries, setRateLimitEntries] = useState<RateLimitEntry[]>([]);
   const [loadingRateLimits, setLoadingRateLimits] = useState(false);
   const [showSitePassword, setShowSitePassword] = useState(false);
@@ -281,6 +290,17 @@ export const SettingsManager = () => {
     
     if (fieldLabelsData?.value) {
       setFieldLabels({ ...DEFAULT_FIELD_LABELS, ...(fieldLabelsData.value as object) });
+    }
+
+    // Fetch output format settings
+    const { data: outputFormatData } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'output_format_settings')
+      .maybeSingle();
+    
+    if (outputFormatData?.value) {
+      setOutputFormatSettings({ ...DEFAULT_OUTPUT_FORMAT, ...(outputFormatData.value as object) });
     }
 
     setLoading(false);
@@ -587,6 +607,26 @@ export const SettingsManager = () => {
     }
   };
 
+  const saveOutputFormatSettings = async () => {
+    setSaving(true);
+    
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert([{
+        key: 'output_format_settings',
+        value: outputFormatSettings as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString()
+      }] as any, { onConflict: 'key' });
+
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Gespeichert', description: 'Ausgabe-Format wurde gespeichert.' });
+    }
+    
+    setSaving(false);
+  };
+
   const applyPreset = (presetId: string) => {
     const preset = DESIGN_PRESETS.find(p => p.id === presetId);
     if (preset) {
@@ -694,6 +734,10 @@ export const SettingsManager = () => {
           <TabsTrigger value="fieldlabels" className="flex items-center gap-2">
             <Tags className="w-4 h-4" />
             Feldbezeichnungen
+          </TabsTrigger>
+          <TabsTrigger value="output" className="flex items-center gap-2">
+            <FileOutput className="w-4 h-4" />
+            Ausgabe
           </TabsTrigger>
         </TabsList>
 
@@ -2760,6 +2804,85 @@ export const SettingsManager = () => {
                   Auf Standard zurücksetzen
                 </Button>
                 <Button onClick={saveFieldLabels} disabled={saving}>
+                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  Speichern
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="output">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileOutput className="w-5 h-5" />
+                Ausgabe-Format
+              </CardTitle>
+              <CardDescription>
+                Wählen Sie das Format für die Dokumentenausgabe bei Bestellungen
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <Label>Ausgabeformat</Label>
+                <div className="flex gap-4">
+                  <div 
+                    className={`flex-1 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      outputFormatSettings.format === 'pdf' 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    onClick={() => setOutputFormatSettings({ ...outputFormatSettings, format: 'pdf' })}
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-8 h-8 text-red-500" />
+                      <div>
+                        <h4 className="font-medium">PDF</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Standard PDF-Dokumente für Verträge und Formulare
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div 
+                    className={`flex-1 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      outputFormatSettings.format === 'xml' 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    onClick={() => setOutputFormatSettings({ ...outputFormatSettings, format: 'xml' })}
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileCode className="w-8 h-8 text-orange-500" />
+                      <div>
+                        <h4 className="font-medium">XML (K7)</h4>
+                        <p className="text-sm text-muted-foreground">
+                          XML-Datei für K7-Schnittstelle zur automatisierten Verarbeitung
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {outputFormatSettings.format === 'xml' && (
+                  <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5" />
+                      <div className="text-sm">
+                        <p className="font-medium text-amber-700">XML-Modus aktiv</p>
+                        <p className="text-amber-600">
+                          Im XML-Modus müssen K7-IDs für alle Produkte und Optionen konfiguriert sein.
+                          Bearbeiten Sie die K7-IDs direkt bei den Produkten und in den Produkt-Option-Zuordnungen.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end pt-4 border-t">
+                <Button onClick={saveOutputFormatSettings} disabled={saving}>
                   {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                   Speichern
                 </Button>
