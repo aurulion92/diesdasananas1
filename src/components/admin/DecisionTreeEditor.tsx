@@ -33,6 +33,7 @@ export function DecisionTreeEditor({ treeId }: DecisionTreeEditorProps) {
     nodes,
     edges,
     loading,
+    error,
     createNode,
     updateNode,
     deleteNode,
@@ -74,19 +75,18 @@ export function DecisionTreeEditor({ treeId }: DecisionTreeEditorProps) {
 
   // Orphan nodes (not connected to tree)
   const orphanNodes = useMemo(() => {
-    const connectedIds = new Set<string>();
-    if (rootNode) {
-      connectedIds.add(rootNode.id);
-      const collectConnected = (nodeId: string) => {
-        const children = getChildNodes(nodeId);
-        children.forEach(childId => {
-          connectedIds.add(childId);
-          collectConnected(childId);
-        });
-      };
-      collectConnected(rootNode.id);
-    }
-    return nodes.filter(n => !connectedIds.has(n.id) && !n.is_root);
+    // Protect against cycles: track visited nodes while traversing.
+    const visited = new Set<string>();
+    const collectConnected = (nodeId: string) => {
+      if (visited.has(nodeId)) return;
+      visited.add(nodeId);
+      const children = getChildNodes(nodeId);
+      children.forEach(childId => collectConnected(childId));
+    };
+
+    if (rootNode) collectConnected(rootNode.id);
+
+    return nodes.filter(n => !visited.has(n.id) && !n.is_root);
   }, [nodes, rootNode, getChildNodes]);
 
   const handleAddNode = async () => {
@@ -174,6 +174,17 @@ export function DecisionTreeEditor({ treeId }: DecisionTreeEditorProps) {
     return <div className="p-8 text-center text-muted-foreground">Lade Baum...</div>;
   }
 
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
+          <div className="font-medium">Fehler beim Laden des Entscheidungsbaums</div>
+          <div className="mt-1 text-muted-foreground">{error}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Tree Visualization */}
@@ -224,6 +235,7 @@ export function DecisionTreeEditor({ treeId }: DecisionTreeEditorProps) {
                     getChildNodes={getChildNodes}
                     getEdgeToNode={getEdgeToNode}
                     depth={0}
+                    ancestorIds={[]}
                   />
                 )}
 
@@ -332,6 +344,7 @@ interface TreeNodeProps {
   depth: number;
   edgeLabel?: string | null;
   edgeId?: string;
+  ancestorIds: string[];
 }
 
 function TreeNode({
@@ -350,6 +363,7 @@ function TreeNode({
   depth,
   edgeLabel,
   edgeId,
+  ancestorIds,
 }: TreeNodeProps) {
   const [collapsed, setCollapsed] = useState(false);
   const childIds = getChildNodes(node.id);
@@ -408,6 +422,35 @@ function TreeNode({
             const childNode = nodes.find(n => n.id === childId);
             const edge = edges.find(e => e.source_node_id === node.id && e.target_node_id === childId);
             if (!childNode) return null;
+
+            // Cycle protection: if we see a node again in the current path, render a small warning instead of recursing forever.
+            const nextAncestors = [...ancestorIds, node.id];
+            if (nextAncestors.includes(childId)) {
+              return (
+                <div key={`${node.id}->${childId}`} className="ml-8 mt-2">
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <div className="font-medium">Zyklus erkannt</div>
+                        <div className="text-muted-foreground text-xs mt-0.5">
+                          {node.name} → {childNode.name}
+                        </div>
+                      </div>
+                      {edge?.id && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onDeleteEdge(edge.id)}
+                        >
+                          Verbindung entfernen
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <TreeNode
                 key={childId}
@@ -426,6 +469,7 @@ function TreeNode({
                 depth={depth + 1}
                 edgeLabel={edge?.label}
                 edgeId={edge?.id}
+                ancestorIds={nextAncestors}
               />
             );
           })}
