@@ -7,14 +7,29 @@ import { supabase } from '@/integrations/supabase/client';
 import { clearFavicon, restoreFavicon, clearTitle, restoreTitle } from '@/hooks/useFavicon';
 
 interface PasswordGateProps {
-  // Option 1: regular children (loads immediately - less secure)
   children?: ReactNode;
-  // Option 2: lazy load a component (code only loads after auth - more secure)
   lazyComponent?: () => Promise<{ default: ComponentType<any> }>;
   componentProps?: Record<string, any>;
 }
 
-const STORAGE_KEY = 'site_access_granted';
+const STORAGE_KEY = 'site_access_session';
+const SESSION_DURATION_MS = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+
+interface StoredSession {
+  passwordHash: string;
+  grantedAt: number;
+}
+
+// Simple hash function for password comparison (not cryptographic, just for session validation)
+const simpleHash = (str: string): string => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash.toString(36);
+};
 
 export const PasswordGate = ({ children, lazyComponent, componentProps = {} }: PasswordGateProps) => {
   const [password, setPassword] = useState('');
@@ -24,13 +39,36 @@ export const PasswordGate = ({ children, lazyComponent, componentProps = {} }: P
   const [isEnabled, setIsEnabled] = useState(false);
   const [correctPassword, setCorrectPassword] = useState('');
 
-  // Lazy component - only created when needed
   const LazyContent = useMemo(() => {
     if (lazyComponent) {
       return lazy(lazyComponent);
     }
     return null;
   }, [lazyComponent]);
+
+  const validateSession = (storedSession: StoredSession | null, currentPassword: string): boolean => {
+    if (!storedSession) return false;
+    
+    const now = Date.now();
+    const sessionAge = now - storedSession.grantedAt;
+    
+    // Check if session has expired (12 hours)
+    if (sessionAge > SESSION_DURATION_MS) {
+      console.log('Session expired');
+      localStorage.removeItem(STORAGE_KEY);
+      return false;
+    }
+    
+    // Check if password has changed since session was granted
+    const currentHash = simpleHash(currentPassword);
+    if (storedSession.passwordHash !== currentHash) {
+      console.log('Password changed, session invalidated');
+      localStorage.removeItem(STORAGE_KEY);
+      return false;
+    }
+    
+    return true;
+  };
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -46,22 +84,33 @@ export const PasswordGate = ({ children, lazyComponent, componentProps = {} }: P
           setIsEnabled(settings.enabled || false);
           setCorrectPassword(settings.password || '');
           
-          // Check if already authenticated
-          if (settings.enabled) {
-            const storedAuth = localStorage.getItem(STORAGE_KEY);
-            if (storedAuth === 'true') {
-              setIsAuthenticated(true);
-              restoreFavicon();
-              restoreTitle();
+          if (settings.enabled && settings.password) {
+            // Check for existing valid session
+            const storedSessionStr = localStorage.getItem(STORAGE_KEY);
+            if (storedSessionStr) {
+              try {
+                const storedSession: StoredSession = JSON.parse(storedSessionStr);
+                if (validateSession(storedSession, settings.password)) {
+                  setIsAuthenticated(true);
+                  restoreFavicon();
+                  restoreTitle();
+                } else {
+                  clearFavicon();
+                  clearTitle();
+                }
+              } catch {
+                // Invalid JSON, clear it
+                localStorage.removeItem(STORAGE_KEY);
+                clearFavicon();
+                clearTitle();
+              }
             } else {
-              // Clear favicon and title when password protection is active and not authenticated
               clearFavicon();
               clearTitle();
             }
           }
         }
       } catch (err) {
-        // If no settings exist, password protection is disabled
         setIsEnabled(false);
       } finally {
         setIsLoading(false);
@@ -71,7 +120,6 @@ export const PasswordGate = ({ children, lazyComponent, componentProps = {} }: P
     loadSettings();
   }, []);
 
-  // Clear or restore favicon and title based on authentication state
   useEffect(() => {
     if (!isLoading) {
       if (isEnabled && !isAuthenticated) {
@@ -89,7 +137,12 @@ export const PasswordGate = ({ children, lazyComponent, componentProps = {} }: P
     setError('');
 
     if (password === correctPassword) {
-      localStorage.setItem(STORAGE_KEY, 'true');
+      // Store session with password hash and timestamp
+      const session: StoredSession = {
+        passwordHash: simpleHash(correctPassword),
+        grantedAt: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
       setIsAuthenticated(true);
       restoreFavicon();
       restoreTitle();
@@ -106,9 +159,8 @@ export const PasswordGate = ({ children, lazyComponent, componentProps = {} }: P
     );
   }
 
-  // If password protection is disabled or user is authenticated
+  // If password protection is disabled or user is authenticated, show content
   if (!isEnabled || isAuthenticated) {
-    // If using lazy component, render it with Suspense
     if (LazyContent) {
       return (
         <Suspense fallback={
@@ -120,7 +172,6 @@ export const PasswordGate = ({ children, lazyComponent, componentProps = {} }: P
         </Suspense>
       );
     }
-    // Otherwise render children directly
     return <>{children}</>;
   }
 
