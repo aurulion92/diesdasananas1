@@ -1,24 +1,36 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense, ComponentType, ReactNode, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Lock } from 'lucide-react';
+import { Lock, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { clearFavicon, restoreFavicon, clearTitle, restoreTitle } from '@/hooks/useFavicon';
 
 interface PasswordGateProps {
-  children: React.ReactNode;
+  // Option 1: regular children (loads immediately - less secure)
+  children?: ReactNode;
+  // Option 2: lazy load a component (code only loads after auth - more secure)
+  lazyComponent?: () => Promise<{ default: ComponentType<any> }>;
+  componentProps?: Record<string, any>;
 }
 
 const STORAGE_KEY = 'site_access_granted';
 
-export const PasswordGate = ({ children }: PasswordGateProps) => {
+export const PasswordGate = ({ children, lazyComponent, componentProps = {} }: PasswordGateProps) => {
   const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isEnabled, setIsEnabled] = useState(false);
   const [correctPassword, setCorrectPassword] = useState('');
+
+  // Lazy component - only created when needed
+  const LazyContent = useMemo(() => {
+    if (lazyComponent) {
+      return lazy(lazyComponent);
+    }
+    return null;
+  }, [lazyComponent]);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -89,16 +101,30 @@ export const PasswordGate = ({ children }: PasswordGateProps) => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  // If password protection is disabled, show children directly
+  // If password protection is disabled or user is authenticated
   if (!isEnabled || isAuthenticated) {
+    // If using lazy component, render it with Suspense
+    if (LazyContent) {
+      return (
+        <Suspense fallback={
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        }>
+          <LazyContent {...componentProps} />
+        </Suspense>
+      );
+    }
+    // Otherwise render children directly
     return <>{children}</>;
   }
 
+  // Show password form
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
